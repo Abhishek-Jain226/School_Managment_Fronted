@@ -2,7 +2,9 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config.dart';
+import '../data/models/api_response.dart';
 import '../data/models/school_request.dart';
+import '../data/models/staff_request.dart';
 import 'auth_service.dart';
 
 class SchoolService {
@@ -82,6 +84,26 @@ class SchoolService {
     );
     final data = jsonDecode(resp.body);
     return data["data"] ?? [];
+  }
+   // ---------------- ✅ Create Staff ----------------
+  Future<ApiResponse> createStaff(StaffRequest request) async {
+    final url = Uri.parse("${AppConfig.baseUrl}/api/school-admin/create-staff");
+    final token = await _auth.getToken();
+
+    final response = await http.post(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+      body: jsonEncode(request.toJson()),
+    );
+
+    if (response.statusCode == 200) {
+      return ApiResponse.fromJson(jsonDecode(response.body));
+    } else {
+      throw Exception("Failed to create staff: ${response.body}");
+    }
   }
 
   Future<void> saveSchoolToPrefs(Map<String, dynamic> school) async {

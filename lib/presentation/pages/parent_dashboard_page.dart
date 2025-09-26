@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../app_routes.dart';
+import '../../services/parent_service.dart';
 
 class ParentDashboardPage extends StatelessWidget {
   const ParentDashboardPage({super.key});
@@ -17,20 +20,63 @@ class ParentDashboardPage extends StatelessWidget {
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 12.0),
-            child: InkWell(
-              onTap: () {
-                // TODO: Parent Profile Page open karna hai
-              },
-              child: Row(
-                children: const [
-                  CircleAvatar(
-                    child: Icon(Icons.person, color: Colors.white),
-                    backgroundColor: Colors.blueGrey,
+            child: FutureBuilder<Map<String, dynamic>>(
+              future: SharedPreferences.getInstance().then((prefs) async {
+                final userId = prefs.getInt("userId");
+                if (userId == null) return {"success": false};
+                final service = ParentService();
+                // ✅ API: student data by parent userId
+                return await service.getStudentByParentUserId(userId);
+              }),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const CircularProgressIndicator(
+                      color: Colors.white, strokeWidth: 2);
+                }
+
+                if (!snapshot.hasData || snapshot.data!['success'] != true) {
+                  return const Text(
+                    "Parent",
+                    style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white),
+                  );
+                }
+
+                final data = snapshot.data!['data'];
+                final studentName =
+                    "${data['firstName'] ?? ''} ${data['lastName'] ?? ''}"
+                        .trim();
+                final studentId = data['studentId'];
+
+                return InkWell(
+                  onTap: () {
+                    // ✅ Navigate to Student Profile Page
+                    Navigator.pushNamed(
+                      context,
+                      AppRoutes.studentProfile,
+                      arguments: studentId,
+                    );
+                  },
+                  child: Row(
+                    children: [
+                      const CircleAvatar(
+                        child: Icon(Icons.person, color: Colors.white),
+                        backgroundColor: Colors.blueGrey,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        studentName.isNotEmpty ? studentName : "Student",
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
                   ),
-                  SizedBox(width: 8),
-                  Text("Parent Name"),
-                ],
-              ),
+                );
+              },
             ),
           ),
         ],
@@ -39,33 +85,57 @@ class ParentDashboardPage extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            // ✅ Child Info
-            Card(
-              elevation: 3,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text("Child Information",
-                        style: TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.bold)),
-                    SizedBox(height: 8),
-                    ListTile(
-                      leading: Icon(Icons.school),
-                      title: Text("Name: Rohan Sharma"),
-                      subtitle: Text("Class 5 - Section A"),
+            // ✅ Child Info Card (dynamic data)
+            FutureBuilder<Map<String, dynamic>>(
+              future: SharedPreferences.getInstance().then((prefs) async {
+                final userId = prefs.getInt("userId");
+                if (userId == null) return {"success": false};
+                final service = ParentService();
+                return await service.getStudentByParentUserId(userId);
+              }),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData || snapshot.data!['success'] != true) {
+                  return const Text("No child info available");
+                }
+
+                final data = snapshot.data!['data'];
+
+                return Card(
+                  elevation: 3,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text("Child Information",
+                            style: TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 8),
+                        ListTile(
+                          leading: const Icon(Icons.school),
+                          title: Text(
+                              "Name: ${data['firstName']} ${data['lastName']}"),
+                          subtitle: Text(
+                              "Class: ${data['className']} - Section ${data['section']}"),
+                        ),
+                        ListTile(
+                          leading: const Icon(Icons.person),
+                          title: Text("Father: ${data['fatherName']}"),
+                          subtitle: Text("Mother: ${data['motherName']}"),
+                        ),
+                        ListTile(
+                          leading: const Icon(Icons.phone),
+                          title: Text("Contact: ${data['primaryContactNumber']}"),
+                          subtitle: Text(
+                              "Alt: ${data['alternateContactNumber'] ?? '-'}"),
+                        ),
+                      ],
                     ),
-                    ListTile(
-                      leading: Icon(Icons.directions_bus),
-                      title: Text("Bus Number: RJ14AB1234"),
-                      subtitle: Text("Route: School to Home"),
-                    ),
-                  ],
-                ),
-              ),
+                  ),
+                );
+              },
             ),
             const SizedBox(height: 16),
 
@@ -74,11 +144,11 @@ class ParentDashboardPage extends StatelessWidget {
               elevation: 3,
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12)),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
+              child: const Padding(
+                padding: EdgeInsets.all(16.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
+                  children: [
                     Text("Today's Attendance",
                         style: TextStyle(
                             fontSize: 18, fontWeight: FontWeight.bold)),
@@ -86,7 +156,7 @@ class ParentDashboardPage extends StatelessWidget {
                     ListTile(
                       leading: Icon(Icons.check_circle, color: Colors.green),
                       title: Text("Present"),
-                      subtitle: Text("Date: 23 Sept 2025"),
+                      subtitle: Text("Date: 25 Sept 2025"),
                     ),
                   ],
                 ),
@@ -99,27 +169,25 @@ class ParentDashboardPage extends StatelessWidget {
               elevation: 3,
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12)),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
+              child: const Padding(
+                padding: EdgeInsets.all(16.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text("Notifications",
+                    Text("Notifications",
                         style: TextStyle(
                             fontSize: 18, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
                     ListTile(
-                      leading: const Icon(Icons.notifications),
-                      title: const Text("Bus has left school"),
-                      subtitle: const Text("09:00 AM"),
-                      onTap: () {},
+                      leading: Icon(Icons.notifications),
+                      title: Text("Bus has left school"),
+                      subtitle: Text("09:00 AM"),
                     ),
-                    const Divider(),
+                    Divider(),
                     ListTile(
-                      leading: const Icon(Icons.notifications),
-                      title: const Text("Bus arrived at Home Stop"),
-                      subtitle: const Text("01:30 PM"),
-                      onTap: () {},
+                      leading: Icon(Icons.notifications),
+                      title: Text("Bus arrived at Home Stop"),
+                      subtitle: Text("01:30 PM"),
                     ),
                   ],
                 ),

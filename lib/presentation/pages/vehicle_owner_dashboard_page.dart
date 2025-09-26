@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../app_routes.dart';
+import '../../services/vehicle_owner_service.dart';
 
 class VehicleOwnerDashboardPage extends StatelessWidget {
   const VehicleOwnerDashboardPage({super.key});
@@ -23,6 +24,7 @@ class VehicleOwnerDashboardPage extends StatelessWidget {
       appBar: AppBar(
         title: const Text("Vehicle Owner Dashboard"),
         actions: [
+          // 🔹 Logout Button
           IconButton(
             icon: const Icon(Icons.logout, color: Colors.red),
             tooltip: "Logout",
@@ -52,29 +54,86 @@ class VehicleOwnerDashboardPage extends StatelessWidget {
               );
             },
           ),
+
+          // 🔹 Owner Name & Avatar (from backend)
           Padding(
             padding: const EdgeInsets.only(right: 12.0),
-            child: Row(
-              children: const [
-                CircleAvatar(
-                  backgroundColor: Colors.blueGrey,
-                  child: Icon(Icons.person, color: Colors.white),
-                ),
-                SizedBox(width: 8),
-                Text(
-                  "Owner Name",
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                ),
-              ],
+            child: FutureBuilder<Map<String, dynamic>>(
+              future: SharedPreferences.getInstance().then((prefs) async {
+                final userId = prefs.getInt("userId");
+                if (userId == null) return {"success": false};
+                final service = VehicleOwnerService();
+                final resp = await service.getOwnerByUserId(userId);
+                print("🔹 API Response in Dashboard: $resp");
+                return resp;
+              }),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  );
+                }
+
+                if (!snapshot.hasData || snapshot.data!['success'] != true) {
+                   print("❌ Snapshot has no data or failed: ${snapshot.data}");
+                  return Row(
+                    children: const [
+                      CircleAvatar(
+                        backgroundColor: Colors.blueGrey,
+                        child: Icon(Icons.person, color: Colors.white),
+                      ),
+                      SizedBox(width: 8),
+                      Text(
+                        "Owner",
+                        style: TextStyle(
+                            fontSize: 14, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  );
+                }
+
+                final data = snapshot.data!['data'];
+                print("✅ Owner Data: $data"); // 👈 debugging
+                final ownerName = data['name'] ?? "Owner";
+                final ownerId = data['ownerId'];
+
+                return GestureDetector(
+                  onTap: () {
+                    Navigator.pushNamed(
+                      context,
+                      AppRoutes.vehicleOwnerProfile,
+                      arguments: ownerId,
+                    );
+                  },
+                  child: Row(
+                    children: [
+                      const CircleAvatar(
+                        backgroundColor: Colors.blueGrey,
+                        child: Icon(Icons.person, color: Colors.white),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        ownerName, // 
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
             ),
-          )
+          ),
         ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            // Summary Cards
+            // 🔹 Summary Cards
             Row(
               children: [
                 Expanded(
@@ -101,10 +160,9 @@ class VehicleOwnerDashboardPage extends StatelessWidget {
                 ),
               ],
             ),
-
             const SizedBox(height: 20),
 
-            // Recent Activity
+            // 🔹 Recent Activity
             Card(
               elevation: 2,
               shape: RoundedRectangleBorder(
@@ -143,7 +201,7 @@ class VehicleOwnerDashboardPage extends StatelessWidget {
 
             const SizedBox(height: 20),
 
-            // Quick Actions
+            // 🔹 Quick Actions
             Card(
               elevation: 2,
               shape: RoundedRectangleBorder(
@@ -159,19 +217,20 @@ class VehicleOwnerDashboardPage extends StatelessWidget {
                     const SizedBox(height: 12),
                     ElevatedButton.icon(
                       onPressed: () {
-                          Navigator.pushNamed(context, AppRoutes.registerVehicle);
+                        Navigator.pushNamed(
+                            context, AppRoutes.registerVehicle);
                       },
                       icon: const Icon(Icons.directions_bus),
                       label: const Text("Register Vehicle"),
                     ),
                     const SizedBox(height: 8),
-ElevatedButton.icon(
-  onPressed: () {
-    Navigator.pushNamed(context, AppRoutes.registerDriver);
-  },
-  icon: const Icon(Icons.person_add),
-  label: const Text("Register Driver"),
-),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.pushNamed(context, AppRoutes.registerDriver);
+                      },
+                      icon: const Icon(Icons.person_add),
+                      label: const Text("Register Driver"),
+                    ),
                   ],
                 ),
               ),
@@ -182,6 +241,7 @@ ElevatedButton.icon(
     );
   }
 
+  // 🔹 Helper Widget for Summary Cards
   Widget _buildCard(String label, String value, {IconData? icon}) {
     return Card(
       elevation: 2,

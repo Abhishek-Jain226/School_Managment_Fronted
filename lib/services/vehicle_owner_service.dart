@@ -88,6 +88,19 @@ class VehicleOwnerService {
     return _handleResponse(resp);
   }
 
+  Future<Map<String, dynamic>> getOwnerByUserId(int userId) async {
+  final token = await _auth.getToken();
+
+  final url = Uri.parse("$base/user/$userId");
+  final headers = {
+    if (token != null) "Authorization": "Bearer $token",
+  };
+
+  final resp = await http.get(url, headers: headers);
+   print("🔹 Response Body: ${resp.body}");
+  return _handleResponse(resp);
+}
+
   /// ---------------- Common Response Handler ----------------
   Map<String, dynamic> _handleResponse(http.Response resp) {
     final data = jsonDecode(resp.body);

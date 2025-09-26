@@ -39,6 +39,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
         // ✅ Save role in prefs for later use
         final prefs = await SharedPreferences.getInstance();
+        await prefs.setInt("userId", data['userId']);   // 👈 Save userId
+        await prefs.setString("token", data['token'] ?? "");
+       // await prefs.setString("userName", data['userName']); // 👈 optional for display
         await prefs.setString("role", roles.isNotEmpty ? roles.first : "");
 
         // ✅ success message
@@ -60,6 +63,13 @@ class _LoginScreenState extends State<LoginScreen> {
     }else if (roles.contains("DRIVER")) {
        Navigator.pushReplacementNamed(context, AppRoutes.driverDashboard);
     }
+  //   else if (roles.contains("GATE_STAFF")) {
+  // Navigator.pushReplacementNamed(context, AppRoutes.gateStaffDashboard);
+  else if (roles.isEmpty) {
+  // ⚠️ temporary fix: agar roles empty hai to sidha GateStaff dashboard
+  Navigator.pushReplacementNamed(context, AppRoutes.gateStaffDashboard);
+}
+
     else {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text("Unknown role, contact support")),

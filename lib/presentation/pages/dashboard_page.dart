@@ -221,7 +221,7 @@ class _SchoolAdminDashboardPageState extends State<SchoolAdminDashboardPage> {
                               content: Text('Drivers page not implemented')))),
                               ListTile(
   leading: const Icon(Icons.security),
-  title: const Text('Gate Staff'),
+  title: const Text('Add Gate Staff'),
   onTap: () => Navigator.pushNamed(
       context, AppRoutes.registerGateStaff),
 ),
@@ -236,9 +236,8 @@ class _SchoolAdminDashboardPageState extends State<SchoolAdminDashboardPage> {
                   ListTile(
                       leading: const Icon(Icons.bar_chart),
                       title: const Text('Reports'),
-                      onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              content: Text('Reports page not implemented')))),
+                      onTap: () =>Navigator.pushNamed(
+      context, AppRoutes.reports),),
                   ListTile(
                       leading: const Icon(Icons.settings),
                       title: const Text('Settings'),
