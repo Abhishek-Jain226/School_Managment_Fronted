@@ -24,7 +24,7 @@ class _SchoolProfilePageState extends State<SchoolProfilePage> {
   String address = '';
 
   // API base URL
-  static const String baseUrl = "http://10.11.244.208:9001/api/schools";
+  static const String baseUrl = "http://192.168.29.254:9001/api/schools";
 
   @override
   void initState() {

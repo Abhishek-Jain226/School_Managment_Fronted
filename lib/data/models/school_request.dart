@@ -7,7 +7,7 @@ class SchoolRequest {
   final String city;
   final String district;
   final String state;
-  final int pincode;
+  final String pincode;
   final String contactNo;       // ✅ backend में "contactNo"
   final String email;
   final String? schoolPhoto;    // ✅ optional
@@ -39,7 +39,7 @@ class SchoolRequest {
       city: json['city'] ?? '',
       district: json['district'] ?? '',
       state: json['state'] ?? '',
-      pincode: (json['pincode'] as num?)?.toInt() ?? 0,
+      pincode: json['pincode'] ?? '',
       contactNo: json['contactNo'] ?? '',
       email: json['email'] ?? '',
       schoolPhoto: json['schoolPhoto'],

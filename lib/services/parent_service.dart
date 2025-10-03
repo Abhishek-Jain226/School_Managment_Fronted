@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'auth_service.dart';
 
 class ParentService {
-  final String base = "http://10.11.244.208:9001/api";
+  final String base = "http://192.168.29.254:9001/api";
   final AuthService _auth = AuthService();
 
   /// 🔹 Get Student linked with Parent (by parent userId)

@@ -1,19 +1,23 @@
 import 'package:flutter/widgets.dart';
 import 'package:school_tracker/presentation/pages/StudentProfilePage.dart';
 import 'package:school_tracker/presentation/pages/activation_screen.dart';
+import 'package:school_tracker/presentation/pages/create_trip_page.dart';
 import 'package:school_tracker/presentation/pages/driver_dashboard.dart';
 import 'package:school_tracker/presentation/pages/forgot_password_screen.dart';
 import 'package:school_tracker/presentation/pages/gate_staff_dashboard.dart';
 import 'package:school_tracker/presentation/pages/ownerdashboard.dart';
 import 'package:school_tracker/presentation/pages/parent_dashboard_page.dart';
 import 'package:school_tracker/presentation/pages/parent_profile_page.dart';
+import 'package:school_tracker/presentation/pages/pending_vehicle_requests_page.dart';
 import 'package:school_tracker/presentation/pages/privacy_policy_screen.dart';
 import 'package:school_tracker/presentation/pages/register_driver_screen.dart';
 import 'package:school_tracker/presentation/pages/register_gate_staff.dart';
 import 'package:school_tracker/presentation/pages/register_vehicle_owner_screen.dart';
 import 'package:school_tracker/presentation/pages/register_vehicle_screen.dart';
 import 'package:school_tracker/presentation/pages/reports_screen.dart';
+import 'package:school_tracker/presentation/pages/request_vehicle_assignment_page.dart';
 import 'package:school_tracker/presentation/pages/school_profile_page.dart';
+import 'package:school_tracker/presentation/pages/trips_list_page.dart';
 import 'package:school_tracker/presentation/pages/vehicle_owner_dashboard_page.dart';
 import 'package:school_tracker/presentation/pages/vehicle_owner_profile.dart';
 import 'presentation/pages/splash_page.dart';
@@ -66,8 +70,14 @@ class AppRoutes {
 
      //static const String parentProfile = '/parentProfile';
 
+     static const String trips = '/trips';
+static const String createTrip = '/createTrip';
+
     
  static const String studentProfile = '/studentProfile';
+
+static const requestVehicle = "/request-vehicle";
+  static const pendingRequests = "/pending-requests";
 
   static Map<String, WidgetBuilder> routes = {
     splash: (_) => const SplashPage(),
@@ -101,6 +111,13 @@ class AppRoutes {
      gateStaffDashboard: (context) => GateStaffDashboardPage(),
 
       reports: (context) => ReportsScreen(),
+
+       trips: (context) => TripsListPage(),
+  createTrip: (context) => CreateTripPage(),
+
+  pendingRequests: (context) => const PendingVehicleRequestsPage(),
+
+  requestVehicle: (context) => const RequestVehicleAssignmentPage(),
 
       vehicleOwnerProfile: (context) {
   final ownerId = ModalRoute.of(context)!.settings.arguments as int;

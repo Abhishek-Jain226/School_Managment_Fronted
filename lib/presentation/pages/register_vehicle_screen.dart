@@ -49,6 +49,7 @@ class _RegisterVehicleScreenState extends State<RegisterVehicleScreen> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final createdBy = prefs.getString("userName") ?? "";
+      
 
       final req = VehicleRequest(
         vehicleNumber: _vehicleNumberCtl.text.trim(),
@@ -56,6 +57,7 @@ class _RegisterVehicleScreenState extends State<RegisterVehicleScreen> {
         vehiclePhoto: _photoBase64,
         createdBy: createdBy,
          vehicleType: _selectedVehicleType!, // ✅ send type
+         
       );
 
       final res = await _service.registerVehicle(req);

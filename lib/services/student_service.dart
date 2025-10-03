@@ -4,7 +4,7 @@ import '../data/models/student_request.dart';
 import 'auth_service.dart';
 
 class StudentService {
-  static const String base = "http://10.11.244.208:9001/api/students";
+  static const String base = "http://192.168.29.254:9001/api/students";
   final _auth = AuthService();
 
   Future<int> getStudentCount(String schoolId) async {

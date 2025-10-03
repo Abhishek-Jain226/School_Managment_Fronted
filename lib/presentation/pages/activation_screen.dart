@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import '../../app_routes.dart';
 import '../../services/auth_service.dart';
 import '../../services/pending_service.dart';
-import 'privacy_policy_screen.dart'; // ✅ नया स्क्रीन import
+import '../../services/school_service.dart';
+
 
 class ActivationScreen extends StatefulWidget {
   final String token;
@@ -25,6 +26,8 @@ class _ActivationScreenState extends State<ActivationScreen> {
   int? _entityId;      // hidden if needed
   bool _loading = false;
   bool _verifying = true;
+  bool _isTokenValid = false;
+  String? _schoolName;
 
   bool _agreed = false; // ✅ Agreement checkbox state
 
@@ -44,16 +47,57 @@ class _ActivationScreenState extends State<ActivationScreen> {
           _email = data['email']?.toString();
           _entityType = data['entityType']?.toString();
           _entityId = data['entityId'] != null ? (data['entityId'] as num).toInt() : null;
+          _isTokenValid = true;
         });
+        
+        // Load school name if it's a school registration
+        if (_entityType == "SCHOOL") {
+          await _loadSchoolName();
+        }
       } else {
-        final msg = resp['message'] ?? 'Invalid token';
-        _showSnack(msg.toString());
+        _showErrorDialog("Invalid Token", resp['message'] ?? 'This activation link is invalid or expired.');
       }
     } catch (e) {
-      _showSnack("Verify error: $e");
+      _showErrorDialog("Verification Failed", "Unable to verify activation link. Please try again.");
     } finally {
       setState(() => _verifying = false);
     }
+  }
+
+  Future<void> _loadSchoolName() async {
+    if (_entityId != null) {
+      try {
+        final schoolService = SchoolService();
+        final response = await schoolService.getSchoolById(_entityId!);
+        if (response['success'] == true) {
+          setState(() {
+            _schoolName = response['data']['schoolName'];
+          });
+        }
+      } catch (e) {
+        // Handle error silently
+      }
+    }
+  }
+
+  void _showErrorDialog(String title, String message) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              Navigator.of(context).pushReplacementNamed(AppRoutes.registerSchool);
+            },
+            child: const Text("Register Again"),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showSnack(String msg) {
@@ -77,7 +121,7 @@ class _ActivationScreenState extends State<ActivationScreen> {
 
       if (res['success'] == true) {
         _showSnack(res['message'] ?? "Registration completed. You can now login.");
-        Navigator.of(context).pushReplacementNamed('/login');
+        Navigator.of(context).pushReplacementNamed(AppRoutes.login);
       } else {
         _showSnack(res['message'] ?? 'Activation failed');
       }
@@ -102,16 +146,40 @@ class _ActivationScreenState extends State<ActivationScreen> {
       appBar: AppBar(title: const Text('Activate Account')),
       body: _verifying
           ? const Center(child: CircularProgressIndicator())
-          : Padding(
-              padding: const EdgeInsets.all(16),
-              child: Form(
-                key: _formKey,
-                child: ListView(
-                  children: [
-                    if (_email != null) ...[
-                      Text('Email: $_email'),
+          : !_isTokenValid
+              ? const Center(child: Text("Invalid activation link"))
+              : _buildActivationForm(),
+    );
+  }
+
+  Widget _buildActivationForm() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Form(
+        key: _formKey,
+        child: ListView(
+          children: [
+            if (_schoolName != null) ...[
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text("School Information", 
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 8),
+                      Text("School: $_schoolName"),
+                      Text("Email: $_email"),
                     ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ] else if (_email != null) ...[
+              Text('Email: $_email'),
+              const SizedBox(height: 8),
+            ],
 
                     TextFormField(
                       controller: _userNameCtl,
@@ -176,7 +244,8 @@ Row(
                   ],
                 ),
               ),
-            ),
-    );
+            );
+    
+  
   }
 }

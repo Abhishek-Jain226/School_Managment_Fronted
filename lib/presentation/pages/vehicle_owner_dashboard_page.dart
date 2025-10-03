@@ -231,6 +231,15 @@ class VehicleOwnerDashboardPage extends StatelessWidget {
                       icon: const Icon(Icons.person_add),
                       label: const Text("Register Driver"),
                     ),
+                     // 🔹 New Button for Request
+        ElevatedButton.icon(
+          onPressed: () {
+            Navigator.pushNamed(
+                context, AppRoutes.requestVehicle);
+          },
+          icon: const Icon(Icons.assignment_turned_in),
+          label: const Text("Request Vehicle Assignment"),
+        ),
                   ],
                 ),
               ),

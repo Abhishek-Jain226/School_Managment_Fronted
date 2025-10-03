@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService {
   // Update base URL if needed
-  static const String base = "http://10.11.244.208:9001/api/auth";
+  static const String base = "http://192.168.29.254:9001/api/auth";
 
   // ------------------ COMPLETE REGISTRATION ------------------
   Future<Map<String, dynamic>> completeRegistration({

@@ -5,5 +5,5 @@
 // const String kStudentBase = '$kApiHost/api/students';
 
 class AppConfig {
-  static const String baseUrl = "http://10.11.244.208:9001";
+  static const String baseUrl = "http://192.168.29.254:9001";
 }

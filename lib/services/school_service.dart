@@ -74,17 +74,21 @@ class SchoolService {
     return jsonDecode(resp.body);
   }
 
-  // ---------------- Get All Schools ----------------
-  Future<List<dynamic>> getAllSchools() async {
-    final url = Uri.parse(_base);
-    final token = await _auth.getToken();
-    final resp = await http.get(
-      url,
-      headers: {"Authorization": "Bearer $token"},
-    );
-    final data = jsonDecode(resp.body);
-    return data["data"] ?? [];
+ // ---------------- Get All Schools ----------------
+Future<Map<String, dynamic>> getAllSchools() async {
+  final url = Uri.parse(_base);
+  final token = await _auth.getToken();
+  final resp = await http.get(
+    url,
+    headers: {"Authorization": "Bearer $token"},
+  );
+
+  if (resp.statusCode == 200) {
+    return jsonDecode(resp.body); // ye ek Map hoga { success, message, data }
+  } else {
+    throw Exception("Failed to fetch schools: ${resp.body}");
   }
+}
    // ---------------- ✅ Create Staff ----------------
   Future<ApiResponse> createStaff(StaffRequest request) async {
     final url = Uri.parse("${AppConfig.baseUrl}/api/school-admin/create-staff");
@@ -103,7 +107,31 @@ class SchoolService {
       return ApiResponse.fromJson(jsonDecode(response.body));
     } else {
       throw Exception("Failed to create staff: ${response.body}");
+    }}
+     // ---------------- Assign Vehicle to School ----------------
+  Future<Map<String, dynamic>> assignVehicleToSchool(Map<String, dynamic> body) async {
+    final url = Uri.parse("${AppConfig.baseUrl}/api/school-vehicles/assign");
+    final token = await _auth.getToken();
+
+    final resp = await http.post(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+      body: jsonEncode(body),
+    );
+
+    if (resp.statusCode == 200) {
+      return jsonDecode(resp.body);
+    } else {
+      return {
+        "success": false,
+        "message": "Failed to assign vehicle",
+        "error": resp.body,
+      };
     }
+    
   }
 
   Future<void> saveSchoolToPrefs(Map<String, dynamic> school) async {

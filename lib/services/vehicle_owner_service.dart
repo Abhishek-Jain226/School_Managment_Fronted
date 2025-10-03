@@ -4,7 +4,7 @@ import '../data/models/vehicle_owner_request.dart';
 import 'auth_service.dart';
 
 class VehicleOwnerService {
-  static const String base = "http://10.11.244.208:9001/api/vehicle-owners";
+  static const String base = "http://192.168.29.254:9001/api/vehicle-owners";
   final AuthService _auth = AuthService();
 
   /// ---------------- Register Vehicle Owner ----------------

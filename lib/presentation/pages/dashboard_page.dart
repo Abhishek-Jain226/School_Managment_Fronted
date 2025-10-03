@@ -225,6 +225,19 @@ class _SchoolAdminDashboardPageState extends State<SchoolAdminDashboardPage> {
   onTap: () => Navigator.pushNamed(
       context, AppRoutes.registerGateStaff),
 ),
+ListTile(
+  leading: const Icon(Icons.alt_route),
+  title: const Text('Trips'),
+  onTap: () => Navigator.pushNamed(context, AppRoutes.trips),
+),
+ListTile(
+  leading: const Icon(Icons.pending_actions),
+  title: const Text('Pending Vehicle Requests'),
+  onTap: () => Navigator.pushNamed(
+    context,
+    AppRoutes.pendingRequests,
+  ),
+),
 
                   ListTile(
                       leading: const Icon(Icons.calendar_today),
@@ -496,6 +509,11 @@ class _SchoolAdminDashboardPageState extends State<SchoolAdminDashboardPage> {
                                         () => Navigator.pushNamed(
                                             context,
                                             AppRoutes.registerVehicleOwner)),
+                                            _buildQuickAction(
+  'Create Trip',
+  Icons.alt_route,
+  () => Navigator.pushNamed(context, AppRoutes.createTrip),
+),
                                   ],
                                 ),
                               ),

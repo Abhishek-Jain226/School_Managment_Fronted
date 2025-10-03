@@ -6,7 +6,7 @@ import '../data/models/driver_request.dart';
 import 'auth_service.dart';
 
 class DriverService {
-  static const String base = "http://10.11.244.208:9001/api/drivers";
+  static const String base = "http://192.168.29.254:9001/api/drivers";
   final AuthService _auth = AuthService();
 
   Future<Map<String, dynamic>> createDriver(DriverRequest req) async {

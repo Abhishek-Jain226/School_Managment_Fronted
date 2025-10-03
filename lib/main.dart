@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:app_links/app_links.dart';
-import 'package:school_tracker/presentation/pages/activation_screen.dart';
 import 'app.dart';
 import 'app_routes.dart';
 

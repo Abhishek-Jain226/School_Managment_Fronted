@@ -41,8 +41,19 @@ class _LoginScreenState extends State<LoginScreen> {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setInt("userId", data['userId']);   // 👈 Save userId
         await prefs.setString("token", data['token'] ?? "");
-       // await prefs.setString("userName", data['userName']); // 👈 optional for display
+        
+        await prefs.setString("userName", data['userName']); // 👈 optional for display
         await prefs.setString("role", roles.isNotEmpty ? roles.first : "");
+
+        // ✅ Save schoolId if present
+if (data['schoolId'] != null) {
+  await prefs.setInt("schoolId", data['schoolId']);
+}
+
+// ✅ Save ownerId if present
+if (data['ownerId'] != null) {
+  await prefs.setInt("ownerId", data['ownerId']);
+}
 
         // ✅ success message
         ScaffoldMessenger.of(context).showSnackBar(
