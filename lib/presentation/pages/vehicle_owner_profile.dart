@@ -36,7 +36,7 @@ class _VehicleOwnerProfilePageState extends State<VehicleOwnerProfilePage> {
     _userId = prefs.getInt("userId");
     _createdBy = prefs.getString("userName") ?? "system";
 
-    if (widget.ownerId == null) return;
+    // Load owner data
 
     final resp = await _service.getOwnerByUserId(_userId!);
     if (resp['success'] == true && resp['data'] != null) {
@@ -58,7 +58,6 @@ class _VehicleOwnerProfilePageState extends State<VehicleOwnerProfilePage> {
     if (!_formKey.currentState!.validate()) return;
 
     final req = VehicleOwnerRequest(
-      userId: _userId,
       name: _nameCtl.text.trim(),
       email: _emailCtl.text.trim(),
       contactNumber: _contactCtl.text.trim(),

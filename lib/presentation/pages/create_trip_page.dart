@@ -17,7 +17,13 @@ class _CreateTripPageState extends State<CreateTripPage> {
   final _formKey = GlobalKey<FormState>();
   final _tripNameController = TextEditingController();
   final _tripNumberController = TextEditingController();
+  final _routeNameController = TextEditingController();
+  final _startTimeController = TextEditingController();
+  final _endTimeController = TextEditingController();
+  final _routeDescriptionController = TextEditingController();
+  
   Vehicle? _selectedVehicle;
+  String _selectedTripType = 'MORNING_PICKUP';
 
   final TripService _tripService = TripService();
   final VehicleService _vehicleService = VehicleService();
@@ -26,10 +32,28 @@ class _CreateTripPageState extends State<CreateTripPage> {
   bool _loading = false;
   bool _loadingVehicles = true;
 
+  final List<String> _tripTypes = [
+    'MORNING_PICKUP',
+    'AFTERNOON_DROP',
+    'SPECIAL_TRIP',
+    'FIELD_TRIP',
+  ];
+
   @override
   void initState() {
     super.initState();
     _loadVehicles();
+  }
+
+  @override
+  void dispose() {
+    _tripNameController.dispose();
+    _tripNumberController.dispose();
+    _routeNameController.dispose();
+    _startTimeController.dispose();
+    _endTimeController.dispose();
+    _routeDescriptionController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadVehicles() async {
@@ -55,9 +79,14 @@ class _CreateTripPageState extends State<CreateTripPage> {
 
       final tripRequest = TripRequest(
         schoolId: schoolId,
-        vehicleId: _selectedVehicle!.vehicleId,
+        vehicleId: _selectedVehicle!.vehicleId!,
         tripName: _tripNameController.text.trim(),
         tripNumber: int.parse(_tripNumberController.text.trim()),
+        tripType: _selectedTripType,
+        routeName: _routeNameController.text.trim().isEmpty ? null : _routeNameController.text.trim(),
+        startTime: _startTimeController.text.trim().isEmpty ? null : _startTimeController.text.trim(),
+        endTime: _endTimeController.text.trim().isEmpty ? null : _endTimeController.text.trim(),
+        routeDescription: _routeDescriptionController.text.trim().isEmpty ? null : _routeDescriptionController.text.trim(),
         createdBy: userName,
       );
 
@@ -98,32 +127,108 @@ class _CreateTripPageState extends State<CreateTripPage> {
                   children: [
                     TextFormField(
                       controller: _tripNameController,
-                      decoration: const InputDecoration(labelText: "Trip Name"),
+                      decoration: const InputDecoration(
+                        labelText: "Trip Name",
+                        hintText: "Enter trip name",
+                      ),
                       validator: (v) => v == null || v.isEmpty ? "Enter trip name" : null,
                     ),
+                    const SizedBox(height: 12),
                     TextFormField(
                       controller: _tripNumberController,
-                      decoration: const InputDecoration(labelText: "Trip Number"),
+                      decoration: const InputDecoration(
+                        labelText: "Trip Number",
+                        hintText: "Enter trip number",
+                      ),
                       keyboardType: TextInputType.number,
                       validator: (v) => v == null || v.isEmpty ? "Enter trip number" : null,
                     ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      initialValue: _selectedTripType,
+                      items: _tripTypes
+                          .map((type) => DropdownMenuItem(
+                                value: type,
+                                child: Text(type.replaceAll('_', ' ').toLowerCase().split(' ').map((word) => word[0].toUpperCase() + word.substring(1)).join(' ')),
+                              ))
+                          .toList(),
+                      onChanged: (val) => setState(() => _selectedTripType = val!),
+                      decoration: const InputDecoration(labelText: "Trip Type"),
+                      validator: (v) => v == null ? "Select trip type" : null,
+                    ),
+                    const SizedBox(height: 12),
                     DropdownButtonFormField<Vehicle>(
-                      value: _selectedVehicle,
+                      initialValue: _selectedVehicle,
                       items: vehicles
                           .map((v) => DropdownMenuItem(
                                 value: v,
-                                child: Text(v.vehicleNumber),
+                                child: Text(v.vehicleNumber ?? 'Unknown Vehicle'),
                               ))
                           .toList(),
                       onChanged: (val) => setState(() => _selectedVehicle = val),
                       decoration: const InputDecoration(labelText: "Select Vehicle"),
                       validator: (v) => v == null ? "Select a vehicle" : null,
                     ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _routeNameController,
+                      decoration: const InputDecoration(
+                        labelText: "Route Name (Optional)",
+                        hintText: "Enter route name or description",
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _startTimeController,
+                            decoration: const InputDecoration(
+                              labelText: "Start Time (Optional)",
+                              hintText: "HH:MM",
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextFormField(
+                            controller: _endTimeController,
+                            decoration: const InputDecoration(
+                              labelText: "End Time (Optional)",
+                              hintText: "HH:MM",
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _routeDescriptionController,
+                      decoration: const InputDecoration(
+                        labelText: "Route Description (Optional)",
+                        hintText: "Enter detailed route information",
+                      ),
+                      maxLines: 3,
+                    ),
                     const SizedBox(height: 20),
                     ElevatedButton(
                       onPressed: _loading ? null : _submit,
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
                       child: _loading
-                          ? const CircularProgressIndicator(color: Colors.white)
+                          ? const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                ),
+                                SizedBox(width: 12),
+                                Text("Creating Trip..."),
+                              ],
+                            )
                           : const Text("Create Trip"),
                     ),
                   ],

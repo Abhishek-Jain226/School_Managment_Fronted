@@ -20,6 +20,8 @@ import 'package:school_tracker/presentation/pages/school_profile_page.dart';
 import 'package:school_tracker/presentation/pages/trips_list_page.dart';
 import 'package:school_tracker/presentation/pages/vehicle_owner_dashboard_page.dart';
 import 'package:school_tracker/presentation/pages/vehicle_owner_profile.dart';
+import 'package:school_tracker/presentation/pages/vehicle_management_page.dart';
+import 'package:school_tracker/presentation/pages/staff_management_page.dart';
 import 'presentation/pages/splash_page.dart';
 import 'presentation/pages/home_page.dart';
 import 'presentation/pages/login_screen.dart';
@@ -58,9 +60,11 @@ class AppRoutes {
 
    static const String driverDashboard = '/driver-dashboard';
 
-   static const String registerVehicle = '/register-vehicle';
+     static const String registerVehicle = '/register-vehicle';
+     static const String vehicleManagement = '/vehicle-management';
 
     static const String registerGateStaff = '/register-gate-staff';
+    static const String staffManagement = '/staff-management';
 
      static const String gateStaffDashboard = '/gateStaffDashboard';
 
@@ -105,8 +109,10 @@ static const requestVehicle = "/request-vehicle";
     driverDashboard: (context) => const DriverDashboardPage(),
 
     registerVehicle: (context) => const RegisterVehicleScreen(),
+    vehicleManagement: (context) => const VehicleManagementPage(),
 
     registerGateStaff: (context) => RegisterGateStaffPage(),
+    staffManagement: (context) => const StaffManagementPage(),
 
      gateStaffDashboard: (context) => GateStaffDashboardPage(),
 

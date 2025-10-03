@@ -70,14 +70,16 @@ class _RegisterStudentScreenState extends State<RegisterStudentScreen> {
   String? _validatePhone(String? v) {
     if (v == null || v.trim().isEmpty) return 'Required';
     final digits = v.replaceAll(RegExp(r'\D'), '');
-    if (digits.length < 7 || digits.length > 15) return 'Enter valid phone';
+    if (digits.length != 10) return 'Contact number must be 10 digits';
+    if (!RegExp(r'^[6-9]\d{9}$').hasMatch(digits)) return 'Enter valid Indian mobile number';
     return null;
   }
 
   String? _validateEmail(String? v) {
     if (v == null || v.trim().isEmpty) return null;
-    final regex = RegExp(r'^[^@]+@[^@]+\.[^@]+');
-    return regex.hasMatch(v.trim()) ? null : 'Enter valid email';
+    if (v.trim().length > 150) return 'Email must not exceed 150 characters';
+    final regex = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
+    return regex.hasMatch(v.trim()) ? null : 'Enter valid email address';
   }
 
   Future<void> _pickImage(ImageSource source) async {
@@ -160,24 +162,53 @@ class _RegisterStudentScreenState extends State<RegisterStudentScreen> {
 
       if (res['success'] == true) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(res['message'] ?? 'Student registered')),
-        );
-        Navigator.pop(context, true);
+        _showSuccessDialog(res['message'] ?? 'Student registered successfully');
       } else {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(res['message'] ?? 'Failed')));
+        _showErrorSnackBar(res['message'] ?? 'Failed to register student');
       }
     } catch (e) {
       debugPrint("Submit error: $e");
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text("Error: $e")));
+        _showErrorSnackBar("Error: $e");
       }
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
+  }
+
+  void _showSuccessDialog(String message) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Registration Successful!"),
+        content: Text(
+          "$message\n\n"
+          "A parent activation link has been sent to the provided email address. "
+          "The parent can use this link to complete their registration and access the parent dashboard."
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              Navigator.pop(context, true); // return true so dashboard can refresh
+            },
+            child: const Text("OK"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showErrorSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 4),
+      ),
+    );
   }
 
   Widget _buildText(String label, TextEditingController ctl,
@@ -267,17 +298,40 @@ class _RegisterStudentScreenState extends State<RegisterStudentScreen> {
               const SizedBox(height: 8),
               _buildText('Father Name', _fatherCtl),
               const SizedBox(height: 8),
-              _buildText('Primary Contact', _primaryContactCtl,
-                  validator: _validatePhone,
-                  keyboardType: TextInputType.phone),
+              TextFormField(
+                controller: _primaryContactCtl,
+                decoration: const InputDecoration(
+                  labelText: 'Primary Contact',
+                  hintText: 'Enter 10-digit mobile number',
+                ),
+                keyboardType: TextInputType.phone,
+                maxLength: 10,
+                validator: _validatePhone,
+              ),
               const SizedBox(height: 8),
-              _buildText('Alternate Contact', _altContactCtl,
-                  validator: _validatePhone,
-                  keyboardType: TextInputType.phone),
+              TextFormField(
+                controller: _altContactCtl,
+                decoration: const InputDecoration(
+                  labelText: 'Alternate Contact',
+                  hintText: 'Enter 10-digit mobile number (optional)',
+                ),
+                keyboardType: TextInputType.phone,
+                maxLength: 10,
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return null; // Optional field
+                  return _validatePhone(v);
+                },
+              ),
               const SizedBox(height: 8),
-              _buildText('Email (parent contact email)', _emailCtl,
-                  validator: _validateEmail,
-                  keyboardType: TextInputType.emailAddress),
+              TextFormField(
+                controller: _emailCtl,
+                decoration: const InputDecoration(
+                  labelText: 'Email (parent contact email)',
+                  hintText: 'Enter parent email address (optional)',
+                ),
+                keyboardType: TextInputType.emailAddress,
+                validator: _validateEmail,
+              ),
 
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(

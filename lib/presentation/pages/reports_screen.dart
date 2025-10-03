@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../services/student_service.dart';
+import '../../services/vehicle_service.dart';
+import '../../services/trip_service.dart';
 
 class ReportsScreen extends StatefulWidget {
   const ReportsScreen({Key? key}) : super(key: key);
@@ -10,18 +14,61 @@ class ReportsScreen extends StatefulWidget {
 class _ReportsScreenState extends State<ReportsScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  
+  // Real data variables
+  int totalStudents = 0;
+  int totalVehicles = 0;
+  int totalTrips = 0;
+  int notificationsSent = 0;
+  bool _loading = true;
+  int? schoolId;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _loadReportData();
+  }
+
+  Future<void> _loadReportData() async {
+    setState(() => _loading = true);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      schoolId = prefs.getInt("schoolId");
+      
+      if (schoolId != null) {
+        // Load real data from services
+        final studentCount = await StudentService().getStudentCount(schoolId!.toString());
+        final vehicleCount = await VehicleService().getVehicleCount(schoolId!.toString());
+        final trips = await TripService().getTripsBySchool(schoolId!);
+        
+        setState(() {
+          totalStudents = studentCount;
+          totalVehicles = vehicleCount;
+          totalTrips = trips.length;
+          notificationsSent = (studentCount * 0.8).round(); // Mock calculation
+          _loading = false;
+        });
+      } else {
+        setState(() => _loading = false);
+      }
+    } catch (e) {
+      setState(() => _loading = false);
+      // Handle error silently for now
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("Reports Dashboard"),
+        title: const Text("Reports Dashboard"),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadReportData,
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
@@ -36,14 +83,17 @@ class _ReportsScreenState extends State<ReportsScreen>
           // 🔹 Summary Cards Row
           Padding(
             padding: const EdgeInsets.all(12.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _buildStatCard("Total Students", "120", Colors.blue),
-                _buildStatCard("Trips Today", "5", Colors.green),
-                _buildStatCard("Notifs Sent", "45", Colors.orange),
-              ],
-            ),
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _buildStatCard("Total Students", totalStudents.toString(), Colors.blue),
+                      _buildStatCard("Total Vehicles", totalVehicles.toString(), Colors.green),
+                      _buildStatCard("Total Trips", totalTrips.toString(), Colors.orange),
+                      _buildStatCard("Notifications", notificationsSent.toString(), Colors.purple),
+                    ],
+                  ),
           ),
           Expanded(
             child: TabBarView(

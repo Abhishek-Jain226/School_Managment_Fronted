@@ -101,6 +101,20 @@ class VehicleOwnerService {
   return _handleResponse(resp);
 }
 
+  /// ---------------- Associate Existing Vehicle Owner with School ----------------
+  Future<Map<String, dynamic>> associateOwnerWithSchool(int ownerId, int schoolId, String createdBy) async {
+    final token = await _auth.getToken();
+
+    final url = Uri.parse("$base/$ownerId/associate-school?schoolId=$schoolId&createdBy=$createdBy");
+    final headers = {
+      "Content-Type": "application/json",
+      if (token != null) "Authorization": "Bearer $token",
+    };
+
+    final resp = await http.post(url, headers: headers);
+    return _handleResponse(resp);
+  }
+
   /// ---------------- Common Response Handler ----------------
   Map<String, dynamic> _handleResponse(http.Response resp) {
     final data = jsonDecode(resp.body);

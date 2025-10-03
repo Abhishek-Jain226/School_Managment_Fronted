@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:school_tracker/presentation/pages/school_profile_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -26,16 +27,12 @@ class _SchoolAdminDashboardPageState extends State<SchoolAdminDashboardPage> {
   // Admin & School info
   String adminName = '';
   String schoolName = '';
+  String? schoolPhoto;
   int? schoolId;
 
   final SchoolService _schoolService = SchoolService();
 
-  final List<Map<String, String>> recentNotifications = [
-    {'message': 'School Admin logged in', 'time': '09:00 AM'},
-    {'message': 'New student registered', 'time': '09:15 AM'},
-    {'message': 'New vehicle added', 'time': '10:00 AM'},
-    {'message': 'Attendance updated', 'time': '11:30 AM'},
-  ];
+  List<Map<String, String>> recentNotifications = [];
 
   @override
   void initState() {
@@ -57,11 +54,13 @@ class _SchoolAdminDashboardPageState extends State<SchoolAdminDashboardPage> {
       adminName = prefs.getString("userName") ?? "";
       schoolName = prefs.getString("schoolName") ?? "";
       schoolId = prefs.getInt("schoolId");
+      schoolPhoto = prefs.getString("schoolPhoto");
 
       // ✅ fallback to school service if available
       final school = await _schoolService.getSchoolFromPrefs();
       if (school != null) {
         schoolId ??= school.schoolId;
+        schoolPhoto ??= school.schoolPhoto;
       }
 
       // ✅ Load counts if we have schoolId
@@ -71,13 +70,18 @@ class _SchoolAdminDashboardPageState extends State<SchoolAdminDashboardPage> {
         final vehicleCount =
             await VehicleService().getVehicleCount(schoolId!.toString());
 
+        // Calculate today's attendance (mock logic - in real app, this would come from API)
+        final todayPresent = await _calculateTodayAttendance(studentCount);
+        
+        // Generate recent notifications
+        await _generateRecentNotifications(studentCount, vehicleCount, todayPresent);
+
+        final vehiclesInTransitCount = await _calculateVehiclesInTransit(vehicleCount);
         setState(() {
           totalStudents = studentCount;
           totalVehicles = vehicleCount;
-          todayAttendance = studentCount > 0
-              ? "${(studentCount * 0.85).round()}/$studentCount"
-              : "0/$studentCount";
-          vehiclesInTransit = vehicleCount ~/ 2;
+          todayAttendance = "$todayPresent/$studentCount";
+          vehiclesInTransit = vehiclesInTransitCount;
         });
       }
     } catch (e) {
@@ -90,6 +94,97 @@ class _SchoolAdminDashboardPageState extends State<SchoolAdminDashboardPage> {
         _isLoading = false;
       });
     }
+  }
+
+  /// Calculate today's attendance (mock implementation)
+  Future<int> _calculateTodayAttendance(int totalStudents) async {
+    if (totalStudents == 0) return 0;
+    
+    // Mock logic: 85-95% attendance rate
+    final attendanceRate = 0.85 + (DateTime.now().day % 10) * 0.01; // Varies by day
+    return (totalStudents * attendanceRate).round();
+  }
+
+  /// Calculate vehicles in transit (mock implementation)
+  Future<int> _calculateVehiclesInTransit(int totalVehicles) async {
+    if (totalVehicles == 0) return 0;
+    
+    // Mock logic: 30-70% of vehicles are in transit during school hours
+    final currentHour = DateTime.now().hour;
+    if (currentHour >= 7 && currentHour <= 9) {
+      // Morning pickup time
+      return (totalVehicles * 0.7).round();
+    } else if (currentHour >= 14 && currentHour <= 16) {
+      // Afternoon drop time
+      return (totalVehicles * 0.6).round();
+    } else {
+      // Other times
+      return (totalVehicles * 0.3).round();
+    }
+  }
+
+  /// Generate recent notifications based on current data
+  Future<void> _generateRecentNotifications(int studentCount, int vehicleCount, int todayPresent) async {
+    final now = DateTime.now();
+    final notifications = <Map<String, String>>[];
+
+    // Add login notification
+    notifications.add({
+      'message': 'School Admin logged in',
+      'time': '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}'
+    });
+
+    // Add attendance notification with insights
+    final attendanceRate = studentCount > 0 ? (todayPresent / studentCount * 100).round() : 0;
+    String attendanceMessage = 'Today\'s attendance: $attendanceRate% ($todayPresent/$studentCount)';
+    if (attendanceRate >= 90) {
+      attendanceMessage += ' - Excellent!';
+    } else if (attendanceRate >= 80) {
+      attendanceMessage += ' - Good';
+    } else if (attendanceRate >= 70) {
+      attendanceMessage += ' - Needs improvement';
+    } else {
+      attendanceMessage += ' - Low attendance';
+    }
+    
+    notifications.add({
+      'message': attendanceMessage,
+      'time': '${(now.hour - 1).toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}'
+    });
+
+    // Add vehicle status notification with insights
+    if (vehicleCount > 0) {
+      final inTransit = await _calculateVehiclesInTransit(vehicleCount);
+      String vehicleMessage = '$inTransit out of $vehicleCount vehicles in transit';
+      if (inTransit > vehicleCount * 0.7) {
+        vehicleMessage += ' - High activity';
+      } else if (inTransit < vehicleCount * 0.3) {
+        vehicleMessage += ' - Low activity';
+      }
+      
+      notifications.add({
+        'message': vehicleMessage,
+        'time': '${(now.hour - 2).toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}'
+      });
+    }
+
+    // Add system insights
+    final currentHour = now.hour;
+    String systemMessage = 'System running smoothly';
+    if (currentHour >= 7 && currentHour <= 9) {
+      systemMessage = 'Morning pickup time - High activity expected';
+    } else if (currentHour >= 14 && currentHour <= 16) {
+      systemMessage = 'Afternoon drop time - High activity expected';
+    } else if (currentHour >= 17) {
+      systemMessage = 'School day ended - Low activity expected';
+    }
+    
+    notifications.add({
+      'message': systemMessage,
+      'time': '${(now.hour - 3).toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}'
+    });
+
+    recentNotifications = notifications;
   }
 
   /// Logout
@@ -175,6 +270,53 @@ class _SchoolAdminDashboardPageState extends State<SchoolAdminDashboardPage> {
     );
   }
 
+  /// Build insight item
+  Widget _buildInsightItem(IconData icon, String label, String value, Color color) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: 14),
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Get current time context
+  String _getCurrentTimeContext() {
+    final now = DateTime.now();
+    final hour = now.hour;
+    
+    if (hour >= 6 && hour < 9) {
+      return 'Morning Pickup';
+    } else if (hour >= 9 && hour < 12) {
+      return 'School Hours';
+    } else if (hour >= 12 && hour < 14) {
+      return 'Lunch Break';
+    } else if (hour >= 14 && hour < 17) {
+      return 'Afternoon Drop';
+    } else if (hour >= 17 && hour < 20) {
+      return 'Evening';
+    } else {
+      return 'Off Hours';
+    }
+  }
+
   /// Drawer
   Widget _buildDrawer() {
     return Drawer(
@@ -199,64 +341,96 @@ class _SchoolAdminDashboardPageState extends State<SchoolAdminDashboardPage> {
               child: ListView(
                 padding: EdgeInsets.zero,
                 children: [
+                  // Dashboard
                   ListTile(
                       leading: const Icon(Icons.dashboard),
                       title: const Text('Dashboard'),
                       onTap: () => Navigator.pop(context)),
+                  
+                  const Divider(),
+                  const Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Text('MANAGEMENT', 
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, 
+                            color: Colors.grey,
+                            fontSize: 12)),
+                  ),
+                  
+                  // Students Management
                   ListTile(
                       leading: const Icon(Icons.group),
                       title: const Text('Students'),
+                      subtitle: const Text('Manage students & parents'),
                       onTap: () => Navigator.pushNamed(
                           context, AppRoutes.registerStudent)),
+                  
+                  // Vehicle Management
                   ListTile(
                       leading: const Icon(Icons.directions_bus),
                       title: const Text('Vehicles'),
+                      subtitle: const Text('View vehicles & reports'),
                       onTap: () => Navigator.pushNamed(
-                          context, AppRoutes.registerVehicle)),
+                          context, AppRoutes.vehicleManagement)),
+                  
+                  // Staff Management
                   ListTile(
-                      leading: const Icon(Icons.person),
-                      title: const Text('Drivers'),
-                      onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              content: Text('Drivers page not implemented')))),
-                              ListTile(
-  leading: const Icon(Icons.security),
-  title: const Text('Add Gate Staff'),
-  onTap: () => Navigator.pushNamed(
-      context, AppRoutes.registerGateStaff),
-),
-ListTile(
-  leading: const Icon(Icons.alt_route),
-  title: const Text('Trips'),
-  onTap: () => Navigator.pushNamed(context, AppRoutes.trips),
-),
-ListTile(
-  leading: const Icon(Icons.pending_actions),
-  title: const Text('Pending Vehicle Requests'),
-  onTap: () => Navigator.pushNamed(
-    context,
-    AppRoutes.pendingRequests,
-  ),
-),
-
+                      leading: const Icon(Icons.people),
+                      title: const Text('Staff'),
+                      subtitle: const Text('Manage teachers & gate staff'),
+                      onTap: () => Navigator.pushNamed(
+                          context, AppRoutes.staffManagement)),
+                  
+                  // Trip Management
                   ListTile(
-                      leading: const Icon(Icons.calendar_today),
-                      title: const Text('Attendance / Logs'),
-                      onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              content:
-                                  Text('Attendance page not implemented')))),
+                      leading: const Icon(Icons.alt_route),
+                      title: const Text('Trips'),
+                      subtitle: const Text('Manage routes & schedules'),
+                      onTap: () => Navigator.pushNamed(context, AppRoutes.trips)),
+                  
+                  const Divider(),
+                  const Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Text('REPORTS & ANALYTICS', 
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, 
+                            color: Colors.grey,
+                            fontSize: 12)),
+                  ),
+                  
+                  // Reports
                   ListTile(
                       leading: const Icon(Icons.bar_chart),
                       title: const Text('Reports'),
-                      onTap: () =>Navigator.pushNamed(
-      context, AppRoutes.reports),),
+                      subtitle: const Text('Attendance, dispatch logs'),
+                      onTap: () => Navigator.pushNamed(
+                          context, AppRoutes.reports)),
+                  
+                  // Pending Requests
                   ListTile(
-                      leading: const Icon(Icons.settings),
-                      title: const Text('Settings'),
-                      onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              content: Text('Settings page not implemented')))),
+                      leading: const Icon(Icons.pending_actions),
+                      title: const Text('Pending Requests'),
+                      subtitle: const Text('Vehicle assignment requests'),
+                      onTap: () => Navigator.pushNamed(
+                          context, AppRoutes.pendingRequests)),
+                  
+                  const Divider(),
+                  const Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Text('ACCOUNT', 
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, 
+                            color: Colors.grey,
+                            fontSize: 12)),
+                  ),
+                  
+                  // Profile
+                  ListTile(
+                      leading: const Icon(Icons.person),
+                      title: const Text('Profile'),
+                      subtitle: const Text('School profile settings'),
+                      onTap: () => Navigator.pushNamed(
+                          context, AppRoutes.schoolProfile)),
                 ],
               ),
             ),
@@ -294,9 +468,16 @@ ListTile(
       },
       child: Row(
         children: [
-          const CircleAvatar(
-              child: Icon(Icons.person, color: Colors.white),
-              backgroundColor: Colors.blueGrey),
+          CircleAvatar(
+            radius: 20,
+            backgroundColor: Colors.blueGrey,
+            backgroundImage: schoolPhoto != null && schoolPhoto!.isNotEmpty
+                ? MemoryImage(base64Decode(schoolPhoto!))
+                : null,
+            child: schoolPhoto == null || schoolPhoto!.isEmpty
+                ? const Icon(Icons.school, color: Colors.white, size: 20)
+                : null,
+          ),
           const SizedBox(width: 8),
           Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -387,6 +568,55 @@ ListTile(
 
                   const SizedBox(height: 16),
 
+                  // Insights Card
+                  Card(
+                    margin: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Today\'s Insights',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          _buildInsightItem(
+                            Icons.trending_up,
+                            'Attendance Rate',
+                            totalStudents > 0 
+                                ? '${((int.parse(todayAttendance.split('/')[0]) / totalStudents) * 100).round()}%'
+                                : '0%',
+                            totalStudents > 0 && (int.parse(todayAttendance.split('/')[0]) / totalStudents) >= 0.8
+                                ? Colors.green
+                                : Colors.orange,
+                          ),
+                          _buildInsightItem(
+                            Icons.local_shipping,
+                            'Vehicle Utilization',
+                            totalVehicles > 0
+                                ? '${((vehiclesInTransit / totalVehicles) * 100).round()}%'
+                                : '0%',
+                            totalVehicles > 0 && (vehiclesInTransit / totalVehicles) >= 0.5
+                                ? Colors.green
+                                : Colors.blue,
+                          ),
+                          _buildInsightItem(
+                            Icons.schedule,
+                            'Current Time',
+                            _getCurrentTimeContext(),
+                            Colors.purple,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
                   // Notifications + Quick Actions
                   isWide
                       ? Row(
@@ -446,11 +676,23 @@ ListTile(
                                               context,
                                               AppRoutes.registerStudent)),
                                       _buildQuickAction(
-                                          'Add Vehicle',
-                                          Icons.directions_bus,
+                                          'Add Vehicle Owner',
+                                          Icons.business,
                                           () => Navigator.pushNamed(
                                               context,
-                                              AppRoutes.registerVehicle)),
+                                              AppRoutes.registerVehicleOwner)),
+                                      _buildQuickAction(
+                                          'Add Staff',
+                                          Icons.person_add_alt_1,
+                                          () => Navigator.pushNamed(
+                                              context,
+                                              AppRoutes.registerGateStaff)),
+                                      _buildQuickAction(
+                                          'Create Trip',
+                                          Icons.alt_route,
+                                          () => Navigator.pushNamed(
+                                              context,
+                                              AppRoutes.createTrip)),
                                     ],
                                   ),
                                 ),
@@ -501,19 +743,26 @@ ListTile(
                                             fontSize: 18,
                                             fontWeight: FontWeight.bold)),
                                     const SizedBox(height: 12),
-                                   _buildQuickAction('Add Student', Icons.person_add, () => Navigator.pushNamed(context, AppRoutes.registerStudent)),
-
+                                    _buildQuickAction(
+                                        'Add Student', 
+                                        Icons.person_add, 
+                                        () => Navigator.pushNamed(context, AppRoutes.registerStudent)),
                                     _buildQuickAction(
                                         'Add Vehicle Owner',
-                                        Icons.directions_bus,
+                                        Icons.business,
                                         () => Navigator.pushNamed(
                                             context,
                                             AppRoutes.registerVehicleOwner)),
-                                            _buildQuickAction(
-  'Create Trip',
-  Icons.alt_route,
-  () => Navigator.pushNamed(context, AppRoutes.createTrip),
-),
+                                    _buildQuickAction(
+                                        'Add Staff',
+                                        Icons.person_add_alt_1,
+                                        () => Navigator.pushNamed(
+                                            context,
+                                            AppRoutes.registerGateStaff)),
+                                    _buildQuickAction(
+                                        'Create Trip',
+                                        Icons.alt_route,
+                                        () => Navigator.pushNamed(context, AppRoutes.createTrip)),
                                   ],
                                 ),
                               ),
