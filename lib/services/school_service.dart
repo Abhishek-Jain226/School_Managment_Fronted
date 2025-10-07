@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import '../config.dart';
+import '../config/app_config.dart';
 import '../data/models/api_response.dart';
 import '../data/models/school_request.dart';
 import '../data/models/staff_request.dart';
@@ -9,7 +9,8 @@ import 'auth_service.dart';
 
 class SchoolService {
   final _auth = AuthService();
-  static const String _base = "${AppConfig.baseUrl}/api/schools";
+  // 🔹 Using centralized configuration
+  static String get _base => AppConfig.schoolsUrl;
 
   // ---------------- Register School ----------------
   Future<Map<String, dynamic>> registerSchool(SchoolRequest request) async {
@@ -64,15 +65,15 @@ class SchoolService {
   }
 
   // ---------------- Get School By Id ----------------
-  Future<Map<String, dynamic>> getSchoolById(int schoolId) async {
-    final url = Uri.parse("$_base/$schoolId");
-    final token = await _auth.getToken();
-    final resp = await http.get(
-      url,
-      headers: {"Authorization": "Bearer $token"},
-    );
-    return jsonDecode(resp.body);
-  }
+  // Future<Map<String, dynamic>> getSchoolById(int schoolId) async {
+  //   final url = Uri.parse("$_base/$schoolId");
+  //   final token = await _auth.getToken();
+  //   final resp = await http.get(
+  //     url,
+  //     headers: {"Authorization": "Bearer $token"},
+  //   );
+  //   return jsonDecode(resp.body);
+  // }
 
  // ---------------- Get All Schools ----------------
 Future<Map<String, dynamic>> getAllSchools() async {
@@ -144,5 +145,71 @@ Future<Map<String, dynamic>> getAllSchools() async {
     final data = prefs.getString("school_info");
     if (data == null) return null;
     return jsonDecode(data);
+  }
+
+  // ---------------- Get Vehicles in Transit ----------------
+  Future<Map<String, dynamic>> getVehiclesInTransit(int schoolId) async {
+    final token = await _auth.getToken();
+    final url = Uri.parse("$_base/$schoolId/vehicles-in-transit");
+    final resp = await http.get(
+      url,
+      headers: {
+        if (token != null) "Authorization": "Bearer $token",
+      },
+    );
+    
+    if (resp.statusCode == 200) {
+      return jsonDecode(resp.body);
+    } else {
+      return {
+        'success': false,
+        'message': 'Failed to get vehicles in transit: ${resp.statusCode}',
+        'data': 0
+      };
+    }
+  }
+
+  // ---------------- Get Today's Attendance ----------------
+  Future<Map<String, dynamic>> getTodayAttendance(int schoolId) async {
+    final token = await _auth.getToken();
+    final url = Uri.parse("$_base/$schoolId/today-attendance");
+    final resp = await http.get(
+      url,
+      headers: {
+        if (token != null) "Authorization": "Bearer $token",
+      },
+    );
+    
+    if (resp.statusCode == 200) {
+      return jsonDecode(resp.body);
+    } else {
+      return {
+        'success': false,
+        'message': 'Failed to get today\'s attendance: ${resp.statusCode}',
+        'data': {'studentsPresent': 0, 'totalStudents': 0, 'attendanceRate': 0.0}
+      };
+    }
+  }
+
+  // ---------------- Get School by ID ----------------
+  Future<Map<String, dynamic>> getSchoolById(int schoolId) async {
+    final token = await _auth.getToken();
+    final url = Uri.parse("$_base/$schoolId");
+    final resp = await http.get(
+      url,
+      headers: {
+        if (token != null) "Authorization": "Bearer $token",
+      },
+    );
+    
+    if (resp.statusCode == 200) {
+      return jsonDecode(resp.body);
+    } else {
+      return {
+        'success': false,
+        'message': 'Failed to get school details: ${resp.statusCode}',
+        'data': null
+      };
+    }
   }
 }

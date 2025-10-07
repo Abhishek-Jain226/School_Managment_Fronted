@@ -1,14 +1,92 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../app_routes.dart';
 import '../../services/parent_service.dart';
+import '../../services/auth_service.dart';
 
 class ParentDashboardPage extends StatelessWidget {
   const ParentDashboardPage({super.key});
 
+  Future<void> _logout(BuildContext context) async {
+    // Show confirmation dialog
+    final shouldLogout = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Logout'),
+          content: const Text('Are you sure you want to logout?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Logout'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldLogout == true) {
+      try {
+        // Clear all stored data
+        final authService = AuthService();
+        await authService.logout();
+        
+        // Navigate to login screen and clear navigation stack
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          AppRoutes.login,
+          (route) => false,
+        );
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Logged out successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Logout failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return WillPopScope(
+      onWillPop: () async {
+        // Show confirmation dialog when back button is pressed
+        final shouldExit = await showDialog<bool>(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: const Text('Exit App'),
+              content: const Text('Are you sure you want to exit the app?'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child: const Text('Exit'),
+                ),
+              ],
+            );
+          },
+        );
+        return shouldExit ?? false;
+      },
+      child: Scaffold(
       appBar: AppBar(
         title: Row(
           children: const [
@@ -18,6 +96,12 @@ class ParentDashboardPage extends StatelessWidget {
           ],
         ),
         actions: [
+          // Logout Button
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () => _logout(context),
+            tooltip: 'Logout',
+          ),
           Padding(
             padding: const EdgeInsets.only(right: 12.0),
             child: FutureBuilder<Map<String, dynamic>>(
@@ -49,6 +133,7 @@ class ParentDashboardPage extends StatelessWidget {
                     "${data['firstName'] ?? ''} ${data['lastName'] ?? ''}"
                         .trim();
                 final studentId = data['studentId'];
+                final studentPhoto = data['studentPhoto'];
 
                 return InkWell(
                   onTap: () {
@@ -61,9 +146,15 @@ class ParentDashboardPage extends StatelessWidget {
                   },
                   child: Row(
                     children: [
-                      const CircleAvatar(
-                        child: Icon(Icons.person, color: Colors.white),
+                      CircleAvatar(
+                        radius: 20,
                         backgroundColor: Colors.blueGrey,
+                        backgroundImage: studentPhoto != null && studentPhoto.isNotEmpty
+                            ? MemoryImage(base64Decode(studentPhoto))
+                            : null,
+                        child: studentPhoto == null || studentPhoto.isEmpty
+                            ? const Icon(Icons.person, color: Colors.white, size: 20)
+                            : null,
                       ),
                       const SizedBox(width: 8),
                       Text(
@@ -116,20 +207,20 @@ class ParentDashboardPage extends StatelessWidget {
                         ListTile(
                           leading: const Icon(Icons.school),
                           title: Text(
-                              "Name: ${data['firstName']} ${data['lastName']}"),
+                              "Name: ${data['firstName'] ?? 'N/A'} ${data['lastName'] ?? 'N/A'}"),
                           subtitle: Text(
-                              "Class: ${data['className']} - Section ${data['section']}"),
+                              "Class: ${data['className'] ?? 'N/A'} - Section ${data['sectionName'] ?? data['section'] ?? 'N/A'}"),
                         ),
                         ListTile(
                           leading: const Icon(Icons.person),
-                          title: Text("Father: ${data['fatherName']}"),
-                          subtitle: Text("Mother: ${data['motherName']}"),
+                          title: Text("Father: ${data['fatherName'] ?? 'N/A'}"),
+                          subtitle: Text("Mother: ${data['motherName'] ?? 'N/A'}"),
                         ),
                         ListTile(
                           leading: const Icon(Icons.phone),
-                          title: Text("Contact: ${data['primaryContactNumber']}"),
+                          title: Text("Contact: ${data['primaryContactNumber'] ?? 'N/A'}"),
                           subtitle: Text(
-                              "Alt: ${data['alternateContactNumber'] ?? '-'}"),
+                              "Alt: ${data['alternateContactNumber'] ?? 'N/A'}"),
                         ),
                       ],
                     ),
@@ -230,6 +321,7 @@ class ParentDashboardPage extends StatelessWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }

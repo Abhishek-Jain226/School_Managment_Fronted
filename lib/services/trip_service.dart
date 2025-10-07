@@ -3,9 +3,11 @@ import 'package:http/http.dart' as http;
 
 import '../data/models/trip_request.dart';
 import '../data/models/trip_response.dart';
+import '../config/app_config.dart';
 
 class TripService {
-  static const String baseUrl = "http://192.168.29.254:9001/api/trips"; // 🔹 replace with your backend URL
+  // 🔹 Using centralized configuration
+  static String get baseUrl => AppConfig.tripsUrl;
 
   Future<bool> createTrip(TripRequest request) async {
     final url = Uri.parse("$baseUrl/create");
@@ -34,6 +36,16 @@ class TripService {
       }
     }
     return [];
+  }
+
+  Future<Map<String, dynamic>> getTripsBySchoolMap(int schoolId) async {
+    final url = Uri.parse("$baseUrl/school/$schoolId");
+    final resp = await http.get(url);
+
+    if (resp.statusCode == 200) {
+      return jsonDecode(resp.body) as Map<String, dynamic>;
+    }
+    return {"success": false, "message": "Failed to fetch trips"};
   }
 
   Future<bool> deleteTrip(int tripId) async {

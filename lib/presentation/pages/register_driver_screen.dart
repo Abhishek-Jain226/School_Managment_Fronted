@@ -74,6 +74,11 @@ class _RegisterDriverScreenState extends State<RegisterDriverScreen> {
       final int? userId = prefs.getInt("userId");
       final String createdBy = prefs.getString("userName") ?? "";
 
+      print("🔍 Driver Registration: userId = $userId");
+      print("🔍 Driver Registration: createdBy = $createdBy");
+      print("🔍 Driver Registration: driverName = ${_nameCtl.text.trim()}");
+      print("🔍 Driver Registration: contactNumber = ${_contactCtl.text.trim()}");
+
       if (userId == null) throw Exception("User not found in prefs");
 
       final req = DriverRequest(
@@ -86,7 +91,10 @@ class _RegisterDriverScreenState extends State<RegisterDriverScreen> {
         createdBy: createdBy,
       );
 
+      print("🔍 Driver Registration: request = $req");
+
       final res = await _service.createDriver(req);
+      print("🔍 Driver Registration: response = $res");
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -95,6 +103,7 @@ class _RegisterDriverScreenState extends State<RegisterDriverScreen> {
         Navigator.pop(context, true);
       }
     } catch (e) {
+      print("🔍 Driver Registration: error = $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
       }
@@ -104,10 +113,13 @@ class _RegisterDriverScreenState extends State<RegisterDriverScreen> {
   }
 
   Widget _buildText(String label, TextEditingController ctl,
-          {String? Function(String?)? validator, TextInputType type = TextInputType.text}) =>
+          {String? Function(String?)? validator, TextInputType type = TextInputType.text, String? hintText}) =>
       TextFormField(
         controller: ctl,
-        decoration: InputDecoration(labelText: label),
+        decoration: InputDecoration(
+          labelText: label,
+          hintText: hintText,
+        ),
         validator: validator ?? (v) => v == null || v.isEmpty ? "Required" : null,
         keyboardType: type,
       );
@@ -131,17 +143,40 @@ class _RegisterDriverScreenState extends State<RegisterDriverScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            _buildText("Driver Name", _nameCtl),
+            _buildText("Driver Name *", _nameCtl, 
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return "Driver name is required";
+                  if (v.trim().length > 100) return "Driver name cannot exceed 100 characters";
+                  return null;
+                }),
             const SizedBox(height: 8),
-            _buildText("Driver Contact Number", _contactCtl, type: TextInputType.phone),
+            _buildText("Driver Contact Number *", _contactCtl, 
+                type: TextInputType.phone,
+                hintText: "10-digit mobile number",
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return "Contact number is required";
+                  final digits = v.replaceAll(RegExp(r'\D'), '');
+                  if (digits.length != 10) return "Contact number must be exactly 10 digits";
+                  if (!RegExp(r'^[6-9]\d{9}$').hasMatch(digits)) return "Enter valid Indian mobile number (starting with 6-9)";
+                  return null;
+                }),
             const SizedBox(height: 8),
-            _buildText("Driver Address", _addressCtl),
+            _buildText("Driver Address *", _addressCtl,
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return "Driver address is required";
+                  if (v.trim().length > 255) return "Driver address cannot exceed 255 characters";
+                  return null;
+                }),
             const SizedBox(height: 8),
-            _buildText("Email", _emailCtl, type: TextInputType.emailAddress, validator: (v) {
-              if (v == null || v.isEmpty) return null;
-              final regex = RegExp(r'^[^@]+@[^@]+\.[^@]+');
-              return regex.hasMatch(v) ? null : "Enter valid email";
-            }),
+            _buildText("Email (Optional)", _emailCtl, 
+                type: TextInputType.emailAddress,
+                hintText: "driver@example.com",
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return null; // Optional field
+                  if (v.trim().length > 150) return "Email cannot exceed 150 characters";
+                  final regex = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
+                  return regex.hasMatch(v.trim()) ? null : "Enter valid email address";
+                }),
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: _submitting ? null : _submit,

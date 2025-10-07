@@ -1,8 +1,10 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../config/app_config.dart';
 
 class PendingService {
-  static const String base = "http://192.168.29.254:9001/api/pending-users";
+  // 🔹 Using centralized configuration
+  static String get base => AppConfig.pendingUsersUrl;
 
   // assumes backend has GET /api/pending-users/verify?token=xxx
   Future<Map<String, dynamic>> verifyToken(String token) async {

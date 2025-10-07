@@ -28,6 +28,9 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _loading = true);
 
     try {
+      // Clear any previous session data before login
+      await _authService.logout();
+      
       final resp = await _authService.login(
         _loginIdCtl.text.trim(),
         _passwordCtl.text.trim(),
@@ -36,6 +39,14 @@ class _LoginScreenState extends State<LoginScreen> {
       if (resp['success'] == true) {
         final data = resp['data'];
         final roles = List<String>.from(data['roles'] ?? []);
+        
+        // Debug: Print login response data to help identify available fields
+        print('🔍 Login Response Data: $data');
+        print('🔍 Available keys in response: ${data.keys.toList()}');
+        print('🔍 Driver ID in response: ${data['driverId']}');
+        print('🔍 User roles: ${data['roles']}');
+        print('🔍 User ID in response: ${data['userId']}');
+        print('🔍 Owner ID in response: ${data['ownerId']}');
 
         // ✅ Save role in prefs for later use
         final prefs = await SharedPreferences.getInstance();
@@ -53,6 +64,14 @@ if (data['schoolId'] != null) {
 // ✅ Save ownerId if present
 if (data['ownerId'] != null) {
   await prefs.setInt("ownerId", data['ownerId']);
+}
+
+// ✅ Save driverId if present
+if (data['driverId'] != null) {
+  await prefs.setInt("driverId", data['driverId']);
+  print('🔍 Driver ID saved: ${data['driverId']}');
+} else {
+  print('⚠️ Driver ID not found in login response');
 }
 
         // ✅ success message

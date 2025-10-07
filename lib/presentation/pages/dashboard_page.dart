@@ -6,6 +6,7 @@ import '../../app_routes.dart';
 import '../../services/school_service.dart';
 import '../../services/student_service.dart';
 import '../../services/vehicle_service.dart';
+import '../../services/auth_service.dart';
 
 class SchoolAdminDashboardPage extends StatefulWidget {
   const SchoolAdminDashboardPage({super.key});
@@ -62,6 +63,23 @@ class _SchoolAdminDashboardPageState extends State<SchoolAdminDashboardPage> {
         schoolId ??= school.schoolId;
         schoolPhoto ??= school.schoolPhoto;
       }
+      
+      // ✅ If still no photo, try to load from school profile
+      if (schoolPhoto == null || schoolPhoto!.isEmpty) {
+        try {
+          final schoolProfile = await _schoolService.getSchoolById(schoolId!);
+          if (schoolProfile['success'] == true && schoolProfile['data'] != null) {
+            final schoolData = schoolProfile['data'];
+            if (schoolData['schoolPhoto'] != null && schoolData['schoolPhoto'].toString().isNotEmpty) {
+              schoolPhoto = schoolData['schoolPhoto'];
+              // Save to SharedPreferences for future use
+              await prefs.setString("schoolPhoto", schoolPhoto!);
+            }
+          }
+        } catch (e) {
+          debugPrint("Error loading school photo: $e");
+        }
+      }
 
       // ✅ Load counts if we have schoolId
       if (schoolId != null) {
@@ -70,13 +88,15 @@ class _SchoolAdminDashboardPageState extends State<SchoolAdminDashboardPage> {
         final vehicleCount =
             await VehicleService().getVehicleCount(schoolId!.toString());
 
-        // Calculate today's attendance (mock logic - in real app, this would come from API)
-        final todayPresent = await _calculateTodayAttendance(studentCount);
+        // Get real attendance data from API
+        final attendanceData = await _getTodayAttendanceFromAPI();
+        final todayPresent = attendanceData['studentsPresent'] ?? 0;
+        
+        // Get real vehicles in transit count from API
+        final vehiclesInTransitCount = await _getVehiclesInTransitFromAPI();
         
         // Generate recent notifications
         await _generateRecentNotifications(studentCount, vehicleCount, todayPresent);
-
-        final vehiclesInTransitCount = await _calculateVehiclesInTransit(vehicleCount);
         setState(() {
           totalStudents = studentCount;
           totalVehicles = vehicleCount;
@@ -105,7 +125,43 @@ class _SchoolAdminDashboardPageState extends State<SchoolAdminDashboardPage> {
     return (totalStudents * attendanceRate).round();
   }
 
-  /// Calculate vehicles in transit (mock implementation)
+  /// Get vehicles in transit from real API
+  Future<int> _getVehiclesInTransitFromAPI() async {
+    if (schoolId == null) return 0;
+    
+    try {
+      final response = await _schoolService.getVehiclesInTransit(schoolId!);
+      if (response['success'] == true) {
+        return (response['data'] ?? 0) as int;
+      } else {
+        debugPrint("Error getting vehicles in transit: ${response['message']}");
+        return 0;
+      }
+    } catch (e) {
+      debugPrint("Exception getting vehicles in transit: $e");
+      return 0;
+    }
+  }
+
+  /// Get today's attendance from real API
+  Future<Map<String, dynamic>> _getTodayAttendanceFromAPI() async {
+    if (schoolId == null) return {'studentsPresent': 0, 'totalStudents': 0, 'attendanceRate': 0.0};
+    
+    try {
+      final response = await _schoolService.getTodayAttendance(schoolId!);
+      if (response['success'] == true) {
+        return response['data'] ?? {'studentsPresent': 0, 'totalStudents': 0, 'attendanceRate': 0.0};
+      } else {
+        debugPrint("Error getting today's attendance: ${response['message']}");
+        return {'studentsPresent': 0, 'totalStudents': 0, 'attendanceRate': 0.0};
+      }
+    } catch (e) {
+      debugPrint("Exception getting today's attendance: $e");
+      return {'studentsPresent': 0, 'totalStudents': 0, 'attendanceRate': 0.0};
+    }
+  }
+
+  /// Calculate vehicles in transit (mock implementation) - DEPRECATED
   Future<int> _calculateVehiclesInTransit(int totalVehicles) async {
     if (totalVehicles == 0) return 0;
     
@@ -201,12 +257,30 @@ class _SchoolAdminDashboardPageState extends State<SchoolAdminDashboardPage> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
-              final prefs = await SharedPreferences.getInstance();
-              await prefs.clear();
-              if (!mounted) return;
-              Navigator.pop(ctx);
-              Navigator.pushNamedAndRemoveUntil(
-                  context, AppRoutes.home, (route) => false);
+              try {
+                final authService = AuthService();
+                await authService.logout();
+                if (!mounted) return;
+                Navigator.pop(ctx);
+                Navigator.pushNamedAndRemoveUntil(
+                    context, AppRoutes.login, (route) => false);
+                
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Logged out successfully'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              } catch (e) {
+                if (!mounted) return;
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Logout failed: $e'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
             },
             child: const Text("Logout"),
           ),
@@ -358,12 +432,25 @@ class _SchoolAdminDashboardPageState extends State<SchoolAdminDashboardPage> {
                   ),
                   
                   // Students Management
-                  ListTile(
-                      leading: const Icon(Icons.group),
-                      title: const Text('Students'),
-                      subtitle: const Text('Manage students & parents'),
-                      onTap: () => Navigator.pushNamed(
-                          context, AppRoutes.registerStudent)),
+                  ExpansionTile(
+                    leading: const Icon(Icons.group),
+                    title: const Text('Students'),
+                    subtitle: const Text('Manage students & parents'),
+                    children: [
+                      ListTile(
+                        leading: const Icon(Icons.person_add),
+                        title: const Text('Add Student'),
+                        subtitle: const Text('Register new student'),
+                        onTap: () => Navigator.pushNamed(context, AppRoutes.studentManagement),
+                      ),
+                      ListTile(
+                        leading: const Icon(Icons.upload_file),
+                        title: const Text('Bulk Import'),
+                        subtitle: const Text('Import students from Excel'),
+                        onTap: () => Navigator.pushNamed(context, AppRoutes.bulkStudentImport),
+                      ),
+                    ],
+                  ),
                   
                   // Vehicle Management
                   ListTile(
@@ -387,6 +474,27 @@ class _SchoolAdminDashboardPageState extends State<SchoolAdminDashboardPage> {
                       title: const Text('Trips'),
                       subtitle: const Text('Manage routes & schedules'),
                       onTap: () => Navigator.pushNamed(context, AppRoutes.trips)),
+                  
+                  // Master Data Management
+                  ExpansionTile(
+                    leading: const Icon(Icons.settings),
+                    title: const Text('Master Data'),
+                    subtitle: const Text('Manage classes & sections'),
+                    children: [
+                      ListTile(
+                        leading: const Icon(Icons.class_),
+                        title: const Text('Classes'),
+                        subtitle: const Text('Manage class names'),
+                        onTap: () => Navigator.pushNamed(context, AppRoutes.classManagement),
+                      ),
+                      ListTile(
+                        leading: const Icon(Icons.category),
+                        title: const Text('Sections'),
+                        subtitle: const Text('Manage section names'),
+                        onTap: () => Navigator.pushNamed(context, AppRoutes.sectionManagement),
+                      ),
+                    ],
+                  ),
                   
                   const Divider(),
                   const Padding(

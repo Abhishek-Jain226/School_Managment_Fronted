@@ -3,8 +3,8 @@ class StudentRequest {
   final String? middleName;
   final String lastName;
   final String gender;
-  final String className;
-  final String section;
+  final int classId;
+  final int sectionId;
   final String? studentPhotoBase64;
   final int schoolId;
   final String motherName;
@@ -13,15 +13,15 @@ class StudentRequest {
   final String? alternateContactNumber;
   final String? email;
   final String createdBy;
-  final String relation; // ✅ added
+  final String relation; // Hidden field with default value
 
   StudentRequest({
     required this.firstName,
     this.middleName,
     required this.lastName,
     required this.gender,
-    required this.className,
-    required this.section,
+    required this.classId,
+    required this.sectionId,
     this.studentPhotoBase64,
     required this.schoolId,
     required this.motherName,
@@ -30,7 +30,7 @@ class StudentRequest {
     this.alternateContactNumber,
     this.email,
     required this.createdBy,
-    required this.relation, // ✅ added
+    required this.relation,
   });
 
   Map<String, dynamic> toJson() => {
@@ -38,8 +38,8 @@ class StudentRequest {
         "middleName": middleName,
         "lastName": lastName,
         "gender": gender,
-        "className": className,
-        "section": section,
+        "classId": classId,
+        "sectionId": sectionId,
         "studentPhoto": studentPhotoBase64,
         "schoolId": schoolId,
         "motherName": motherName,

@@ -5,6 +5,7 @@ class VehicleOwnerRequest {
   final String contactNumber;
   final String address;
   final String createdBy; // who created this (from prefs)
+  final String? ownerPhoto; // base64 encoded photo
 
   VehicleOwnerRequest({
     required this.name,
@@ -12,6 +13,7 @@ class VehicleOwnerRequest {
     required this.contactNumber,
     required this.address,
     required this.createdBy,
+    this.ownerPhoto,
   });
 
   Map<String, dynamic> toJson() => {
@@ -20,5 +22,6 @@ class VehicleOwnerRequest {
         'contactNumber': contactNumber,
         'address': address,
         'createdBy': createdBy,
+        if (ownerPhoto != null) 'ownerPhoto': ownerPhoto,
       };
 }

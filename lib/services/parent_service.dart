@@ -1,9 +1,11 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'auth_service.dart';
+import '../config/app_config.dart';
 
 class ParentService {
-  final String base = "http://192.168.29.254:9001/api";
+  // 🔹 Using centralized configuration
+  String get base => AppConfig.parentUrl;
   final AuthService _auth = AuthService();
 
   /// 🔹 Get Student linked with Parent (by parent userId)

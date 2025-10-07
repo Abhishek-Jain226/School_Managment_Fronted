@@ -1,9 +1,10 @@
 // lib/config.dart
-// const String kApiHost = 'http://10.255.19.208:9001';
-// const String kSchoolAdminBase = '$kApiHost/api/schoolAdmin';
-// const String kVehicleBase = '$kApiHost/api/vehicles';
-// const String kStudentBase = '$kApiHost/api/students';
+// 🔹 This file is deprecated - use lib/config/app_config.dart instead
+// 🔹 Keeping this for backward compatibility
+
+import 'config/app_config.dart' as new_config;
 
 class AppConfig {
-  static const String baseUrl = "http://192.168.29.254:9001";
+  // 🔹 Deprecated - use new_config.AppConfig.baseUrl instead
+  static String get baseUrl => new_config.AppConfig.baseUrl;
 }

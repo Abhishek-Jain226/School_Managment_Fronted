@@ -22,6 +22,14 @@ import 'package:school_tracker/presentation/pages/vehicle_owner_dashboard_page.d
 import 'package:school_tracker/presentation/pages/vehicle_owner_profile.dart';
 import 'package:school_tracker/presentation/pages/vehicle_management_page.dart';
 import 'package:school_tracker/presentation/pages/staff_management_page.dart';
+import 'package:school_tracker/presentation/pages/vehicle_owner_vehicle_management.dart';
+import 'package:school_tracker/presentation/pages/vehicle_owner_driver_management.dart';
+import 'package:school_tracker/presentation/pages/vehicle_owner_driver_assignment.dart';
+import 'package:school_tracker/presentation/pages/vehicle_owner_trip_assignment.dart';
+import 'package:school_tracker/presentation/pages/student_management_page.dart';
+import 'package:school_tracker/presentation/pages/class_management_page.dart';
+import 'package:school_tracker/presentation/pages/section_management_page.dart';
+import 'package:school_tracker/presentation/pages/bulk_student_import_page.dart';
 import 'presentation/pages/splash_page.dart';
 import 'presentation/pages/home_page.dart';
 import 'presentation/pages/login_screen.dart';
@@ -82,6 +90,17 @@ static const String createTrip = '/createTrip';
 
 static const requestVehicle = "/request-vehicle";
   static const pendingRequests = "/pending-requests";
+  
+  // Vehicle Owner Management Pages
+  static const vehicleOwnerVehicleManagement = "/vehicle-owner-vehicle-management";
+  static const vehicleOwnerDriverManagement = "/vehicle-owner-driver-management";
+  static const vehicleOwnerAssignments = "/vehicle-owner-assignments";
+  static const vehicleOwnerDriverAssignment = "/vehicle-owner-driver-assignment";
+  static const vehicleOwnerTripAssignment = "/vehicle-owner-trip-assignment";
+  static const studentManagement = "/student-management";
+  static const classManagement = "/class-management";
+  static const sectionManagement = "/section-management";
+  static const bulkStudentImport = "/bulk-student-import";
 
   static Map<String, WidgetBuilder> routes = {
     splash: (_) => const SplashPage(),
@@ -124,6 +143,14 @@ static const requestVehicle = "/request-vehicle";
   pendingRequests: (context) => const PendingVehicleRequestsPage(),
 
   requestVehicle: (context) => const RequestVehicleAssignmentPage(),
+  
+  // Vehicle Owner Management Routes
+  vehicleOwnerVehicleManagement: (context) => const VehicleOwnerVehicleManagementPage(),
+  vehicleOwnerDriverManagement: (context) => const VehicleOwnerDriverManagementPage(),
+  //vehicleOwnerAssignments: (context) => const VehicleOwnerAssignmentsPage(),
+  vehicleOwnerDriverAssignment: (context) => const VehicleOwnerDriverAssignmentPage(),
+  vehicleOwnerTripAssignment: (context) => const VehicleOwnerTripAssignmentPage(),
+  studentManagement: (context) => const StudentManagementPage(),
 
       vehicleOwnerProfile: (context) {
   final ownerId = ModalRoute.of(context)!.settings.arguments as int;
@@ -147,5 +174,10 @@ activation: (context) {
   final token = args?['token'] as String? ?? '';
   return ActivationScreen(token: token);
 },
+
+    // Master Data Management Routes
+    classManagement: (context) => const ClassManagementPage(),
+    sectionManagement: (context) => const SectionManagementPage(),
+    bulkStudentImport: (context) => const BulkStudentImportPage(),
   };
 }

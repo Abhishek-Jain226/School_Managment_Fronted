@@ -5,9 +5,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../data/models/New_vehicle_request.dart';
 import '../data/models/vehicle.dart';
 import 'auth_service.dart';
+import '../config/app_config.dart';
 
 class VehicleService {
-  static const String base = "http://192.168.29.254:9001/api";
+  // 🔹 Using centralized configuration
+  static String get base => AppConfig.vehiclesUrl;
   final AuthService _auth = AuthService();
 
   Future<Map<String, dynamic>> registerVehicle(VehicleRequest req) async {

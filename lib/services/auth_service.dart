@@ -1,10 +1,11 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../config/app_config.dart';
 
 class AuthService {
-  // Update base URL if needed
-  static const String base = "http://192.168.29.254:9001/api/auth";
+  // 🔹 Using centralized configuration
+  static String get base => AppConfig.authUrl;
 
   // ------------------ COMPLETE REGISTRATION ------------------
   Future<Map<String, dynamic>> completeRegistration({
@@ -66,9 +67,38 @@ class AuthService {
     return prefs.getString("jwt_token");
   }
 
+  // ------------------ CHECK IF LOGGED IN ------------------
+  Future<bool> isLoggedIn() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString("jwt_token");
+    final userId = prefs.getInt("userId");
+    return token != null && userId != null;
+  }
+
+  // ------------------ GET USER ROLE ------------------
+  Future<String?> getUserRole() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString("role");
+  }
+
   // ------------------ LOGOUT ------------------
   Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
+    
+    // Clear all authentication related data
+    await prefs.remove("jwt_token");
+    await prefs.remove("token");
+    await prefs.remove("userId");
+    await prefs.remove("userName");
+    await prefs.remove("email");
+    await prefs.remove("role");
+    await prefs.remove("schoolId");
+    await prefs.remove("schoolName");
+    await prefs.remove("ownerId");
+    await prefs.remove("driverId");
+    await prefs.remove("parentId");
+    
+    // Clear all data to ensure complete logout
     await prefs.clear();
   }
 

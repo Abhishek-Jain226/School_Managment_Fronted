@@ -5,7 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/models/student_request.dart';
+import '../../data/models/class_master.dart';
+import '../../data/models/section_master.dart';
 import '../../services/student_service.dart';
+import '../../services/master_data_service.dart';
 
 class RegisterStudentScreen extends StatefulWidget {
   const RegisterStudentScreen({super.key});
@@ -28,9 +31,9 @@ class _RegisterStudentScreenState extends State<RegisterStudentScreen> {
 
   // dropdown selections
   String _gender = 'Male';
-  String _className = 'Nursery';
-  String _section = 'A';
-  String _relation = 'FATHER'; // ✅ new
+  ClassMaster? _selectedClass;
+  SectionMaster? _selectedSection;
+  String _relation = 'GUARDIAN'; // Hidden field with default value
 
   // image
   String? _photoBase64;
@@ -39,17 +42,20 @@ class _RegisterStudentScreenState extends State<RegisterStudentScreen> {
   bool _submitting = false;
 
   final StudentService _service = StudentService();
+  final MasterDataService _masterDataService = MasterDataService();
   final ImagePicker _picker = ImagePicker();
 
   final List<String> _genders = ['Male', 'Female', 'Other'];
-  final List<String> _classes = [
-    'Nursery', 'KG', '1', '2', '3', '4', '5', '6',
-    '7', '8', '9', '10', '11', '12'
-  ];
-  final List<String> _sections = ['A', 'B', 'C', 'D'];
+  List<ClassMaster> _classes = []; // Will be loaded from API
+  List<SectionMaster> _sections = []; // Will be loaded from API
 
-  // ✅ relation dropdown
-  final List<String> _relations = ['FATHER', 'MOTHER', 'GUARDIAN'];
+  // Removed _relations list as relationship dropdown is not needed
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMasterData();
+  }
 
   @override
   void dispose() {
@@ -64,19 +70,93 @@ class _RegisterStudentScreenState extends State<RegisterStudentScreen> {
     super.dispose();
   }
 
+  Future<void> _loadMasterData() async {
+    try {
+      debugPrint('Loading master data...');
+      
+      // Get school ID from preferences
+      final prefs = await SharedPreferences.getInstance();
+      final int? schoolId = prefs.getInt('schoolId');
+      
+      if (schoolId == null) {
+        debugPrint('School ID not found in preferences');
+        return;
+      }
+      
+      // Load classes for this school
+      final classesResponse = await _masterDataService.getAllActiveClasses(schoolId);
+      debugPrint('Classes response: $classesResponse');
+      
+      if (classesResponse['success'] == true && classesResponse['data'] != null) {
+        setState(() {
+          _classes = (classesResponse['data'] as List)
+              .map((json) => ClassMaster.fromJson(json))
+              .toList();
+          debugPrint('Loaded ${_classes.length} classes');
+          // Set default selection to first class
+          if (_classes.isNotEmpty && _selectedClass == null) {
+            _selectedClass = _classes.first;
+            debugPrint('Set default class: ${_selectedClass?.className}');
+          }
+        });
+      } else {
+        debugPrint('Failed to load classes: ${classesResponse['message']}');
+      }
+
+      // Load sections for this school
+      final sectionsResponse = await _masterDataService.getAllActiveSections(schoolId);
+      debugPrint('Sections response: $sectionsResponse');
+      
+      if (sectionsResponse['success'] == true && sectionsResponse['data'] != null) {
+        setState(() {
+          _sections = (sectionsResponse['data'] as List)
+              .map((json) => SectionMaster.fromJson(json))
+              .toList();
+          debugPrint('Loaded ${_sections.length} sections');
+          // Set default selection to first section
+          if (_sections.isNotEmpty && _selectedSection == null) {
+            _selectedSection = _sections.first;
+            debugPrint('Set default section: ${_selectedSection?.sectionName}');
+          }
+        });
+      } else {
+        debugPrint('Failed to load sections: ${sectionsResponse['message']}');
+      }
+    } catch (e) {
+      debugPrint('Error loading master data: $e');
+    }
+  }
+
+
   String? _validateRequired(String? v) =>
-      (v == null || v.trim().isEmpty) ? 'Required' : null;
+      (v == null || v.trim().isEmpty) ? 'This field is required' : null;
+
+  String? _validateName(String? v) {
+    if (v == null || v.trim().isEmpty) return 'Name is required';
+    if (v.trim().length < 2) return 'Name must be at least 2 characters';
+    if (v.trim().length > 50) return 'Name must not exceed 50 characters';
+    if (!RegExp(r'^[a-zA-Z\s]+$').hasMatch(v.trim())) return 'Name can only contain letters and spaces';
+    return null;
+  }
 
   String? _validatePhone(String? v) {
-    if (v == null || v.trim().isEmpty) return 'Required';
+    if (v == null || v.trim().isEmpty) return 'Contact number is required';
     final digits = v.replaceAll(RegExp(r'\D'), '');
-    if (digits.length != 10) return 'Contact number must be 10 digits';
-    if (!RegExp(r'^[6-9]\d{9}$').hasMatch(digits)) return 'Enter valid Indian mobile number';
+    if (digits.length != 10) return 'Contact number must be exactly 10 digits';
+    if (!RegExp(r'^[6-9]\d{9}$').hasMatch(digits)) return 'Enter valid Indian mobile number (starting with 6-9)';
+    return null;
+  }
+
+  String? _validateOptionalPhone(String? v) {
+    if (v == null || v.trim().isEmpty) return null; // Optional field
+    final digits = v.replaceAll(RegExp(r'\D'), '');
+    if (digits.length != 10) return 'Contact number must be exactly 10 digits';
+    if (!RegExp(r'^[6-9]\d{9}$').hasMatch(digits)) return 'Enter valid Indian mobile number (starting with 6-9)';
     return null;
   }
 
   String? _validateEmail(String? v) {
-    if (v == null || v.trim().isEmpty) return null;
+    if (v == null || v.trim().isEmpty) return 'Email is required';
     if (v.trim().length > 150) return 'Email must not exceed 150 characters';
     final regex = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
     return regex.hasMatch(v.trim()) ? null : 'Enter valid email address';
@@ -140,21 +220,29 @@ class _RegisterStudentScreenState extends State<RegisterStudentScreen> {
         throw Exception("School not found in preferences");
       }
 
+      if (_selectedClass == null) {
+        throw Exception("Please select a class");
+      }
+
+      if (_selectedSection == null) {
+        throw Exception("Please select a section");
+      }
+
       final req = StudentRequest(
         firstName: _firstCtl.text.trim(),
-        middleName: _middleCtl.text.trim(),
+        middleName: _middleCtl.text.trim().isEmpty ? null : _middleCtl.text.trim(),
         lastName: _lastCtl.text.trim(),
         gender: _gender,
-        className: _className,
-        section: _section,
-        studentPhotoBase64: _photoBase64,
+        classId: _selectedClass?.classId ?? 0,
+        sectionId: _selectedSection?.sectionId ?? 0,
+        studentPhotoBase64: _photoBase64?.isEmpty == true ? null : _photoBase64,
         schoolId: schoolId,
         motherName: _motherCtl.text.trim(),
         fatherName: _fatherCtl.text.trim(),
         primaryContactNumber: _primaryContactCtl.text.trim(),
-        alternateContactNumber: _altContactCtl.text.trim(),
+        alternateContactNumber: _altContactCtl.text.trim().isEmpty ? null : _altContactCtl.text.trim(),
         email: _emailCtl.text.trim(),
-        relation: _relation, // ✅ added
+        relation: _relation, // Hidden field with default value 'GUARDIAN'
         createdBy: createdBy,
       );
 
@@ -163,6 +251,7 @@ class _RegisterStudentScreenState extends State<RegisterStudentScreen> {
       if (res['success'] == true) {
         if (!mounted) return;
         _showSuccessDialog(res['message'] ?? 'Student registered successfully');
+        _resetForm(); // Clear form after successful registration
       } else {
         if (!mounted) return;
         _showErrorSnackBar(res['message'] ?? 'Failed to register student');
@@ -245,11 +334,16 @@ class _RegisterStudentScreenState extends State<RegisterStudentScreen> {
               ),
               const SizedBox(height: 12),
 
-              _buildText('First Name', _firstCtl),
+              _buildText('First Name *', _firstCtl, validator: _validateName),
               const SizedBox(height: 8),
-              _buildText('Middle Name', _middleCtl, validator: (v) => null),
+              _buildText('Middle Name (Optional)', _middleCtl, validator: (v) {
+                if (v == null || v.trim().isEmpty) return null; // Optional field
+                if (v.trim().length > 50) return 'Name must not exceed 50 characters';
+                if (!RegExp(r'^[a-zA-Z\s]+$').hasMatch(v.trim())) return 'Name can only contain letters and spaces';
+                return null;
+              }),
               const SizedBox(height: 8),
-              _buildText('Last Name', _lastCtl),
+              _buildText('Last Name *', _lastCtl, validator: _validateName),
               const SizedBox(height: 8),
 
               // gender + class + section row
@@ -268,40 +362,58 @@ class _RegisterStudentScreenState extends State<RegisterStudentScreen> {
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: DropdownButtonFormField<String>(
-                      value: _className,
+                    child: DropdownButtonFormField<ClassMaster>(
+                      value: _selectedClass,
                       decoration: const InputDecoration(labelText: 'Class'),
                       items: _classes
                           .map((c) =>
-                              DropdownMenuItem(value: c, child: Text(c)))
+                              DropdownMenuItem(value: c, child: Text(c.className)))
                           .toList(),
-                      onChanged: (v) => setState(() => _className = v!),
+                      onChanged: (v) {
+                        debugPrint('Class changed to: ${v?.className}');
+                        setState(() => _selectedClass = v!);
+                      },
+                      validator: (value) {
+                        if (value == null) {
+                          return 'Please select a class';
+                        }
+                        return null;
+                      },
                     ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: DropdownButtonFormField<String>(
-                      value: _section,
+                    child: DropdownButtonFormField<SectionMaster>(
+                      value: _selectedSection,
                       decoration: const InputDecoration(labelText: 'Section'),
                       items: _sections
                           .map((s) =>
-                              DropdownMenuItem(value: s, child: Text(s)))
+                              DropdownMenuItem(value: s, child: Text(s.sectionName)))
                           .toList(),
-                      onChanged: (v) => setState(() => _section = v!),
+                      onChanged: (v) {
+                        debugPrint('Section changed to: ${v?.sectionName}');
+                        setState(() => _selectedSection = v!);
+                      },
+                      validator: (value) {
+                        if (value == null) {
+                          return 'Please select a section';
+                        }
+                        return null;
+                      },
                     ),
                   ),
                 ],
               ),
 
               const SizedBox(height: 12),
-              _buildText('Mother Name', _motherCtl),
+              _buildText('Mother Name *', _motherCtl, validator: _validateName),
               const SizedBox(height: 8),
-              _buildText('Father Name', _fatherCtl),
+              _buildText('Father Name *', _fatherCtl, validator: _validateName),
               const SizedBox(height: 8),
               TextFormField(
                 controller: _primaryContactCtl,
                 decoration: const InputDecoration(
-                  labelText: 'Primary Contact',
+                  labelText: 'Primary Contact *',
                   hintText: 'Enter 10-digit mobile number',
                 ),
                 keyboardType: TextInputType.phone,
@@ -312,36 +424,22 @@ class _RegisterStudentScreenState extends State<RegisterStudentScreen> {
               TextFormField(
                 controller: _altContactCtl,
                 decoration: const InputDecoration(
-                  labelText: 'Alternate Contact',
-                  hintText: 'Enter 10-digit mobile number (optional)',
+                  labelText: 'Alternate Contact (Optional)',
+                  hintText: 'Enter 10-digit mobile number',
                 ),
                 keyboardType: TextInputType.phone,
                 maxLength: 10,
-                validator: (v) {
-                  if (v == null || v.trim().isEmpty) return null; // Optional field
-                  return _validatePhone(v);
-                },
+                validator: _validateOptionalPhone,
               ),
               const SizedBox(height: 8),
               TextFormField(
                 controller: _emailCtl,
                 decoration: const InputDecoration(
-                  labelText: 'Email (parent contact email)',
-                  hintText: 'Enter parent email address (optional)',
+                  labelText: 'Email (Parent Contact Email) *',
+                  hintText: 'Enter parent email address',
                 ),
                 keyboardType: TextInputType.emailAddress,
                 validator: _validateEmail,
-              ),
-
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                value: _relation,
-                decoration: const InputDecoration(labelText: 'Relation'),
-                items: _relations
-                    .map((r) =>
-                        DropdownMenuItem(value: r, child: Text(r)))
-                    .toList(),
-                onChanged: (v) => setState(() => _relation = v!),
               ),
 
               const SizedBox(height: 20),
@@ -357,5 +455,24 @@ class _RegisterStudentScreenState extends State<RegisterStudentScreen> {
         ),
       ),
     );
+  }
+
+  void _resetForm() {
+    _firstCtl.clear();
+    _middleCtl.clear();
+    _lastCtl.clear();
+    _motherCtl.clear();
+    _fatherCtl.clear();
+    _primaryContactCtl.clear();
+    _altContactCtl.clear();
+    _emailCtl.clear();
+    setState(() {
+      _gender = 'Male';
+      _selectedClass = _classes.isNotEmpty ? _classes.first : null;
+      _selectedSection = _sections.isNotEmpty ? _sections.first : null;
+      _relation = 'GUARDIAN'; // Reset to default value
+      _photoBase64 = null;
+      _photoFile = null;
+    });
   }
 }

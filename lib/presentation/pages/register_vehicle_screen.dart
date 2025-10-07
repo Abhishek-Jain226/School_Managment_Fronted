@@ -140,18 +140,29 @@ class _RegisterVehicleScreenState extends State<RegisterVehicleScreen> {
 
               TextFormField(
                 controller: _vehicleNumberCtl,
-                decoration: const InputDecoration(labelText: "Vehicle Number"),
-                validator: (v) =>
-                    v == null || v.isEmpty ? "Required" : null,
+                decoration: const InputDecoration(
+                  labelText: "Vehicle Number *",
+                  hintText: "e.g., 28, 29, 30",
+                ),
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return "Vehicle number is required";
+                  if (v.trim().length > 10) return "Vehicle number cannot exceed 10 characters";
+                  return null;
+                },
               ),
               const SizedBox(height: 12),
 
               TextFormField(
                 controller: _registrationNumberCtl,
-                decoration:
-                    const InputDecoration(labelText: "Registration Number"),
-                validator: (v) =>
-                    v == null || v.isEmpty ? "Required" : null,
+                decoration: const InputDecoration(
+                  labelText: "Registration Number *",
+                  hintText: "e.g., MH12AB1234",
+                ),
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return "Registration number is required";
+                  if (v.trim().length > 20) return "Registration number cannot exceed 20 characters";
+                  return null;
+                },
               ),
               const SizedBox(height: 12),
 
@@ -163,7 +174,7 @@ class _RegisterVehicleScreenState extends State<RegisterVehicleScreen> {
                         DropdownMenuItem(value: type, child: Text(type)))
                     .toList(),
                 onChanged: (val) => setState(() => _selectedVehicleType = val),
-                decoration: const InputDecoration(labelText: "Vehicle Type"),
+                decoration: const InputDecoration(labelText: "Vehicle Type *"),
                 validator: (v) =>
                     v == null ? "Please select vehicle type" : null,
               ),
