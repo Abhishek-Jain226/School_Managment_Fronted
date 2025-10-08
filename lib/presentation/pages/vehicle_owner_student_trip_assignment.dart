@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:async';
 import '../../services/vehicle_owner_service.dart';
 import '../../services/trip_service.dart';
 import '../../services/student_service.dart';
+import '../../services/trip_student_service.dart';
 
 class VehicleOwnerStudentTripAssignmentPage extends StatefulWidget {
   const VehicleOwnerStudentTripAssignmentPage({super.key});
@@ -15,6 +17,7 @@ class _VehicleOwnerStudentTripAssignmentPageState extends State<VehicleOwnerStud
   final VehicleOwnerService _vehicleOwnerService = VehicleOwnerService();
   final TripService _tripService = TripService();
   final StudentService _studentService = StudentService();
+  final TripStudentService _tripStudentService = TripStudentService();
   
   List<Map<String, dynamic>> _trips = [];
   List<Map<String, dynamic>> _students = [];
@@ -22,11 +25,29 @@ class _VehicleOwnerStudentTripAssignmentPageState extends State<VehicleOwnerStud
   bool _isLoading = true;
   Map<String, dynamic>? _ownerData;
   int? _currentSchoolId;
+  Timer? _refreshTimer;
+  DateTime? _lastUpdateTime;
 
   @override
   void initState() {
     super.initState();
     _loadData();
+    _startRealTimeUpdates();
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startRealTimeUpdates() {
+    // Refresh data every 30 seconds for real-time updates
+    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      if (mounted && _currentSchoolId != null) {
+        _loadAssignmentsData();
+      }
+    });
   }
 
   Future<void> _loadData() async {
@@ -42,7 +63,6 @@ class _VehicleOwnerStudentTripAssignmentPageState extends State<VehicleOwnerStud
         final ownerResponse = await _vehicleOwnerService.getOwnerByUserId(userId);
         if (ownerResponse['success'] == true) {
           _ownerData = ownerResponse['data'];
-          final ownerId = _ownerData!['ownerId'];
           
           // Load trips for the current school
           final tripsResponse = await _tripService.getTripsBySchoolMap(_currentSchoolId!);
@@ -60,30 +80,8 @@ class _VehicleOwnerStudentTripAssignmentPageState extends State<VehicleOwnerStud
             });
           }
           
-          // TODO: Load existing trip-student assignments
-          // For now, using mock data
-          setState(() {
-            _assignments = [
-              {
-                'assignmentId': 1,
-                'tripId': 1,
-                'tripName': 'Morning Pickup Route 1',
-                'studentId': 1,
-                'studentName': 'John Doe',
-                'pickupOrder': 1,
-                'assignedDate': '2024-01-15',
-              },
-              {
-                'assignmentId': 2,
-                'tripId': 1,
-                'tripName': 'Morning Pickup Route 1',
-                'studentId': 2,
-                'studentName': 'Jane Smith',
-                'pickupOrder': 2,
-                'assignedDate': '2024-01-15',
-              },
-            ];
-          });
+          // Load existing trip-student assignments
+          await _loadAssignmentsData();
         }
       }
     } catch (e) {
@@ -91,6 +89,31 @@ class _VehicleOwnerStudentTripAssignmentPageState extends State<VehicleOwnerStud
       _showError("Error loading data: $e");
     } finally {
       setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _loadAssignmentsData() async {
+    if (_currentSchoolId == null) return;
+    
+    try {
+      final assignmentsResponse = await _tripStudentService.getAllAssignmentsBySchool(_currentSchoolId!);
+      if (assignmentsResponse['success'] == true) {
+        setState(() {
+          _assignments = List<Map<String, dynamic>>.from(assignmentsResponse['data'] ?? []);
+          _lastUpdateTime = DateTime.now();
+        });
+        print("🔍 Loaded ${_assignments.length} trip-student assignments");
+      } else {
+        print("🔍 Failed to load assignments: ${assignmentsResponse['message']}");
+        setState(() {
+          _assignments = [];
+        });
+      }
+    } catch (e) {
+      print("🔍 Error loading assignments: $e");
+      setState(() {
+        _assignments = [];
+      });
     }
   }
 
@@ -214,9 +237,22 @@ class _VehicleOwnerStudentTripAssignmentPageState extends State<VehicleOwnerStud
 
   Future<void> _assignStudentToTrip(int tripId, int studentId, int pickupOrder) async {
     try {
-      // TODO: Implement actual API call to assign student to trip
-      _showSuccess("Student assigned to trip successfully");
-      _loadData(); // Refresh the list
+      final prefs = await SharedPreferences.getInstance();
+      final userName = prefs.getString("userName") ?? "Vehicle Owner";
+      
+      final response = await _tripStudentService.assignStudentToTrip(
+        tripId: tripId,
+        studentId: studentId,
+        pickupOrder: pickupOrder,
+        createdBy: userName,
+      );
+      
+      if (response['success'] == true) {
+        _showSuccess("Student assigned to trip successfully");
+        await _loadAssignmentsData(); // Refresh the assignments list
+      } else {
+        _showError("Failed to assign student: ${response['message']}");
+      }
     } catch (e) {
       _showError("Error assigning student: $e");
     }
@@ -244,9 +280,14 @@ class _VehicleOwnerStudentTripAssignmentPageState extends State<VehicleOwnerStud
 
     if (confirmed == true) {
       try {
-        // TODO: Implement actual API call
-        _showSuccess("Assignment removed successfully");
-        _loadData(); // Refresh the list
+        final response = await _tripStudentService.removeStudentFromTrip(assignmentId);
+        
+        if (response['success'] == true) {
+          _showSuccess("Assignment removed successfully");
+          await _loadAssignmentsData(); // Refresh the assignments list
+        } else {
+          _showError("Failed to remove assignment: ${response['message']}");
+        }
       } catch (e) {
         _showError("Error removing assignment: $e");
       }
@@ -257,11 +298,24 @@ class _VehicleOwnerStudentTripAssignmentPageState extends State<VehicleOwnerStud
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Student-Trip Assignments"),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text("Student-Trip Assignments"),
+            if (_lastUpdateTime != null)
+              Text(
+                "Last updated: ${_formatTime(_lastUpdateTime!)}",
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
+              ),
+          ],
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: _loadData,
+            onPressed: () async {
+              await _loadData();
+              _showSuccess("Data refreshed successfully");
+            },
           ),
         ],
       ),
@@ -459,7 +513,7 @@ class _VehicleOwnerStudentTripAssignmentPageState extends State<VehicleOwnerStud
                                     leading: CircleAvatar(
                                       backgroundColor: Colors.blue.shade600,
                                       child: Text(
-                                        assignment['pickupOrder'].toString(),
+                                        assignment['pickupOrder']?.toString() ?? '?',
                                         style: const TextStyle(
                                           color: Colors.white,
                                           fontWeight: FontWeight.bold,
@@ -474,8 +528,10 @@ class _VehicleOwnerStudentTripAssignmentPageState extends State<VehicleOwnerStud
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         Text("Trip: ${assignment['tripName'] ?? 'Unknown Trip'}"),
-                                        Text("Pickup Order: ${assignment['pickupOrder']}"),
-                                        Text("Assigned on: ${assignment['assignedDate']}"),
+                                        Text("Pickup Order: ${assignment['pickupOrder'] ?? 'Not Set'}"),
+                                        Text("Assigned on: ${_formatDate(assignment['createdDate'])}"),
+                                        if (assignment['createdBy'] != null)
+                                          Text("Created by: ${assignment['createdBy']}"),
                                       ],
                                     ),
                                     trailing: PopupMenuButton<String>(
@@ -486,7 +542,7 @@ class _VehicleOwnerStudentTripAssignmentPageState extends State<VehicleOwnerStud
                                             _showSuccess("Edit functionality coming soon");
                                             break;
                                           case 'remove':
-                                            _removeAssignment(assignment['assignmentId']);
+                                            _removeAssignment(assignment['tripStudentId']);
                                             break;
                                         }
                                       },
@@ -521,5 +577,39 @@ class _VehicleOwnerStudentTripAssignmentPageState extends State<VehicleOwnerStud
                   ],
                 ),
     );
+  }
+
+  String _formatDate(dynamic date) {
+    if (date == null) return 'Unknown date';
+    
+    try {
+      DateTime dateTime;
+      if (date is String) {
+        dateTime = DateTime.parse(date);
+      } else if (date is DateTime) {
+        dateTime = date;
+      } else {
+        return 'Unknown date';
+      }
+      
+      return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
+    } catch (e) {
+      return 'Unknown date';
+    }
+  }
+
+  String _formatTime(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+    
+    if (difference.inSeconds < 60) {
+      return 'Just now';
+    } else if (difference.inMinutes < 60) {
+      return '${difference.inMinutes}m ago';
+    } else if (difference.inHours < 24) {
+      return '${difference.inHours}h ago';
+    } else {
+      return '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+    }
   }
 }

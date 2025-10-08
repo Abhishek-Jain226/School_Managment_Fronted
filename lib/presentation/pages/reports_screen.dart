@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:typed_data';
 import '../../services/student_service.dart';
 import '../../services/vehicle_service.dart';
 import '../../services/trip_service.dart';
@@ -614,34 +615,29 @@ class _ReportsScreenState extends State<ReportsScreen>
             children: [
               CircularProgressIndicator(),
               SizedBox(width: 16),
-              Text('Exporting $type report...'),
+              Text('Downloading $type report...'),
             ],
           ),
         ),
       );
       
-      final response = await _reportService.exportReport(schoolId!, type, format);
+      // Download the actual file
+      final fileBytes = await _reportService.downloadReport(schoolId!, type, format);
       
       // Close loading dialog
       Navigator.pop(context);
       
-      if (response['success'] == true) {
-        final fileInfo = response['data'];
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Report exported successfully: ${fileInfo['fileName']}'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 3),
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Export failed: ${response['message']}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      // Save file to device
+      await _saveFileToDevice(fileBytes, type, format);
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Report downloaded successfully!'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 3),
+        ),
+      );
+      
     } catch (e) {
       // Close loading dialog if still open
       if (Navigator.canPop(context)) {
@@ -650,10 +646,50 @@ class _ReportsScreenState extends State<ReportsScreen>
       
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Export error: $e'),
+          content: Text('Download error: $e'),
           backgroundColor: Colors.red,
         ),
       );
+    }
+  }
+  
+  Future<void> _saveFileToDevice(Uint8List fileBytes, String type, String format) async {
+    try {
+      // For now, just show the file size and content preview
+      // In a real app, you would use packages like 'path_provider' and 'file_picker'
+      // to save the file to the device's download folder
+      
+      print('🔍 File downloaded: ${fileBytes.length} bytes');
+      print('🔍 File type: $type.$format');
+      
+      // Show file info dialog
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('File Downloaded'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('File Type: $type.$format'),
+              Text('File Size: ${fileBytes.length} bytes'),
+              Text('Status: Downloaded successfully'),
+              SizedBox(height: 16),
+              Text('Note: In a real app, this file would be saved to your device\'s download folder.'),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('OK'),
+            ),
+          ],
+        ),
+      );
+      
+    } catch (e) {
+      print('🔍 Error saving file: $e');
+      throw Exception('Failed to save file: $e');
     }
   }
 }

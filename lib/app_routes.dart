@@ -28,7 +28,7 @@ import 'package:school_tracker/presentation/pages/staff_management_page.dart';
 import 'package:school_tracker/presentation/pages/vehicle_owner_vehicle_management.dart';
 import 'package:school_tracker/presentation/pages/vehicle_owner_driver_management.dart';
 import 'package:school_tracker/presentation/pages/vehicle_owner_driver_assignment.dart';
-import 'package:school_tracker/presentation/pages/vehicle_owner_trip_assignment.dart';
+import 'package:school_tracker/presentation/pages/vehicle_owner_student_trip_assignment.dart';
 import 'package:school_tracker/presentation/pages/student_management_page.dart';
 import 'package:school_tracker/presentation/pages/class_management_page.dart';
 import 'package:school_tracker/presentation/pages/section_management_page.dart';
@@ -101,7 +101,7 @@ static const String createTrip = '/createTrip';
   static const vehicleOwnerDriverManagement = "/vehicle-owner-driver-management";
   static const vehicleOwnerAssignments = "/vehicle-owner-assignments";
   static const vehicleOwnerDriverAssignment = "/vehicle-owner-driver-assignment";
-  static const vehicleOwnerTripAssignment = "/vehicle-owner-trip-assignment";
+  static const vehicleOwnerStudentTripAssignment = "/vehicle-owner-student-trip-assignment";
   static const studentManagement = "/student-management";
   static const classManagement = "/class-management";
   static const sectionManagement = "/section-management";
@@ -157,7 +157,7 @@ static const String createTrip = '/createTrip';
   vehicleOwnerDriverManagement: (context) => const VehicleOwnerDriverManagementPage(),
   //vehicleOwnerAssignments: (context) => const VehicleOwnerAssignmentsPage(),
   vehicleOwnerDriverAssignment: (context) => const VehicleOwnerDriverAssignmentPage(),
-  vehicleOwnerTripAssignment: (context) => const VehicleOwnerTripAssignmentPage(),
+  vehicleOwnerStudentTripAssignment: (context) => const VehicleOwnerStudentTripAssignmentPage(),
   studentManagement: (context) => const StudentManagementPage(),
 
       vehicleOwnerProfile: (context) {

@@ -1,5 +1,6 @@
 // lib/services/report_service.dart
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'auth_service.dart';
@@ -98,6 +99,27 @@ class ReportService {
       return jsonDecode(resp.body) as Map<String, dynamic>;
     } else {
       throw Exception("Export report request failed: ${resp.statusCode} ${resp.body}");
+    }
+  }
+
+  // Download report file
+  Future<Uint8List> downloadReport(int schoolId, String type, String format) async {
+    final token = await _auth.getToken();
+    
+    final url = Uri.parse("$base/api/reports/download/$schoolId?type=$type&format=$format");
+    print("🔍 ReportService: downloadReport URL: $url");
+    
+    final headers = {
+      if (token != null) "Authorization": "Bearer $token",
+    };
+
+    final resp = await http.get(url, headers: headers);
+    print("🔍 ReportService: downloadReport response status: ${resp.statusCode}");
+
+    if (resp.statusCode == 200) {
+      return resp.bodyBytes;
+    } else {
+      throw Exception("Download report request failed: ${resp.statusCode} ${resp.body}");
     }
   }
 }

@@ -297,7 +297,7 @@ class _VehicleOwnerDashboardPageState extends State<VehicleOwnerDashboardPage> {
                     title: "Student-Trip Assignment",
                     onTap: () {
                       Navigator.pop(context);
-                      Navigator.pushNamed(context, AppRoutes.vehicleOwnerTripAssignment);
+                      Navigator.pushNamed(context, AppRoutes.vehicleOwnerStudentTripAssignment);
                     },
                   ),
                 ]),
