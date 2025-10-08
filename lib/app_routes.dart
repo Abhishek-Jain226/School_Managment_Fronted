@@ -8,6 +8,9 @@ import 'package:school_tracker/presentation/pages/gate_staff_dashboard.dart';
 import 'package:school_tracker/presentation/pages/ownerdashboard.dart';
 import 'package:school_tracker/presentation/pages/parent_dashboard_page.dart';
 import 'package:school_tracker/presentation/pages/parent_profile_page.dart';
+import 'package:school_tracker/presentation/pages/attendance_history_page.dart';
+import 'package:school_tracker/presentation/pages/monthly_report_page.dart';
+import 'package:school_tracker/presentation/pages/parent_profile_update_page.dart';
 import 'package:school_tracker/presentation/pages/pending_vehicle_requests_page.dart';
 import 'package:school_tracker/presentation/pages/privacy_policy_screen.dart';
 import 'package:school_tracker/presentation/pages/register_driver_screen.dart';
@@ -36,7 +39,6 @@ import 'presentation/pages/login_screen.dart';
 import 'presentation/pages/register_school_screen.dart';
 import 'presentation/pages/register_student_screen.dart';
 import 'presentation/pages/dashboard_page.dart';
-import 'presentation/pages/add_vehicle_page.dart';
 
 class AppRoutes {
   static const splash = '/';
@@ -63,6 +65,9 @@ class AppRoutes {
   static const String vehicleOwnerDashboard = "/vehicle-owner-dashboard";
 
   static const String parentDashboard = '/parent-dashboard';
+  static const String attendanceHistory = '/attendance-history';
+  static const String monthlyReport = '/monthly-report';
+  static const String parentProfileUpdate = '/parent-profile-update';
 
    static const String registerDriver = '/register-driver';
 
@@ -88,7 +93,7 @@ static const String createTrip = '/createTrip';
     
  static const String studentProfile = '/studentProfile';
 
-static const requestVehicle = "/request-vehicle";
+  static const requestVehicle = "/request-vehicle";
   static const pendingRequests = "/pending-requests";
   
   // Vehicle Owner Management Pages
@@ -122,6 +127,9 @@ static const requestVehicle = "/request-vehicle";
     vehicleOwnerDashboard: (_) => const VehicleOwnerDashboardPage(),
 
     parentDashboard: (_) => const ParentDashboardPage(),
+    attendanceHistory: (_) => const AttendanceHistoryPage(),
+    monthlyReport: (_) => const MonthlyReportPage(),
+    parentProfileUpdate: (_) => const ParentProfileUpdatePage(),
 
     registerDriver: (_) => const RegisterDriverScreen(),
 

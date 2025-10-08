@@ -11,7 +11,7 @@ class Trip {
   final int vehicleId;
   final String vehicleNumber;
   final String vehicleType;
-  final int vehicleCapacity;
+  final int? vehicleCapacity;
   
   // School Information
   final int schoolId;

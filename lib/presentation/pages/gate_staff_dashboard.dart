@@ -1,15 +1,106 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/auth_service.dart';
+import '../../services/gate_staff_service.dart';
 import '../../app_routes.dart';
 
-class GateStaffDashboardPage extends StatelessWidget {
+class GateStaffDashboardPage extends StatefulWidget {
   const GateStaffDashboardPage({Key? key}) : super(key: key);
 
-  final List<Map<String, String>> dummyStudents = const [
-    {"studentName": "Rahul Sharma", "tripName": "Trip A"},
-    {"studentName": "Anjali Verma", "tripName": "Trip B"},
-    {"studentName": "Arjun Singh", "tripName": "Trip A"},
-  ];
+  @override
+  State<GateStaffDashboardPage> createState() => _GateStaffDashboardPageState();
+}
+
+class _GateStaffDashboardPageState extends State<GateStaffDashboardPage> {
+  final GateStaffService _gateStaffService = GateStaffService();
+  final AuthService _authService = AuthService();
+  
+  int? _userId;
+  bool _isLoading = true;
+  Map<String, dynamic>? _dashboardData;
+  String _error = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserId();
+  }
+
+  Future<void> _loadUserId() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _userId = prefs.getInt('userId');
+    });
+    
+    if (_userId != null) {
+      _loadDashboardData();
+    } else {
+      setState(() {
+        _error = 'User ID not found. Please login again.';
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _loadDashboardData() async {
+    if (_userId == null) return;
+    
+    setState(() => _isLoading = true);
+    
+    try {
+      final response = await _gateStaffService.getGateStaffDashboard(_userId!);
+      print('🔍 Dashboard response: $response');
+      
+      if (response['success'] == true) {
+        setState(() {
+          _dashboardData = response['data'];
+          _error = '';
+        });
+        print('🔍 Dashboard data loaded successfully');
+      } else {
+        setState(() {
+          _error = response['message'] ?? 'Failed to load dashboard data';
+        });
+      }
+    } catch (e) {
+      print('🔍 Error loading dashboard: $e');
+      setState(() {
+        _error = 'Error loading dashboard: $e';
+      });
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _markGateEvent(int studentId, int tripId, String eventType, String remarks) async {
+    if (_userId == null) return;
+    
+    try {
+      Map<String, dynamic> response;
+      if (eventType == 'entry') {
+        response = await _gateStaffService.markGateEntry(_userId!, studentId, tripId, remarks);
+      } else {
+        response = await _gateStaffService.markGateExit(_userId!, studentId, tripId, remarks);
+      }
+      
+      if (response['success'] == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gate $eventType marked successfully!')),
+        );
+        // Reload dashboard data
+        _loadDashboardData();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: ${response['message']}')),
+        );
+      }
+    } catch (e) {
+      print('🔍 Error marking gate event: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error marking gate $eventType: $e')),
+      );
+    }
+  }
 
   void _showLogoutDialog(BuildContext context) {
     showDialog(
@@ -37,8 +128,7 @@ class GateStaffDashboardPage extends StatelessWidget {
 
   Future<void> _logout(BuildContext context) async {
     try {
-      final authService = AuthService();
-      await authService.logout();
+      await _authService.logout();
       
       // Navigate to login screen and clear navigation stack
       Navigator.pushNamedAndRemoveUntil(
@@ -68,7 +158,14 @@ class GateStaffDashboardPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Gate Staff Dashboard"),
+        backgroundColor: Colors.blue,
+        foregroundColor: Colors.white,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadDashboardData,
+            tooltip: 'Refresh',
+          ),
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () => _showLogoutDialog(context),
@@ -76,119 +173,363 @@ class GateStaffDashboardPage extends StatelessWidget {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: EdgeInsets.all(16),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _error.isNotEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.error, size: 64, color: Colors.red),
+                      SizedBox(height: 16),
+                      Text(
+                        'Error',
+                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        _error,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 16),
+                      ),
+                      SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: _loadDashboardData,
+                        child: Text('Retry'),
+                      ),
+                    ],
+                  ),
+                )
+              : _dashboardData == null
+                  ? const Center(child: Text('No data available'))
+                  : _buildDashboardContent(),
+    );
+  }
+
+  Widget _buildDashboardContent() {
+    final data = _dashboardData!;
+    final gateStaffName = data['gateStaffName'] ?? 'Gate Staff';
+    final schoolName = data['schoolName'] ?? 'School';
+    final totalStudents = data['totalStudents'] ?? 0;
+    final studentsWithGateEntry = data['studentsWithGateEntry'] ?? 0;
+    final studentsWithGateExit = data['studentsWithGateExit'] ?? 0;
+    final studentsByTrip = data['studentsByTrip'] as List<dynamic>? ?? [];
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Welcome Section
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.blue.shade400, Colors.blue.shade600],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Welcome, $gateStaffName!',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  schoolName,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 16,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          const SizedBox(height: 20),
+          
+          // Statistics Cards
+          Row(
+            children: [
+              Expanded(
+                child: _buildStatCard(
+                  "Total Students",
+                  totalStudents.toString(),
+                  Colors.blue,
+                  Icons.people,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildStatCard(
+                  "Gate Entry",
+                  studentsWithGateEntry.toString(),
+                  Colors.green,
+                  Icons.login,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildStatCard(
+                  "Gate Exit",
+                  studentsWithGateExit.toString(),
+                  Colors.orange,
+                  Icons.logout,
+                ),
+              ),
+            ],
+          ),
+          
+          const SizedBox(height: 20),
+          
+          // Students by Trip Section
+          Text(
+            "Students by Trip",
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
+          
+          if (studentsByTrip.isEmpty)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(32.0),
+                child: Text(
+                  'No trips scheduled for today',
+                  style: TextStyle(fontSize: 16, color: Colors.grey),
+                ),
+              ),
+            )
+          else
+            ...studentsByTrip.map((tripData) => _buildTripCard(tripData)).toList(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatCard(String title, String value, Color color, IconData icon) {
+    return Card(
+      elevation: 4,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            Icon(icon, color: color, size: 32),
+            const SizedBox(height: 8),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTripCard(Map<String, dynamic> tripData) {
+    final tripName = tripData['tripName'] ?? 'Unknown Trip';
+    final vehicleNumber = tripData['vehicleNumber'] ?? 'Unknown Vehicle';
+    final driverName = tripData['driverName'] ?? 'No Driver';
+    final students = tripData['students'] as List<dynamic>? ?? [];
+    final studentCount = tripData['studentCount'] ?? 0;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      elevation: 4,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 🔹 Dashboard Summary Cards
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                _buildStatCard("Total Students", "45", Colors.blue),
-                _buildStatCard("Active Trips", "3", Colors.green),
-                _buildStatCard("Notifications", "12", Colors.orange),
-              ],
-            ),
-            SizedBox(height: 20),
-
-            // 🔹 Student List Section
-            Text(
-              "Student List (Static)",
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            SizedBox(height: 10),
-
-            ListView.builder(
-              shrinkWrap: true,
-              physics: NeverScrollableScrollPhysics(),
-              itemCount: dummyStudents.length,
-              itemBuilder: (context, index) {
-                final student = dummyStudents[index];
-                return Card(
-                  margin: EdgeInsets.symmetric(vertical: 6),
-                  child: ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: Colors.blueAccent,
-                      child: Icon(Icons.person, color: Colors.white),
-                    ),
-                    title: Text(student["studentName"] ?? "Unknown"),
-                    subtitle: Text("Trip: ${student["tripName"]}"),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        ElevatedButton(
-                          onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                  content: Text(
-                                      "${student["studentName"]} - Entry Marked")),
-                            );
-                          },
-                          child: Text("Entry"),
-                          style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                        ),
-                        SizedBox(width: 8),
-                        ElevatedButton(
-                          onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                  content: Text(
-                                      "${student["studentName"]} - Exit Marked")),
-                            );
-                          },
-                          child: Text("Exit"),
-                          style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                        ),
-                      ],
+                Icon(Icons.directions_bus, color: Colors.blue),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    tripName,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                );
-              },
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade100,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '$studentCount students',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.blue.shade700,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
             ),
-            SizedBox(height: 20),
-
-            // 🔹 Notifications Section (Static)
+            const SizedBox(height: 8),
             Text(
-              "Recent Notifications",
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              'Vehicle: $vehicleNumber',
+              style: TextStyle(color: Colors.grey[600]),
             ),
-            SizedBox(height: 10),
-            _buildNotificationTile("Rahul Sharma entered school gate"),
-            _buildNotificationTile("Anjali Verma exited to vehicle"),
-            _buildNotificationTile("Trip A completed successfully"),
+            if (driverName != 'No Driver')
+              Text(
+                'Driver: $driverName',
+                style: TextStyle(color: Colors.grey[600]),
+              ),
+            const SizedBox(height: 12),
+            
+            if (students.isEmpty)
+              const Text(
+                'No students assigned to this trip',
+                style: TextStyle(color: Colors.grey),
+              )
+            else
+              ...students.map((student) => _buildStudentCard(student)).toList(),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildStatCard(String title, String value, Color color) {
-    return Card(
-      color: color.withOpacity(0.1),
-      child: Container(
-        width: 100,
-        height: 80,
-        padding: EdgeInsets.all(8),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(value,
-                style: TextStyle(
-                    fontSize: 22, fontWeight: FontWeight.bold, color: color)),
-            SizedBox(height: 4),
-            Text(title, style: TextStyle(fontSize: 12)),
-          ],
-        ),
-      ),
-    );
-  }
+  Widget _buildStudentCard(Map<String, dynamic> studentData) {
+    final studentId = studentData['studentId'];
+    final tripId = studentData['tripId'] ?? _dashboardData?['studentsByTrip']?.first?['tripId'];
+    final firstName = studentData['firstName'] ?? '';
+    final middleName = studentData['middleName'] ?? '';
+    final lastName = studentData['lastName'] ?? '';
+    final grade = studentData['grade'] ?? '';
+    final section = studentData['section'] ?? '';
+    final hasGateEntry = studentData['hasGateEntry'] ?? false;
+    final hasGateExit = studentData['hasGateExit'] ?? false;
+    
+    final studentName = '$firstName ${middleName.isNotEmpty ? '$middleName ' : ''}$lastName'.trim();
 
-  Widget _buildNotificationTile(String message) {
     return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      color: hasGateEntry && hasGateExit ? Colors.green.shade50 : null,
       child: ListTile(
-        leading: Icon(Icons.notifications, color: Colors.orange),
-        title: Text(message),
+        leading: CircleAvatar(
+          backgroundColor: hasGateEntry && hasGateExit ? Colors.green : Colors.blue,
+          child: Icon(
+            hasGateEntry && hasGateExit ? Icons.check : Icons.person,
+            color: Colors.white,
+          ),
+        ),
+        title: Text(studentName),
+        subtitle: Text('$grade - $section'),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (!hasGateEntry)
+              ElevatedButton(
+                onPressed: () => _showRemarksDialog(studentId, tripId, 'entry'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
+                child: const Text("Entry"),
+              )
+            else
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade100,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Text(
+                  "✓ Entry",
+                  style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
+                ),
+              ),
+            const SizedBox(width: 8),
+            if (!hasGateExit)
+              ElevatedButton(
+                onPressed: () => _showRemarksDialog(studentId, tripId, 'exit'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
+                child: const Text("Exit"),
+              )
+            else
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade100,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Text(
+                  "✓ Exit",
+                  style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showRemarksDialog(int studentId, int tripId, String eventType) {
+    final TextEditingController remarksController = TextEditingController();
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Mark Gate ${eventType.toUpperCase()}'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Add remarks (optional):'),
+            const SizedBox(height: 8),
+            TextField(
+              controller: remarksController,
+              decoration: const InputDecoration(
+                hintText: 'Enter remarks...',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 2,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _markGateEvent(studentId, tripId, eventType, remarksController.text);
+            },
+            child: Text('Mark ${eventType.toUpperCase()}'),
+          ),
+        ],
       ),
     );
   }

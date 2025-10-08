@@ -3,7 +3,8 @@ class VehicleRequest {
   String vehicleNumber;
   String registrationNumber;
   String? vehiclePhoto; // base64 string
-   String vehicleType;
+  String vehicleType;
+  int capacity;
 
   String createdBy;
 
@@ -13,6 +14,7 @@ class VehicleRequest {
     this.vehiclePhoto,
     required this.createdBy,
     required this.vehicleType,
+    required this.capacity,
   });
 
   Map<String, dynamic> toJson() => {
@@ -20,6 +22,7 @@ class VehicleRequest {
         "registrationNumber": registrationNumber,
         "vehiclePhoto": vehiclePhoto,
         "createdBy": createdBy,
-         "vehicleType": vehicleType,
+        "vehicleType": vehicleType,
+        "capacity": capacity,
       };
 }

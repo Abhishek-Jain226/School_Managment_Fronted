@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/models/driver_dashboard.dart';
@@ -24,11 +25,55 @@ class _DriverDashboardPageState extends State<DriverDashboardPage> {
   bool _isLoading = true;
   String? _error;
   int? _driverId;
+  Timer? _refreshTimer;
+  bool _isRefreshing = false;
 
   @override
   void initState() {
     super.initState();
     _loadDriverData();
+    _startPeriodicRefresh();
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startPeriodicRefresh() {
+    // Refresh data every 30 seconds for real-time updates
+    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      if (mounted && !_isRefreshing) {
+        _refreshDataSilently();
+      }
+    });
+  }
+
+  Future<void> _refreshDataSilently() async {
+    if (_driverId == null || _isRefreshing) return;
+    
+    setState(() => _isRefreshing = true);
+    
+    try {
+      final results = await Future.wait([
+        _driverService.getDriverDashboard(_driverId!),
+        _driverService.getAssignedTrips(_driverId!),
+      ]);
+
+      if (mounted && results.length >= 2 && results[0] != null && results[1] != null) {
+        setState(() {
+          _dashboard = results[0] as DriverDashboard;
+          _assignedTrips = results[1] as List<Trip>;
+          _isRefreshing = false;
+        });
+      }
+    } catch (e) {
+      print('🔍 Silent refresh error: $e');
+      if (mounted) {
+        setState(() => _isRefreshing = false);
+      }
+    }
   }
 
   Future<void> _loadDriverData() async {
@@ -44,26 +89,14 @@ class _DriverDashboardPageState extends State<DriverDashboardPage> {
       
       print('🔍 Driver ID loaded from preferences: $_driverId');
       
-      // Debug: Print all stored preferences
-      final allKeys = prefs.getKeys();
-      print('🔍 All stored preferences: $allKeys');
-      for (String key in allKeys) {
-        print('🔍 $key: ${prefs.get(key)}');
-      }
-      
+      // If driverId is null, try to get it from userId
       if (_driverId == null) {
-        print('⚠️ Driver ID is null! Checking if user has DRIVER role...');
+        print('⚠️ Driver ID is null! Trying to fetch from userId...');
         
-        // Check if user has DRIVER role but driverId is missing
+        final userId = prefs.getInt('userId');
         final role = prefs.getString('role');
-        print('🔍 User role: $role');
         
-        if (role == 'DRIVER') {
-          print('🔍 User has DRIVER role but driverId is null. Trying to fetch driverId from userId...');
-          
-          // Try to get driverId from userId
-          final userId = prefs.getInt('userId');
-          if (userId != null) {
+        if (userId != null && role == 'DRIVER') {
             try {
               // Call backend to get driverId from userId
               final driverResponse = await _driverService.getDriverByUserId(userId);
@@ -75,26 +108,13 @@ class _DriverDashboardPageState extends State<DriverDashboardPage> {
                 // Save driverId for future use
                 await prefs.setInt('driverId', _driverId!);
                 print('🔍 Saved driverId to preferences');
-                
-                // Continue with dashboard loading
               } else {
-                setState(() {
-                  _error = 'Driver record not found for this user. Please register as driver again.';
-                  _isLoading = false;
-                });
-                return;
+              throw Exception('Driver record not found');
               }
             } catch (e) {
               print('🔍 Error fetching driverId from userId: $e');
-              setState(() {
-                _error = 'Driver ID not found but user has DRIVER role. Please contact support or register as driver again.';
-                _isLoading = false;
-              });
-              return;
-            }
-          } else {
             setState(() {
-              _error = 'Driver ID not found but user has DRIVER role. Please contact support or register as driver again.';
+              _error = 'Driver record not found. Please contact support or register as driver again.';
               _isLoading = false;
             });
             return;
@@ -108,16 +128,30 @@ class _DriverDashboardPageState extends State<DriverDashboardPage> {
         }
       }
 
-      // Load dashboard data and assigned trips
-      final dashboard = await _driverService.getDriverDashboard(_driverId!);
-      final trips = await _driverService.getAssignedTrips(_driverId!);
+      // Load dashboard data and assigned trips in parallel
+      final results = await Future.wait([
+        _driverService.getDriverDashboard(_driverId!),
+        _driverService.getAssignedTrips(_driverId!),
+      ]);
 
-      setState(() {
-        _dashboard = dashboard;
-        _assignedTrips = trips;
-        _isLoading = false;
-      });
+      // Validate results before setting state
+      if (results.length >= 2 && results[0] != null && results[1] != null) {
+        print('🔍 Dashboard data type: ${results[0].runtimeType}');
+        print('🔍 Trips data type: ${results[1].runtimeType}');
+        
+        setState(() {
+          _dashboard = results[0] as DriverDashboard;
+          _assignedTrips = results[1] as List<Trip>;
+          _isLoading = false;
+        });
+      } else {
+        print('🔍 Invalid results: length=${results.length}, [0]=${results[0]}, [1]=${results[1]}');
+        throw Exception('Invalid response from server');
+      }
+      
+      print('🔍 Dashboard loaded successfully');
     } catch (e) {
+      print('🔍 Error loading driver data: $e');
       setState(() {
         _error = 'Failed to load driver data: $e';
         _isLoading = false;
@@ -129,53 +163,6 @@ class _DriverDashboardPageState extends State<DriverDashboardPage> {
     await _loadDriverData();
   }
 
-  /// Info card widget
-  Widget _buildInfoCard(String label, String value, {IconData? icon, Color? valueColor}) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 18.0, horizontal: 12.0),
-        child: Row(
-          children: [
-            if (icon != null) Icon(icon, color: Colors.blueGrey, size: 24),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label,
-                    style: const TextStyle(fontSize: 14, color: Colors.black54)),
-                const SizedBox(height: 6),
-                Text(value,
-                    style: TextStyle(
-                        fontSize: 18, 
-                        fontWeight: FontWeight.bold,
-                        color: valueColor ?? Colors.black)),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Quick Action button
-  Widget _buildQuickAction(String label, IconData icon, VoidCallback onTap, {bool isEnabled = true}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6.0),
-      child: ElevatedButton.icon(
-        onPressed: isEnabled ? onTap : null,
-        style: ElevatedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-          minimumSize: const Size.fromHeight(48),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          backgroundColor: isEnabled ? null : Colors.grey[300],
-        ),
-        icon: Icon(icon),
-        label: Text(label),
-      ),
-    );
-  }
 
   Widget _buildTripCard(Trip trip) {
     Color statusColor = Colors.grey;
@@ -202,33 +189,230 @@ class _DriverDashboardPageState extends State<DriverDashboardPage> {
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 4),
-      child: ListTile(
-        leading: Icon(statusIcon, color: statusColor),
-        title: Text(trip.tripName),
-        subtitle: Column(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: statusColor.withOpacity(0.3), width: 1),
+      ),
+      child: InkWell(
+        onTap: () => _navigateToTripDetails(trip),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: statusColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(statusIcon, color: statusColor, size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('${trip.tripType} - ${trip.scheduledTime ?? 'No time set'}'),
-            Text('Students: ${trip.totalStudents} | Picked: ${trip.studentsPickedUp} | Dropped: ${trip.studentsDropped}'),
-          ],
-        ),
-        trailing: Text(
+                        Text(
+                          trip.tripName,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                        Text(
+                          '${trip.tripType} - ${trip.scheduledTime ?? 'No time set'}',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: statusColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: statusColor, width: 1),
+                    ),
+                    child: Text(
           trip.tripStatus ?? 'Unknown',
           style: TextStyle(
             color: statusColor,
             fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  _buildStudentStatChip('Total', trip.totalStudents, Colors.blue),
+                  const SizedBox(width: 8),
+                  _buildStudentStatChip('Picked', trip.studentsPickedUp, Colors.green),
+                  const SizedBox(width: 8),
+                  _buildStudentStatChip('Dropped', trip.studentsDropped, Colors.purple),
+                  const SizedBox(width: 8),
+                  _buildStudentStatChip('Absent', trip.studentsAbsent, Colors.red),
+                ],
+              ),
+            ],
           ),
         ),
-        onTap: () => _navigateToTripDetails(trip),
+      ),
+    );
+  }
+
+  Widget _buildStudentStatChip(String label, int count, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        '$label: $count',
+        style: TextStyle(
+          color: color,
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+        ),
       ),
     );
   }
 
   void _navigateToTripDetails(Trip trip) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => TripDetailsPage(trip: trip),
+    _showTripDetailsDialog(trip);
+  }
+
+  void _showTripDetailsDialog(Trip trip) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.route, color: _getStatusColor(trip.tripStatus)),
+            const SizedBox(width: 8),
+            Expanded(child: Text(trip.tripName)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildTripDetailRow('Type', trip.tripType ?? 'N/A'),
+            _buildTripDetailRow('Time', trip.scheduledTime ?? 'Not set'),
+            _buildTripDetailRow('Status', trip.tripStatus ?? 'Unknown'),
+            _buildTripDetailRow('Students', '${trip.totalStudents} total'),
+            _buildTripDetailRow('Picked Up', '${trip.studentsPickedUp}'),
+            _buildTripDetailRow('Dropped', '${trip.studentsDropped}'),
+            _buildTripDetailRow('Absent', '${trip.studentsAbsent}'),
+            const SizedBox(height: 16),
+            Text(
+              'Students:',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            ...trip.students.take(3).map((student) => 
+              ListTile(
+                leading: CircleAvatar(
+                  radius: 16,
+                  backgroundColor: Colors.blue,
+                  child: Text(
+                    student.studentName[0].toUpperCase(),
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                  ),
+                ),
+                title: Text(student.studentName),
+                subtitle: Text('${student.className} - ${student.sectionName}'),
+                trailing: _getAttendanceStatusChip(student.attendanceStatus),
+                dense: true,
+              ),
+            ),
+            if (trip.students.length > 3)
+              Text(
+                '... and ${trip.students.length - 3} more students',
+                style: TextStyle(color: Colors.grey[600], fontSize: 12),
+              ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _navigateToStudentAttendance(trip);
+            },
+            child: const Text('View Students'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTripDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 80,
+            child: Text(
+              '$label:',
+              style: const TextStyle(fontWeight: FontWeight.w500),
+            ),
+          ),
+          Expanded(child: Text(value)),
+        ],
+      ),
+    );
+  }
+
+  Widget _getAttendanceStatusChip(String status) {
+    Color color;
+    switch (status) {
+      case 'PENDING':
+        color = Colors.orange;
+        break;
+      case 'PICKED_UP':
+        color = Colors.blue;
+        break;
+      case 'DROPPED':
+        color = Colors.green;
+        break;
+      case 'ABSENT':
+        color = Colors.red;
+        break;
+      default:
+        color = Colors.grey;
+    }
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color, width: 1),
+      ),
+      child: Text(
+        status,
+        style: TextStyle(
+          color: color,
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }
@@ -268,28 +452,156 @@ class _DriverDashboardPageState extends State<DriverDashboardPage> {
 
   Future<void> _startTrip(Trip trip) async {
     try {
-      await _driverService.startTrip(_driverId!, trip.tripId);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Trip "${trip.tripName}" started successfully!')),
+      // Show loading dialog
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const AlertDialog(
+          content: Row(
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(width: 16),
+              Text('Starting trip...'),
+            ],
+          ),
+        ),
       );
+
+      await _driverService.startTrip(_driverId!, trip.tripId);
+      
+      // Close loading dialog
+      Navigator.pop(context);
+      
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle, color: Colors.white),
+              const SizedBox(width: 8),
+              Expanded(child: Text('Trip "${trip.tripName}" started successfully!')),
+            ],
+          ),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+      
+      // Refresh data
       _refreshData();
     } catch (e) {
+      // Close loading dialog if still open
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
+      
+      // Show error message
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to start trip: $e')),
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.error, color: Colors.white),
+              const SizedBox(width: 8),
+              Expanded(child: Text('Failed to start trip: $e')),
+            ],
+          ),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 4),
+          action: SnackBarAction(
+            label: 'Retry',
+            textColor: Colors.white,
+            onPressed: () => _startTrip(trip),
+          ),
+        ),
       );
     }
   }
 
   Future<void> _endTrip(Trip trip) async {
     try {
-      await _driverService.endTrip(_driverId!, trip.tripId);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Trip "${trip.tripName}" ended successfully!')),
+      // Show confirmation dialog
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('End Trip'),
+          content: Text('Are you sure you want to end trip "${trip.tripName}"?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              child: const Text('End Trip'),
+            ),
+          ],
+        ),
       );
+
+      if (confirmed != true) return;
+
+      // Show loading dialog
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const AlertDialog(
+          content: Row(
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(width: 16),
+              Text('Ending trip...'),
+            ],
+          ),
+        ),
+      );
+
+      await _driverService.endTrip(_driverId!, trip.tripId);
+      
+      // Close loading dialog
+      Navigator.pop(context);
+      
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle, color: Colors.white),
+              const SizedBox(width: 8),
+              Expanded(child: Text('Trip "${trip.tripName}" ended successfully!')),
+            ],
+          ),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+      
+      // Refresh data
       _refreshData();
     } catch (e) {
+      // Close loading dialog if still open
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
+      
+      // Show error message
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to end trip: $e')),
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.error, color: Colors.white),
+              const SizedBox(width: 8),
+              Expanded(child: Text('Failed to end trip: $e')),
+            ],
+          ),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 4),
+          action: SnackBarAction(
+            label: 'Retry',
+            textColor: Colors.white,
+            onPressed: () => _endTrip(trip),
+          ),
+        ),
       );
     }
   }
@@ -358,9 +670,23 @@ class _DriverDashboardPageState extends State<DriverDashboardPage> {
           ],
         ),
         actions: [
+          // Real-time indicator
+          if (_isRefreshing)
+            const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              ),
+            ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _refreshData,
+            tooltip: 'Refresh Data',
           ),
           IconButton(
             icon: const Icon(Icons.logout),
@@ -397,134 +723,212 @@ class _DriverDashboardPageState extends State<DriverDashboardPage> {
                     physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.all(16),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Driver Info
-                        if (_dashboard != null) ...[
-                          _buildInfoCard("Driver Name", _dashboard!.driverName,
-                              icon: Icons.person),
-                          _buildInfoCard("Contact", _dashboard!.driverContactNumber,
-                              icon: Icons.phone),
-                          
-                          const SizedBox(height: 16),
-                          
-                          // Vehicle Info
-                          _buildInfoCard("Assigned Vehicle", _dashboard!.vehicleNumber,
-                              icon: Icons.directions_bus),
-                          _buildInfoCard("Vehicle Type", _dashboard!.vehicleType,
-                              icon: Icons.local_taxi),
-                          _buildInfoCard("Capacity", "${_dashboard!.vehicleCapacity} students",
-                              icon: Icons.group),
-                          
-                          const SizedBox(height: 16),
-                          
-                          // School Info
-                          _buildInfoCard("School", _dashboard!.schoolName,
-                              icon: Icons.school),
-                          
-                          const SizedBox(height: 16),
-                          
-                          // Trip Statistics
-                          _buildInfoCard("Total Trips Today", "${_dashboard!.totalTripsToday}",
-                              icon: Icons.route),
-                          _buildInfoCard("Completed Trips", "${_dashboard!.completedTrips}",
-                              icon: Icons.check_circle, valueColor: Colors.green),
-                          _buildInfoCard("Pending Trips", "${_dashboard!.pendingTrips}",
-                              icon: Icons.schedule, valueColor: Colors.orange),
-                          
-                          const SizedBox(height: 16),
-                          
-                          // Student Statistics
-                          _buildInfoCard("Total Students Today", "${_dashboard!.totalStudentsToday}",
-                              icon: Icons.group),
-                          _buildInfoCard("Students Picked Up", "${_dashboard!.studentsPickedUp}",
-                              icon: Icons.person_add, valueColor: Colors.blue),
-                          _buildInfoCard("Students Dropped", "${_dashboard!.studentsDropped}",
-                              icon: Icons.person_remove, valueColor: Colors.green),
-                          
-                          const SizedBox(height: 20),
-                          const Divider(),
-                          
-                          // Current Trip Info
-                          if (_dashboard!.currentTripId != null) ...[
-                            const Text("Current Trip",
-                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                            const SizedBox(height: 12),
-                            _buildInfoCard("Trip Name", _dashboard!.currentTripName ?? "Unknown",
-                                icon: Icons.route),
-                            _buildInfoCard("Status", _dashboard!.currentTripStatus ?? "Unknown",
-                                icon: Icons.info, valueColor: _getStatusColor(_dashboard!.currentTripStatus)),
-                            _buildInfoCard("Students", "${_dashboard!.currentTripStudentCount}",
-                                icon: Icons.group),
+                        // ✅ Welcome Section
+                        Text(
+                          'Welcome, ${_dashboard?.driverName ?? 'Driver'}!',
+                          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          'School: ${_dashboard?.schoolName ?? 'N/A'}',
+                          style: const TextStyle(fontSize: 16, color: Colors.grey),
+                        ),
+                        const SizedBox(height: 20),
+
+                        // ✅ Dashboard Summary Cards
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            _buildStatCard(
+                              "Total Trips",
+                              (_dashboard?.totalTripsToday ?? 0).toString(),
+                              Colors.blue,
+                            ),
+                            _buildStatCard(
+                              "Completed",
+                              (_dashboard?.completedTrips ?? 0).toString(),
+                              Colors.green,
+                            ),
+                            _buildStatCard(
+                              "Pending",
+                              (_dashboard?.pendingTrips ?? 0).toString(),
+                              Colors.orange,
+                            ),
                           ],
+                        ),
+                        const SizedBox(height: 20),
+
+                        // ✅ Driver & Vehicle Info Card
+                        Card(
+                          elevation: 3,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text("Driver & Vehicle Information",
+                                    style: TextStyle(
+                                        fontSize: 18, fontWeight: FontWeight.bold)),
+                                const SizedBox(height: 12),
+                                ListTile(
+                                  leading: const CircleAvatar(
+                                    backgroundColor: Colors.blueAccent,
+                                    child: Icon(Icons.person, color: Colors.white),
+                                  ),
+                                  title: Text("Driver: ${_dashboard?.driverName ?? 'N/A'}"),
+                                  subtitle: Text("Contact: ${_dashboard?.driverContactNumber ?? 'N/A'}"),
+                                ),
+                                ListTile(
+                                  leading: const Icon(Icons.directions_bus),
+                                  title: Text("Vehicle: ${_dashboard?.vehicleNumber ?? 'N/A'}"),
+                                  subtitle: Text("Type: ${_dashboard?.vehicleType ?? 'N/A'} | Capacity: ${_dashboard?.vehicleCapacity ?? 'Not Set'} students"),
+                                ),
+                                ListTile(
+                                  leading: const Icon(Icons.school),
+                                  title: Text("School: ${_dashboard?.schoolName ?? 'N/A'}"),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                          const SizedBox(height: 16),
                           
-                          const SizedBox(height: 20),
-                          const Divider(),
+                        // ✅ Student Statistics Card
+                        Card(
+                          elevation: 3,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text("Today's Student Statistics",
+                                    style: TextStyle(
+                                        fontSize: 18, fontWeight: FontWeight.bold)),
+                                const SizedBox(height: 12),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                  children: [
+                                    _buildStatCard(
+                                      "Total Students",
+                                      (_dashboard?.totalStudentsToday ?? 0).toString(),
+                                      Colors.purple,
+                                    ),
+                                    _buildStatCard(
+                                      "Picked Up",
+                                      (_dashboard?.studentsPickedUp ?? 0).toString(),
+                                      Colors.blue,
+                                    ),
+                                    _buildStatCard(
+                                      "Dropped",
+                                      (_dashboard?.studentsDropped ?? 0).toString(),
+                                      Colors.green,
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                          const SizedBox(height: 16),
                           
-                          // Assigned Trips
+                        // ✅ Current Trip Info Card
+                        if (_dashboard?.currentTripId != null) ...[
+                          Card(
+                            elevation: 3,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                            child: Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text("Current Trip",
+                                      style: TextStyle(
+                                          fontSize: 18, fontWeight: FontWeight.bold)),
+                                  const SizedBox(height: 12),
+                                  ListTile(
+                                    leading: Icon(
+                                      Icons.route,
+                                      color: _getStatusColor(_dashboard!.currentTripStatus),
+                                    ),
+                                    title: Text(_dashboard!.currentTripName ?? "Unknown Trip"),
+                                    subtitle: Text("Status: ${_dashboard!.currentTripStatus ?? 'Unknown'}"),
+                                    trailing: Text(
+                                      "${_dashboard!.currentTripStudentCount} students",
+                                      style: const TextStyle(fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+
+                        // ✅ Assigned Trips Card
+                        Card(
+                          elevation: 3,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
                           const Text("Assigned Trips",
-                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                                    style: TextStyle(
+                                        fontSize: 18, fontWeight: FontWeight.bold)),
                           const SizedBox(height: 12),
-                          
                           if (_assignedTrips.isEmpty)
-                            const Card(
-                              child: Padding(
+                                  const Padding(
                                 padding: EdgeInsets.all(16.0),
                                 child: Text("No trips assigned for today"),
-                              ),
                             )
                           else
                             ..._assignedTrips.map((trip) => _buildTripCard(trip)),
-                          
-                          const SizedBox(height: 20),
-                          const Divider(),
-                          
-                          // Quick Actions
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // ✅ Quick Actions Card
+                        Card(
+                          elevation: 3,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
                           const Text("Quick Actions",
-                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                                    style: TextStyle(
+                                        fontSize: 18, fontWeight: FontWeight.bold)),
                           const SizedBox(height: 12),
                           
-                          // Find current trip for actions
-                          if (_dashboard!.currentTripId != null) ...[
-                            _buildQuickAction("Start Trip", Icons.play_arrow, () {
-                              final currentTrip = _assignedTrips.firstWhere(
-                                (trip) => trip.tripId == _dashboard!.currentTripId,
-                                orElse: () => _assignedTrips.first,
-                              );
-                              _startTrip(currentTrip);
-                            }, isEnabled: _dashboard!.currentTripStatus == 'NOT_STARTED'),
-                            
-                            _buildQuickAction("End Trip", Icons.stop, () {
-                              final currentTrip = _assignedTrips.firstWhere(
-                                (trip) => trip.tripId == _dashboard!.currentTripId,
-                                orElse: () => _assignedTrips.first,
-                              );
-                              _endTrip(currentTrip);
-                            }, isEnabled: _dashboard!.currentTripStatus == 'IN_PROGRESS'),
-                          ],
-                          
-                          _buildQuickAction("Trip Management", Icons.route, () {
-                            _navigateToTripManagement();
-                          }),
-                          
-                          if (_dashboard!.currentTripId != null) ...[
-                            _buildQuickAction("Mark Attendance", Icons.checklist, () {
-                              final currentTrip = _assignedTrips.firstWhere(
-                                (trip) => trip.tripId == _dashboard!.currentTripId,
-                                orElse: () => _assignedTrips.first,
-                              );
-                              _navigateToStudentAttendance(currentTrip);
-                            }),
-                            
-                            _buildQuickAction("Send Notification", Icons.notifications, () {
-                              final currentTrip = _assignedTrips.firstWhere(
-                                (trip) => trip.tripId == _dashboard!.currentTripId,
-                                orElse: () => _assignedTrips.first,
-                              );
-                              _navigateToNotification(currentTrip);
-                            }),
-                          ],
-                        ],
+                                // Trip Management Actions
+                                ElevatedButton.icon(
+                                  onPressed: () => _navigateToTripManagement(),
+                                  icon: const Icon(Icons.route),
+                                  label: const Text("Trip Management"),
+                                ),
+                                const SizedBox(height: 8),
+                                
+                                // Current Trip Actions
+                                if (_dashboard?.currentTripId != null) ...[
+                                  _buildCurrentTripActions(),
+                                ] else if (_assignedTrips.isNotEmpty) ...[
+                                  _buildTripSelectionActions(),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -545,5 +949,195 @@ class _DriverDashboardPageState extends State<DriverDashboardPage> {
       default:
         return Colors.grey;
     }
+  }
+
+  // ================ HELPER METHODS ================
+
+  Widget _buildStatCard(String title, String value, Color color) {
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      child: Container(
+        width: MediaQuery.of(context).size.width / 3.5,
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          children: [
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 14, color: Colors.grey),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              value,
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: color),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCurrentTripActions() {
+    final currentTrip = _assignedTrips.firstWhere(
+      (trip) => trip.tripId == _dashboard!.currentTripId,
+      orElse: () => _assignedTrips.first,
+    );
+
+    return Column(
+      children: [
+        // Trip Status Info
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: _getStatusColor(_dashboard!.currentTripStatus).withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: _getStatusColor(_dashboard!.currentTripStatus),
+              width: 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.info_outline,
+                color: _getStatusColor(_dashboard!.currentTripStatus),
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Current Trip: ${_dashboard!.currentTripName} (${_dashboard!.currentTripStatus})',
+                  style: TextStyle(
+                    color: _getStatusColor(_dashboard!.currentTripStatus),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        
+        // Action Buttons
+        ElevatedButton.icon(
+          onPressed: _dashboard!.currentTripStatus == 'NOT_STARTED' ? () => _startTrip(currentTrip) : null,
+          icon: const Icon(Icons.play_arrow),
+          label: const Text("Start Trip"),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.green,
+            foregroundColor: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 8),
+        
+        ElevatedButton.icon(
+          onPressed: _dashboard!.currentTripStatus == 'IN_PROGRESS' ? () => _endTrip(currentTrip) : null,
+          icon: const Icon(Icons.stop),
+          label: const Text("End Trip"),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.red,
+            foregroundColor: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 8),
+        
+        ElevatedButton.icon(
+          onPressed: () => _navigateToStudentAttendance(currentTrip),
+          icon: const Icon(Icons.checklist),
+          label: const Text("Mark Attendance"),
+        ),
+        const SizedBox(height: 8),
+        
+        ElevatedButton.icon(
+          onPressed: () => _navigateToNotification(currentTrip),
+          icon: const Icon(Icons.notifications),
+          label: const Text("Send Notification"),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTripSelectionActions() {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.blue.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.blue, width: 1),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.info_outline, color: Colors.blue, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'No active trip. Select a trip to start:',
+                  style: const TextStyle(
+                    color: Colors.blue,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        
+        ElevatedButton.icon(
+          onPressed: () => _showTripSelectionDialog(),
+          icon: const Icon(Icons.route),
+          label: const Text("Select Trip"),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.blue,
+            foregroundColor: Colors.white,
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showTripSelectionDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Select Trip'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: _assignedTrips.map((trip) => 
+            Card(
+              margin: const EdgeInsets.symmetric(vertical: 4),
+              child: ListTile(
+                leading: Icon(
+                  Icons.route,
+                  color: _getStatusColor(trip.tripStatus),
+                ),
+                title: Text(trip.tripName),
+                subtitle: Text('${trip.tripType} - ${trip.scheduledTime ?? 'No time set'}'),
+                trailing: Text(
+                  trip.tripStatus ?? 'Unknown',
+                  style: TextStyle(
+                    color: _getStatusColor(trip.tripStatus),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _navigateToStudentAttendance(trip);
+                },
+              ),
+            ),
+          ).toList(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
   }
 }

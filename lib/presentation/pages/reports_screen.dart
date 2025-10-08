@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/student_service.dart';
 import '../../services/vehicle_service.dart';
 import '../../services/trip_service.dart';
+import '../../services/report_service.dart';
 
 class ReportsScreen extends StatefulWidget {
   const ReportsScreen({Key? key}) : super(key: key);
@@ -22,6 +23,16 @@ class _ReportsScreenState extends State<ReportsScreen>
   int notificationsSent = 0;
   bool _loading = true;
   int? schoolId;
+  
+  // Report data
+  List<dynamic> attendanceData = [];
+  List<dynamic> dispatchLogsData = [];
+  List<dynamic> notificationLogsData = [];
+  String _selectedAttendanceFilter = 'student-wise';
+  String _selectedDispatchFilter = 'all';
+  String _selectedNotificationFilter = 'all';
+  
+  final ReportService _reportService = ReportService();
 
   @override
   void initState() {
@@ -37,24 +48,75 @@ class _ReportsScreenState extends State<ReportsScreen>
       schoolId = prefs.getInt("schoolId");
       
       if (schoolId != null) {
+        print('🔍 Loading report data for schoolId: $schoolId');
+        
         // Load real data from services
         final studentCount = await StudentService().getStudentCount(schoolId!.toString());
         final vehicleCount = await VehicleService().getVehicleCount(schoolId!.toString());
         final trips = await TripService().getTripsBySchool(schoolId!);
         
+        // Load report data
+        await _loadAttendanceReport();
+        await _loadDispatchLogsReport();
+        await _loadNotificationLogsReport();
+        
         setState(() {
           totalStudents = studentCount;
           totalVehicles = vehicleCount;
           totalTrips = trips.length;
-          notificationsSent = (studentCount * 0.8).round(); // Mock calculation
+          notificationsSent = notificationLogsData.length;
           _loading = false;
         });
+        
+        print('🔍 Report data loaded successfully');
       } else {
         setState(() => _loading = false);
       }
     } catch (e) {
+      print('🔍 Error loading report data: $e');
       setState(() => _loading = false);
-      // Handle error silently for now
+    }
+  }
+  
+  Future<void> _loadAttendanceReport() async {
+    try {
+      final response = await _reportService.getAttendanceReport(schoolId!, _selectedAttendanceFilter);
+      if (response['success'] == true) {
+        setState(() {
+          attendanceData = response['data'] is List ? response['data'] : [];
+        });
+        print('🔍 Attendance report loaded: ${attendanceData.length} records');
+      }
+    } catch (e) {
+      print('🔍 Error loading attendance report: $e');
+    }
+  }
+  
+  Future<void> _loadDispatchLogsReport() async {
+    try {
+      final response = await _reportService.getDispatchLogsReport(schoolId!, _selectedDispatchFilter);
+      if (response['success'] == true) {
+        setState(() {
+          dispatchLogsData = response['data'] is List ? response['data'] : [];
+        });
+        print('🔍 Dispatch logs report loaded: ${dispatchLogsData.length} records');
+      }
+    } catch (e) {
+      print('🔍 Error loading dispatch logs report: $e');
+    }
+  }
+  
+  Future<void> _loadNotificationLogsReport() async {
+    try {
+      final response = await _reportService.getNotificationLogsReport(schoolId!, _selectedNotificationFilter);
+      if (response['success'] == true) {
+        setState(() {
+          notificationLogsData = response['data'] is List ? response['data'] : [];
+        });
+        print('🔍 Notification logs report loaded: ${notificationLogsData.length} records');
+      }
+    } catch (e) {
+      print('🔍 Error loading notification logs report: $e');
     }
   }
 
@@ -112,110 +174,377 @@ class _ReportsScreenState extends State<ReportsScreen>
 
   // 🔹 Attendance Report Tab
   Widget _buildAttendanceReport() {
-    final students = [
-      {"name": "Rahul Sharma", "class": "5A", "status": "Present"},
-      {"name": "Anjali Verma", "class": "5A", "status": "Absent"},
-      {"name": "Arjun Singh", "class": "6B", "status": "Present"},
-    ];
-
     return Column(
       children: [
-        Expanded(
-          child: ListView.builder(
-            itemCount: students.length,
-            itemBuilder: (context, index) {
-              final s = students[index];
-              return Card(
-                margin: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                child: ListTile(
-                  leading: Icon(Icons.person, color: Colors.blueAccent),
-                  title: Text("${s['name']}"),
-                  subtitle: Text("Class: ${s['class']}"),
-                  trailing: Text(
-                    s['status']!,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: s['status'] == "Present"
-                          ? Colors.green
-                          : Colors.red,
-                    ),
-                  ),
-                ),
-              );
-            },
+        // Filter buttons
+        Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              FilterChip(
+                label: Text('Student-wise'),
+                selected: _selectedAttendanceFilter == 'student-wise',
+                onSelected: (selected) {
+                  if (selected) {
+                    setState(() => _selectedAttendanceFilter = 'student-wise');
+                    _loadAttendanceReport();
+                  }
+                },
+              ),
+              SizedBox(width: 8),
+              FilterChip(
+                label: Text('Class-wise'),
+                selected: _selectedAttendanceFilter == 'class-wise',
+                onSelected: (selected) {
+                  if (selected) {
+                    setState(() => _selectedAttendanceFilter = 'class-wise');
+                    _loadAttendanceReport();
+                  }
+                },
+              ),
+            ],
           ),
         ),
-        _buildExportButtons(),
+        Expanded(
+          child: attendanceData.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.school, size: 64, color: Colors.grey),
+                      SizedBox(height: 16),
+                      Text('No attendance data available', style: TextStyle(color: Colors.grey)),
+                    ],
+                  ),
+                )
+              : ListView.builder(
+                  itemCount: attendanceData.length,
+                  itemBuilder: (context, index) {
+                    final record = attendanceData[index];
+                    final presentDays = record['presentDays'] ?? 0;
+                    final absentDays = record['absentDays'] ?? 0;
+                    final totalDays = record['totalDays'] ?? 0;
+                    final percentage = record['attendancePercentage'] ?? 0.0;
+                    
+                    return Card(
+                      margin: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: percentage >= 75 ? Colors.green : percentage >= 50 ? Colors.orange : Colors.red,
+                          child: Text(
+                            percentage.toStringAsFixed(0) + '%',
+                            style: TextStyle(color: Colors.white, fontSize: 12),
+                          ),
+                        ),
+                        title: Text(record['studentName'] ?? 'Unknown'),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text("Class: ${record['className']} - ${record['sectionName']}"),
+                            Text("Present: $presentDays | Absent: $absentDays | Total: $totalDays"),
+                          ],
+                        ),
+                        trailing: Icon(
+                          percentage >= 75 ? Icons.check_circle : percentage >= 50 ? Icons.warning : Icons.error,
+                          color: percentage >= 75 ? Colors.green : percentage >= 50 ? Colors.orange : Colors.red,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        ),
+        _buildExportButtons('attendance'),
       ],
     );
   }
 
   // 🔹 Dispatch Logs Tab
   Widget _buildDispatchLogs() {
-    final trips = [
-      {"trip": "Trip A", "vehicle": "Bus 1", "logs": "12 entries"},
-      {"trip": "Trip B", "vehicle": "Van 2", "logs": "9 entries"},
-    ];
-
     return Column(
       children: [
-        Expanded(
-          child: ListView.builder(
-            itemCount: trips.length,
-            itemBuilder: (context, index) {
-              final t = trips[index];
-              return Card(
-                margin: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                child: ListTile(
-                  leading: Icon(Icons.directions_bus, color: Colors.green),
-                  title: Text("${t['trip']} - ${t['vehicle']}"),
-                  subtitle: Text("Logs: ${t['logs']}"),
-                ),
-              );
-            },
+        // Filter buttons
+        Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              FilterChip(
+                label: Text('All'),
+                selected: _selectedDispatchFilter == 'all',
+                onSelected: (selected) {
+                  if (selected) {
+                    setState(() => _selectedDispatchFilter = 'all');
+                    _loadDispatchLogsReport();
+                  }
+                },
+              ),
+              SizedBox(width: 8),
+              FilterChip(
+                label: Text('Trip-wise'),
+                selected: _selectedDispatchFilter == 'trip-wise',
+                onSelected: (selected) {
+                  if (selected) {
+                    setState(() => _selectedDispatchFilter = 'trip-wise');
+                    _loadDispatchLogsReport();
+                  }
+                },
+              ),
+              SizedBox(width: 8),
+              FilterChip(
+                label: Text('Vehicle-wise'),
+                selected: _selectedDispatchFilter == 'vehicle-wise',
+                onSelected: (selected) {
+                  if (selected) {
+                    setState(() => _selectedDispatchFilter = 'vehicle-wise');
+                    _loadDispatchLogsReport();
+                  }
+                },
+              ),
+            ],
           ),
         ),
-        _buildExportButtons(),
+        Expanded(
+          child: dispatchLogsData.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.directions_bus, size: 64, color: Colors.grey),
+                      SizedBox(height: 16),
+                      Text('No dispatch logs available', style: TextStyle(color: Colors.grey)),
+                    ],
+                  ),
+                )
+              : ListView.builder(
+                  itemCount: dispatchLogsData.length,
+                  itemBuilder: (context, index) {
+                    final log = dispatchLogsData[index];
+                    final eventType = log['eventType'] ?? 'Unknown';
+                    final createdDate = log['createdDate'] ?? '';
+                    
+                    return Card(
+                      margin: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: _getEventTypeColor(eventType),
+                          child: Icon(
+                            _getEventTypeIcon(eventType),
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                        ),
+                        title: Text(log['tripName'] ?? 'Unknown Trip'),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text("Vehicle: ${log['vehicleNumber']} | Student: ${log['studentName']}"),
+                            Text("Event: $eventType | Date: $createdDate"),
+                            if (log['remarks'] != null && log['remarks'].isNotEmpty)
+                              Text("Remarks: ${log['remarks']}", style: TextStyle(fontStyle: FontStyle.italic)),
+                          ],
+                        ),
+                        trailing: Text(
+                          eventType,
+                          style: TextStyle(
+                            color: _getEventTypeColor(eventType),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        ),
+        _buildExportButtons('dispatch'),
       ],
     );
+  }
+  
+  Color _getEventTypeColor(String eventType) {
+    switch (eventType.toUpperCase()) {
+      case 'PICKUP_FROM_PARENT':
+      case 'PICKUP_FROM_SCHOOL':
+        return Colors.blue;
+      case 'DROP_TO_SCHOOL':
+      case 'DROP_TO_PARENT':
+        return Colors.green;
+      case 'ABSENT':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
+  }
+  
+  IconData _getEventTypeIcon(String eventType) {
+    switch (eventType.toUpperCase()) {
+      case 'PICKUP_FROM_PARENT':
+      case 'PICKUP_FROM_SCHOOL':
+        return Icons.arrow_upward;
+      case 'DROP_TO_SCHOOL':
+      case 'DROP_TO_PARENT':
+        return Icons.arrow_downward;
+      case 'ABSENT':
+        return Icons.cancel;
+      default:
+        return Icons.info;
+    }
   }
 
   // 🔹 Notification Logs Tab
   Widget _buildNotificationLogs() {
-    final notifs = [
-      {"msg": "Rahul entered gate", "status": "Sent"},
-      {"msg": "Anjali absent", "status": "Pending"},
-      {"msg": "Trip A delayed", "status": "Failed"},
-    ];
-
     return Column(
       children: [
-        Expanded(
-          child: ListView.builder(
-            itemCount: notifs.length,
-            itemBuilder: (context, index) {
-              final n = notifs[index];
-              Color color = Colors.grey;
-              if (n['status'] == "Sent") color = Colors.green;
-              if (n['status'] == "Failed") color = Colors.red;
-              if (n['status'] == "Pending") color = Colors.orange;
-
-              return Card(
-                margin: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                child: ListTile(
-                  leading: Icon(Icons.notifications, color: color),
-                  title: Text("${n['msg']}"),
-                  trailing: Text("${n['status']}",
-                      style: TextStyle(
-                          color: color, fontWeight: FontWeight.bold)),
-                ),
-              );
-            },
+        // Filter buttons
+        Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              FilterChip(
+                label: Text('All'),
+                selected: _selectedNotificationFilter == 'all',
+                onSelected: (selected) {
+                  if (selected) {
+                    setState(() => _selectedNotificationFilter = 'all');
+                    _loadNotificationLogsReport();
+                  }
+                },
+              ),
+              SizedBox(width: 8),
+              FilterChip(
+                label: Text('Sent'),
+                selected: _selectedNotificationFilter == 'sent',
+                onSelected: (selected) {
+                  if (selected) {
+                    setState(() => _selectedNotificationFilter = 'sent');
+                    _loadNotificationLogsReport();
+                  }
+                },
+              ),
+              SizedBox(width: 8),
+              FilterChip(
+                label: Text('Failed'),
+                selected: _selectedNotificationFilter == 'failed',
+                onSelected: (selected) {
+                  if (selected) {
+                    setState(() => _selectedNotificationFilter = 'failed');
+                    _loadNotificationLogsReport();
+                  }
+                },
+              ),
+              SizedBox(width: 8),
+              FilterChip(
+                label: Text('Pending'),
+                selected: _selectedNotificationFilter == 'pending',
+                onSelected: (selected) {
+                  if (selected) {
+                    setState(() => _selectedNotificationFilter = 'pending');
+                    _loadNotificationLogsReport();
+                  }
+                },
+              ),
+            ],
           ),
         ),
-        _buildExportButtons(),
+        Expanded(
+          child: notificationLogsData.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.notifications, size: 64, color: Colors.grey),
+                      SizedBox(height: 16),
+                      Text('No notification logs available', style: TextStyle(color: Colors.grey)),
+                    ],
+                  ),
+                )
+              : ListView.builder(
+                  itemCount: notificationLogsData.length,
+                  itemBuilder: (context, index) {
+                    final notification = notificationLogsData[index];
+                    final status = notification['status'] ?? 'Unknown';
+                    final sentDate = notification['sentDate'] ?? '';
+                    final message = notification['message'] ?? 'No message';
+                    
+                    Color color = _getNotificationStatusColor(status);
+                    
+                    return Card(
+                      margin: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: color,
+                          child: Icon(
+                            _getNotificationStatusIcon(status),
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                        ),
+                        title: Text(message.length > 50 ? message.substring(0, 50) + '...' : message),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text("Trip: ${notification['tripName']} | Student: ${notification['studentName']}"),
+                            Text("Vehicle: ${notification['vehicleNumber']} | Date: $sentDate"),
+                            Text("Type: ${notification['notificationType']} | Sent to: ${notification['sentTo']}"),
+                          ],
+                        ),
+                        trailing: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              status,
+                              style: TextStyle(
+                                color: color,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
+                            if (notification['deliveryStatus'] != null)
+                              Text(
+                                notification['deliveryStatus'],
+                                style: TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 10,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        ),
+        _buildExportButtons('notifications'),
       ],
     );
+  }
+  
+  Color _getNotificationStatusColor(String status) {
+    switch (status.toUpperCase()) {
+      case 'SENT':
+        return Colors.green;
+      case 'FAILED':
+        return Colors.red;
+      case 'PENDING':
+        return Colors.orange;
+      default:
+        return Colors.grey;
+    }
+  }
+  
+  IconData _getNotificationStatusIcon(String status) {
+    switch (status.toUpperCase()) {
+      case 'SENT':
+        return Icons.check_circle;
+      case 'FAILED':
+        return Icons.error;
+      case 'PENDING':
+        return Icons.schedule;
+      default:
+        return Icons.notifications;
+    }
   }
 
   // 🔹 Summary Card Widget
@@ -243,27 +572,21 @@ class _ReportsScreenState extends State<ReportsScreen>
   }
 
   // 🔹 Export Buttons
-  Widget _buildExportButtons() {
+  Widget _buildExportButtons(String reportType) {
     return Padding(
       padding: const EdgeInsets.all(12.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
           ElevatedButton.icon(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text("PDF Download (Static)")));
-            },
+            onPressed: () => _exportReport(reportType, 'pdf'),
             icon: Icon(Icons.picture_as_pdf),
             label: Text("Download PDF"),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
           ),
           SizedBox(width: 12),
           ElevatedButton.icon(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text("CSV Export (Static)")));
-            },
+            onPressed: () => _exportReport(reportType, 'csv'),
             icon: Icon(Icons.table_chart),
             label: Text("Export CSV"),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent),
@@ -271,5 +594,66 @@ class _ReportsScreenState extends State<ReportsScreen>
         ],
       ),
     );
+  }
+  
+  Future<void> _exportReport(String type, String format) async {
+    try {
+      if (schoolId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('School ID not found')),
+        );
+        return;
+      }
+      
+      // Show loading
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          content: Row(
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(width: 16),
+              Text('Exporting $type report...'),
+            ],
+          ),
+        ),
+      );
+      
+      final response = await _reportService.exportReport(schoolId!, type, format);
+      
+      // Close loading dialog
+      Navigator.pop(context);
+      
+      if (response['success'] == true) {
+        final fileInfo = response['data'];
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Report exported successfully: ${fileInfo['fileName']}'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Export failed: ${response['message']}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      // Close loading dialog if still open
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Export error: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 }

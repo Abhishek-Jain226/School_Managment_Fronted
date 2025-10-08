@@ -18,6 +18,7 @@ class _RegisterVehicleScreenState extends State<RegisterVehicleScreen> {
   final _formKey = GlobalKey<FormState>();
   final _vehicleNumberCtl = TextEditingController();
   final _registrationNumberCtl = TextEditingController();
+  final _capacityCtl = TextEditingController();
 
   String? _photoBase64;
   File? _photoFile;
@@ -51,14 +52,19 @@ class _RegisterVehicleScreenState extends State<RegisterVehicleScreen> {
       final createdBy = prefs.getString("userName") ?? "";
       
 
+      final capacityValue = int.parse(_capacityCtl.text.trim());
+      print('🔍 Frontend: Sending capacity value: $capacityValue');
+      
       final req = VehicleRequest(
         vehicleNumber: _vehicleNumberCtl.text.trim(),
         registrationNumber: _registrationNumberCtl.text.trim(),
         vehiclePhoto: _photoBase64,
         createdBy: createdBy,
-         vehicleType: _selectedVehicleType!, // ✅ send type
-         
+        vehicleType: _selectedVehicleType!, // ✅ send type
+        capacity: capacityValue, // ✅ send capacity
       );
+      
+      print('🔍 Frontend: Vehicle request JSON: ${req.toJson()}');
 
       final res = await _service.registerVehicle(req);
 
@@ -85,6 +91,7 @@ class _RegisterVehicleScreenState extends State<RegisterVehicleScreen> {
   void dispose() {
     _vehicleNumberCtl.dispose();
     _registrationNumberCtl.dispose();
+    _capacityCtl.dispose();
     super.dispose();
   }
 
@@ -177,6 +184,26 @@ class _RegisterVehicleScreenState extends State<RegisterVehicleScreen> {
                 decoration: const InputDecoration(labelText: "Vehicle Type *"),
                 validator: (v) =>
                     v == null ? "Please select vehicle type" : null,
+              ),
+              const SizedBox(height: 12),
+
+              // ✅ Vehicle Capacity Field
+              TextFormField(
+                controller: _capacityCtl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: "Vehicle Capacity *",
+                  hintText: "e.g., 25, 30, 40",
+                  suffixText: "students",
+                ),
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return "Vehicle capacity is required";
+                  final capacity = int.tryParse(v.trim());
+                  if (capacity == null) return "Please enter a valid number";
+                  if (capacity <= 0) return "Capacity must be greater than 0";
+                  if (capacity > 100) return "Capacity cannot exceed 100 students";
+                  return null;
+                },
               ),
               const SizedBox(height: 20),
 

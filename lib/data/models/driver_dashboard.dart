@@ -8,7 +8,7 @@ class DriverDashboard {
   final int vehicleId;
   final String vehicleNumber;
   final String vehicleType;
-  final int vehicleCapacity;
+  final int? vehicleCapacity;
   
   // School Information
   final int schoolId;
@@ -66,7 +66,7 @@ class DriverDashboard {
       vehicleId: json['vehicleId'],
       vehicleNumber: json['vehicleNumber'],
       vehicleType: json['vehicleType'],
-      vehicleCapacity: json['vehicleCapacity'] ?? 0,
+      vehicleCapacity: json['vehicleCapacity'],
       schoolId: json['schoolId'],
       schoolName: json['schoolName'],
       totalTripsToday: json['totalTripsToday'],
