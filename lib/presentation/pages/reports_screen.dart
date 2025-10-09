@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:typed_data';
+import 'dart:io';
+import 'dart:async';
+import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../../services/student_service.dart';
 import '../../services/vehicle_service.dart';
 import '../../services/trip_service.dart';
 import '../../services/report_service.dart';
+import '../../services/websocket_notification_service.dart';
+import '../../data/models/websocket_notification.dart';
 
 class ReportsScreen extends StatefulWidget {
   const ReportsScreen({Key? key}) : super(key: key);
@@ -16,6 +22,7 @@ class ReportsScreen extends StatefulWidget {
 class _ReportsScreenState extends State<ReportsScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  final WebSocketNotificationService _webSocketService = WebSocketNotificationService();
   
   // Real data variables
   int totalStudents = 0;
@@ -33,6 +40,11 @@ class _ReportsScreenState extends State<ReportsScreen>
   String _selectedDispatchFilter = 'all';
   String _selectedNotificationFilter = 'all';
   
+  // Real-time updates
+  bool _isConnected = false;
+  StreamSubscription<WebSocketNotification>? _notificationSubscription;
+  Timer? _autoRefreshTimer;
+  
   final ReportService _reportService = ReportService();
 
   @override
@@ -40,6 +52,64 @@ class _ReportsScreenState extends State<ReportsScreen>
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     _loadReportData();
+    _initializeWebSocket();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    _notificationSubscription?.cancel();
+    _autoRefreshTimer?.cancel();
+    super.dispose();
+  }
+
+  void _initializeWebSocket() {
+    _webSocketService.initialize().then((_) {
+      setState(() {
+        _isConnected = _webSocketService.isConnected;
+      });
+      _notificationSubscription = _webSocketService.notificationStream.listen(
+        _handleWebSocketNotification,
+        onError: (error) {
+          print('WebSocket error: $error');
+          setState(() {
+            _isConnected = false;
+          });
+        },
+      );
+      _startAutoRefresh();
+    });
+  }
+
+  void _handleWebSocketNotification(WebSocketNotification notification) {
+    print('🔔 Reports - Received notification: ${notification.type} - ${notification.message}');
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${notification.title}: ${notification.message}'),
+          duration: const Duration(seconds: 3),
+          backgroundColor: Colors.blue,
+        ),
+      );
+    }
+    if (_isRelevantNotification(notification)) {
+      _loadReportData();
+    }
+  }
+
+  bool _isRelevantNotification(WebSocketNotification notification) {
+    return notification.type == NotificationType.attendanceUpdate ||
+           notification.type == NotificationType.tripUpdate ||
+           notification.type == NotificationType.vehicleAssignmentRequest ||
+           notification.type == NotificationType.arrivalNotification;
+  }
+
+  void _startAutoRefresh() {
+    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      if (mounted) {
+        _loadReportData();
+      }
+    });
   }
 
   Future<void> _loadReportData() async {
@@ -127,6 +197,15 @@ class _ReportsScreenState extends State<ReportsScreen>
       appBar: AppBar(
         title: const Text("Reports Dashboard"),
         actions: [
+          // WebSocket connection status
+          Padding(
+            padding: const EdgeInsets.only(right: 8.0),
+            child: Icon(
+              _isConnected ? Icons.wifi : Icons.wifi_off,
+              color: _isConnected ? Colors.green : Colors.red,
+              size: 20,
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadReportData,
@@ -606,6 +685,50 @@ class _ReportsScreenState extends State<ReportsScreen>
         return;
       }
       
+      // Check permissions first
+      if (Platform.isAndroid) {
+        final hasPermission = await _checkStoragePermission();
+        if (!hasPermission) {
+          // Show permission dialog
+          final shouldRequest = await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Storage Permission Required'),
+              content: const Text(
+                'This app needs storage permission to download reports. '
+                'Please grant permission in the next dialog.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  child: const Text('Grant Permission'),
+                ),
+              ],
+            ),
+          );
+          
+          if (shouldRequest != true) {
+            return;
+          }
+          
+          // Try to request permission again
+          final permissionGranted = await _checkStoragePermission();
+          if (!permissionGranted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Storage permission denied. Cannot download files.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+            return;
+          }
+        }
+      }
+      
       // Show loading
       showDialog(
         context: context,
@@ -653,29 +776,118 @@ class _ReportsScreenState extends State<ReportsScreen>
     }
   }
   
+  Future<bool> _checkStoragePermission() async {
+    if (Platform.isAndroid) {
+      // Check for Android 13+ (API 33+) - use different permissions
+      if (await Permission.manageExternalStorage.isGranted) {
+        return true;
+      }
+      
+      // For Android 13+, request manage external storage permission
+      if (await Permission.manageExternalStorage.request().isGranted) {
+        return true;
+      }
+      
+      // Fallback to storage permission for older Android versions
+      final status = await Permission.storage.status;
+      if (status.isGranted) {
+        return true;
+      }
+      
+      final result = await Permission.storage.request();
+      return result.isGranted;
+    }
+    return true; // iOS doesn't need explicit storage permission
+  }
+  
   Future<void> _saveFileToDevice(Uint8List fileBytes, String type, String format) async {
     try {
-      // For now, just show the file size and content preview
-      // In a real app, you would use packages like 'path_provider' and 'file_picker'
-      // to save the file to the device's download folder
-      
       print('🔍 File downloaded: ${fileBytes.length} bytes');
       print('🔍 File type: $type.$format');
       
-      // Show file info dialog
+      // Get the downloads directory with better handling
+      Directory? downloadsDir;
+      if (Platform.isAndroid) {
+        // Try multiple Android download directories
+        final possibleDirs = [
+          '/storage/emulated/0/Download',
+          '/storage/emulated/0/Downloads',
+          '/sdcard/Download',
+          '/sdcard/Downloads',
+        ];
+        
+        for (final dirPath in possibleDirs) {
+          final dir = Directory(dirPath);
+          if (await dir.exists()) {
+            downloadsDir = dir;
+            break;
+          }
+        }
+        
+        // Fallback to external storage
+        if (downloadsDir == null) {
+          downloadsDir = await getExternalStorageDirectory();
+        }
+        
+        // Final fallback to app documents
+        if (downloadsDir == null) {
+          downloadsDir = await getApplicationDocumentsDirectory();
+        }
+      } else if (Platform.isIOS) {
+        downloadsDir = await getApplicationDocumentsDirectory();
+      } else {
+        downloadsDir = await getDownloadsDirectory();
+      }
+      
+      if (downloadsDir == null) {
+        throw Exception('Could not access downloads directory');
+      }
+      
+      // Create filename with timestamp
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final filename = '${type}_report_$timestamp.$format';
+      final filePath = '${downloadsDir.path}/$filename';
+      
+      // Write file to device
+      final file = File(filePath);
+      await file.writeAsBytes(fileBytes);
+      
+      print('🔍 File saved to: $filePath');
+      
+      // Show success dialog with file path
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          title: Text('File Downloaded'),
+          title: Text('File Downloaded Successfully!'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('File Type: $type.$format'),
               Text('File Size: ${fileBytes.length} bytes'),
-              Text('Status: Downloaded successfully'),
+              SizedBox(height: 8),
+              Text('Saved to:', style: TextStyle(fontWeight: FontWeight.bold)),
+              Text(filePath, style: TextStyle(fontSize: 12, color: Colors.blue)),
               SizedBox(height: 16),
-              Text('Note: In a real app, this file would be saved to your device\'s download folder.'),
+              Container(
+                padding: EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.check_circle, color: Colors.green, size: 20),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'File has been saved to your device\'s download folder.',
+                        style: TextStyle(color: Colors.green, fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
           actions: [
@@ -689,6 +901,48 @@ class _ReportsScreenState extends State<ReportsScreen>
       
     } catch (e) {
       print('🔍 Error saving file: $e');
+      
+      // Show error dialog
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('Download Failed'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Error: $e'),
+              SizedBox(height: 16),
+              Container(
+                padding: EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.error, color: Colors.red, size: 20),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Please check your device permissions and try again.',
+                        style: TextStyle(color: Colors.red, fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('OK'),
+            ),
+          ],
+        ),
+      );
+      
       throw Exception('Failed to save file: $e');
     }
   }

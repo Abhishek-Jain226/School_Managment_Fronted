@@ -1,8 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../app_routes.dart';
 import '../../services/vehicle_owner_service.dart';
 import '../../services/auth_service.dart';
+import '../../services/websocket_notification_service.dart';
+import '../../data/models/websocket_notification.dart';
 import '../widgets/school_selector.dart';
 
 class VehicleOwnerDashboardPage extends StatefulWidget {
@@ -14,6 +17,7 @@ class VehicleOwnerDashboardPage extends StatefulWidget {
 
 class _VehicleOwnerDashboardPageState extends State<VehicleOwnerDashboardPage> {
   final VehicleOwnerService _vehicleOwnerService = VehicleOwnerService();
+  final WebSocketNotificationService _webSocketService = WebSocketNotificationService();
   int? _currentSchoolId;
   String? _currentSchoolName;
   Map<String, dynamic>? _ownerData;
@@ -26,12 +30,27 @@ class _VehicleOwnerDashboardPageState extends State<VehicleOwnerDashboardPage> {
   int _pendingApprovals = 0;
   List<Map<String, dynamic>> _recentActivities = [];
   bool _isLoadingStats = false;
+  bool _hasError = false;
+  String? _errorMessage;
+  
+  // Real-time updates
+  bool _isConnected = false;
+  StreamSubscription<WebSocketNotification>? _notificationSubscription;
+  Timer? _autoRefreshTimer;
 
   @override
   void initState() {
     super.initState();
     _loadOwnerData();
     _loadCurrentSchool();
+    _initializeWebSocket();
+  }
+  
+  @override
+  void dispose() {
+    _notificationSubscription?.cancel();
+    _autoRefreshTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadCurrentSchool() async {
@@ -40,6 +59,93 @@ class _VehicleOwnerDashboardPageState extends State<VehicleOwnerDashboardPage> {
       _currentSchoolId = prefs.getInt('currentSchoolId');
       _currentSchoolName = prefs.getString('currentSchoolName');
     });
+  }
+  
+  Future<void> _initializeWebSocket() async {
+    try {
+      await _webSocketService.initialize();
+      setState(() {
+        _isConnected = _webSocketService.isConnected;
+      });
+      
+      // Listen to notifications
+      _notificationSubscription = _webSocketService.notificationStream.listen(
+        _handleWebSocketNotification,
+        onError: (error) {
+          print('WebSocket error: $error');
+          setState(() {
+            _isConnected = false;
+          });
+        },
+      );
+      
+      print('🔌 WebSocket initialized for Vehicle Owner Dashboard');
+      
+      // Start auto-refresh timer (every 30 seconds)
+      _startAutoRefresh();
+    } catch (e) {
+      print('Error initializing WebSocket: $e');
+      setState(() {
+        _isConnected = false;
+      });
+    }
+  }
+  
+  void _startAutoRefresh() {
+    _autoRefreshTimer?.cancel();
+    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      if (mounted && _currentSchoolId != null && _ownerData != null) {
+        print('🔄 Auto-refreshing dashboard data...');
+        _loadDashboardStatistics();
+      }
+    });
+  }
+  
+  void _handleWebSocketNotification(WebSocketNotification notification) {
+    print('🔔 Received notification: ${notification.type} - ${notification.message}');
+    
+    // Show notification using SnackBar instead
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${notification.title}: ${notification.message}'),
+          duration: const Duration(seconds: 3),
+          action: SnackBarAction(
+            label: 'View',
+            onPressed: () => _handleNotificationTap(notification),
+          ),
+        ),
+      );
+    }
+    
+    // Refresh dashboard data for relevant notifications
+    if (_isRelevantNotification(notification)) {
+      _loadDashboardStatistics();
+    }
+  }
+  
+  bool _isRelevantNotification(WebSocketNotification notification) {
+    return notification.type == NotificationType.vehicleAssignmentApproved ||
+           notification.type == NotificationType.vehicleAssignmentRejected ||
+           notification.type == NotificationType.tripUpdate ||
+           notification.type == NotificationType.arrivalNotification;
+  }
+  
+  void _handleNotificationTap(WebSocketNotification notification) {
+    switch (notification.type) {
+      case NotificationType.vehicleAssignmentApproved:
+      case NotificationType.vehicleAssignmentRejected:
+        // Navigate to vehicle management
+        Navigator.pushNamed(context, AppRoutes.vehicleOwnerVehicleManagement);
+        break;
+      case NotificationType.tripUpdate:
+        // Navigate to trips or refresh data
+        _loadDashboardStatistics();
+        break;
+      default:
+        // Just refresh dashboard
+        _loadDashboardStatistics();
+    }
   }
 
   Future<void> _loadOwnerData() async {
@@ -76,11 +182,24 @@ class _VehicleOwnerDashboardPageState extends State<VehicleOwnerDashboardPage> {
     _loadOwnerData();
     _loadDashboardStatistics();
   }
+  
+  Future<void> _refreshDashboard() async {
+    print('🔄 Refreshing dashboard data...');
+    await Future.wait([
+      _loadOwnerData(),
+      _loadDashboardStatistics(),
+    ]);
+    print('✅ Dashboard refresh completed');
+  }
 
   Future<void> _loadDashboardStatistics() async {
     if (_currentSchoolId == null || _ownerData == null) return;
     
-    setState(() => _isLoadingStats = true);
+    setState(() {
+      _isLoadingStats = true;
+      _hasError = false;
+      _errorMessage = null;
+    });
     
     try {
       final ownerId = _ownerData!['ownerId'];
@@ -149,7 +268,10 @@ class _VehicleOwnerDashboardPageState extends State<VehicleOwnerDashboardPage> {
       
     } catch (e) {
       print("🔍 Error loading dashboard statistics: $e");
-      // Keep existing values on error
+      setState(() {
+        _hasError = true;
+        _errorMessage = e.toString();
+      });
     } finally {
       setState(() => _isLoadingStats = false);
     }
@@ -452,6 +574,16 @@ class _VehicleOwnerDashboardPageState extends State<VehicleOwnerDashboardPage> {
       appBar: AppBar(
         title: const Text("Vehicle Owner Dashboard"),
         actions: [
+          // 🔹 Connection Status
+          Padding(
+            padding: const EdgeInsets.only(right: 8.0),
+            child: Icon(
+              _isConnected ? Icons.wifi : Icons.wifi_off,
+              color: _isConnected ? Colors.green : Colors.red,
+              size: 20,
+            ),
+          ),
+          
           // 🔹 School Selector
           Padding(
             padding: const EdgeInsets.only(right: 8.0),
@@ -514,13 +646,16 @@ class _VehicleOwnerDashboardPageState extends State<VehicleOwnerDashboardPage> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            // 🔹 School Context Card
-            if (_currentSchoolName != null)
-              Card(
+      body: RefreshIndicator(
+        onRefresh: _refreshDashboard,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              // 🔹 School Context Card
+              if (_currentSchoolName != null)
+                Card(
                 elevation: 2,
                 color: Colors.blue.shade50,
                 shape: RoundedRectangleBorder(
@@ -569,11 +704,12 @@ class _VehicleOwnerDashboardPageState extends State<VehicleOwnerDashboardPage> {
                   ),
                 ),
               ),
-            const SizedBox(height: 16),
+              
+              const SizedBox(height: 16),
             
-            // 🔹 Summary Cards
-            if (_currentSchoolId == null)
-              Card(
+              // 🔹 Summary Cards
+              if (_currentSchoolId == null)
+                Card(
                 elevation: 2,
                 color: Colors.orange.shade50,
                 shape: RoundedRectangleBorder(
@@ -701,9 +837,62 @@ class _VehicleOwnerDashboardPageState extends State<VehicleOwnerDashboardPage> {
 
             const SizedBox(height: 20),
 
-            // 🔹 Quick Actions
-            if (_currentSchoolId != null)
+            // 🔹 Error State
+            if (_hasError)
               Card(
+                elevation: 2,
+                color: Colors.red.shade50,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: Colors.red.shade200),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.error_outline,
+                        color: Colors.red.shade600,
+                        size: 48,
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        "Error Loading Data",
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.red.shade800,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _errorMessage ?? "Unknown error occurred",
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.red.shade600,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 12),
+                      ElevatedButton.icon(
+                        onPressed: _refreshDashboard,
+                        icon: const Icon(Icons.refresh),
+                        label: const Text("Retry"),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red.shade600,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // 🔹 Quick Actions
+              if (_currentSchoolId != null)
+                Card(
                 elevation: 2,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12)),
@@ -745,14 +934,15 @@ class _VehicleOwnerDashboardPageState extends State<VehicleOwnerDashboardPage> {
                   ),
                 ),
               ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
   // 🔹 Helper Widget for Summary Cards
-  Widget _buildCard(String label, String value, {IconData? icon}) {
+  Widget _buildCard(String label, String value, {IconData? icon, Color? valueColor}) {
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -765,9 +955,23 @@ class _VehicleOwnerDashboardPageState extends State<VehicleOwnerDashboardPage> {
             Text(label,
                 style: const TextStyle(fontSize: 14, color: Colors.black54)),
             const SizedBox(height: 8),
-            Text(value,
-                style: const TextStyle(
-                    fontSize: 28, fontWeight: FontWeight.bold)),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(value,
+                      style: TextStyle(
+                          fontSize: 28, 
+                          fontWeight: FontWeight.bold,
+                          color: valueColor ?? Colors.black)),
+                ),
+                if (_isLoadingStats)
+                  const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+              ],
+            ),
           ],
         ),
       ),

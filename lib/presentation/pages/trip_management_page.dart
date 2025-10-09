@@ -646,7 +646,7 @@ class _TripDetailsPageState extends State<TripDetailsPage> {
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
-                                        builder: (context) => NotificationPage(trip: _tripDetails!),
+                                        builder: (context) => const NotificationPage(),
                                       ),
                                     );
                                   },

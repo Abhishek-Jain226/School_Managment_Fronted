@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:async';
 import '../../services/auth_service.dart';
 import '../../services/gate_staff_service.dart';
+import '../../services/websocket_notification_service.dart';
+import '../../data/models/websocket_notification.dart';
 import '../../app_routes.dart';
 
 class GateStaffDashboardPage extends StatefulWidget {
@@ -14,16 +17,77 @@ class GateStaffDashboardPage extends StatefulWidget {
 class _GateStaffDashboardPageState extends State<GateStaffDashboardPage> {
   final GateStaffService _gateStaffService = GateStaffService();
   final AuthService _authService = AuthService();
+  final WebSocketNotificationService _webSocketService = WebSocketNotificationService();
   
   int? _userId;
   bool _isLoading = true;
   Map<String, dynamic>? _dashboardData;
   String _error = '';
+  
+  // Real-time updates
+  bool _isConnected = false;
+  StreamSubscription<WebSocketNotification>? _notificationSubscription;
+  Timer? _autoRefreshTimer;
 
   @override
   void initState() {
     super.initState();
     _loadUserId();
+    _initializeWebSocket();
+  }
+
+  @override
+  void dispose() {
+    _notificationSubscription?.cancel();
+    _autoRefreshTimer?.cancel();
+    super.dispose();
+  }
+
+  void _initializeWebSocket() {
+    _webSocketService.initialize().then((_) {
+      setState(() {
+        _isConnected = _webSocketService.isConnected;
+      });
+      _notificationSubscription = _webSocketService.notificationStream.listen(
+        _handleWebSocketNotification,
+        onError: (error) {
+          print('WebSocket error: $error');
+          setState(() {
+            _isConnected = false;
+          });
+        },
+      );
+      _startAutoRefresh();
+    });
+  }
+
+  void _handleWebSocketNotification(WebSocketNotification notification) {
+    print('🔔 Gate Staff - Received notification: ${notification.type} - ${notification.message}');
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${notification.title}: ${notification.message}'),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+    if (_isRelevantNotification(notification)) {
+      _loadDashboardData();
+    }
+  }
+
+  bool _isRelevantNotification(WebSocketNotification notification) {
+    return notification.type == NotificationType.attendanceUpdate ||
+           notification.type == NotificationType.tripUpdate ||
+           notification.type == NotificationType.vehicleAssignmentRequest;
+  }
+
+  void _startAutoRefresh() {
+    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      if (mounted) {
+        _loadDashboardData();
+      }
+    });
   }
 
   Future<void> _loadUserId() async {
@@ -161,6 +225,15 @@ class _GateStaffDashboardPageState extends State<GateStaffDashboardPage> {
         backgroundColor: Colors.blue,
         foregroundColor: Colors.white,
         actions: [
+          // WebSocket connection status
+          Padding(
+            padding: const EdgeInsets.only(right: 8.0),
+            child: Icon(
+              _isConnected ? Icons.wifi : Icons.wifi_off,
+              color: _isConnected ? Colors.green : Colors.red,
+              size: 20,
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadDashboardData,

@@ -99,22 +99,32 @@ class DriverService {
     final token = await _auth.getToken();
     
     final url = Uri.parse("$base/$driverId/trips");
+    print("🔍 DriverService: getAssignedTrips URL: $url");
+    print("🔍 DriverService: getAssignedTrips driverId: $driverId");
+    
     final headers = {
       "Content-Type": "application/json",
       if (token != null) "Authorization": "Bearer $token",
     };
 
     final resp = await http.get(url, headers: headers);
+    print("🔍 DriverService: getAssignedTrips response status: ${resp.statusCode}");
+    print("🔍 DriverService: getAssignedTrips response body: ${resp.body}");
 
     if (resp.statusCode == 200) {
       final responseData = jsonDecode(resp.body) as Map<String, dynamic>;
+      print("🔍 DriverService: getAssignedTrips responseData: $responseData");
+      
       if (responseData['success'] == true && responseData['data'] != null) {
         final List<dynamic> tripsJson = responseData['data'];
+        print("🔍 DriverService: getAssignedTrips tripsJson: $tripsJson");
         return tripsJson.map((tripJson) => Trip.fromJson(tripJson)).toList();
       } else {
+        print("🔍 DriverService: getAssignedTrips failed: ${responseData['message']}");
         throw Exception("Failed to get assigned trips: ${responseData['message']}");
       }
     } else {
+      print("🔍 DriverService: getAssignedTrips request failed: ${resp.statusCode} ${resp.body}");
       throw Exception("Assigned trips request failed: ${resp.statusCode} ${resp.body}");
     }
   }
@@ -220,6 +230,51 @@ class DriverService {
       return jsonDecode(resp.body) as Map<String, dynamic>;
     } else {
       throw Exception("End trip failed: ${resp.statusCode} ${resp.body}");
+    }
+  }
+
+  // Send 5-minute notification before arrival
+  Future<Map<String, dynamic>> sendArrivalNotification(int driverId, int tripId, String message) async {
+    final token = await _auth.getToken();
+    
+    final url = Uri.parse("$base/$driverId/notify-parents");
+    final headers = {
+      "Content-Type": "application/json",
+      if (token != null) "Authorization": "Bearer $token",
+    };
+
+    final body = jsonEncode({
+      "tripId": tripId,
+      "message": message,
+      "notificationType": "ARRIVAL_NOTIFICATION"
+    });
+
+    final resp = await http.post(url, headers: headers, body: body);
+
+    if (resp.statusCode == 200) {
+      return jsonDecode(resp.body) as Map<String, dynamic>;
+    } else {
+      throw Exception("Send notification failed: ${resp.statusCode} ${resp.body}");
+    }
+  }
+
+  // Mark student attendance (Pickup/Drop/Absent)
+  Future<Map<String, dynamic>> markStudentAttendance(int driverId, Map<String, dynamic> attendanceData) async {
+    final token = await _auth.getToken();
+    
+    final url = Uri.parse("$base/$driverId/attendance");
+    final headers = {
+      "Content-Type": "application/json",
+      if (token != null) "Authorization": "Bearer $token",
+    };
+
+    final body = jsonEncode(attendanceData);
+    final resp = await http.post(url, headers: headers, body: body);
+
+    if (resp.statusCode == 200) {
+      return jsonDecode(resp.body) as Map<String, dynamic>;
+    } else {
+      throw Exception("Mark attendance failed: ${resp.statusCode} ${resp.body}");
     }
   }
 }

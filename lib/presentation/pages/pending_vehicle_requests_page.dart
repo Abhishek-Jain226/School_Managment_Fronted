@@ -15,6 +15,7 @@ class _PendingVehicleRequestsPageState
   final _service = VehicleService();
   List<Map<String, dynamic>> _requests = [];
   bool _loading = true;
+  int _pendingCount = 0;
 
   @override
   void initState() {
@@ -31,10 +32,14 @@ class _PendingVehicleRequestsPageState
     if (res['success'] == true && res['data'] != null) {
       setState(() {
         _requests = List<Map<String, dynamic>>.from(res['data']);
+        _pendingCount = _requests.length;
         _loading = false;
       });
     } else {
-      setState(() => _loading = false);
+      setState(() {
+        _pendingCount = 0;
+        _loading = false;
+      });
     }
   }
 
@@ -53,7 +58,54 @@ class _PendingVehicleRequestsPageState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Pending Vehicle Requests")),
+      appBar: AppBar(
+        title: const Text("Pending Vehicle Requests"),
+        actions: [
+          // Notification button with badge
+          Stack(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.notifications),
+                onPressed: () {
+                  // Show notification details or refresh
+                  _fetchRequests();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('$_pendingCount pending requests found'),
+                      backgroundColor: _pendingCount > 0 ? Colors.orange : Colors.green,
+                    ),
+                  );
+                },
+              ),
+              if (_pendingCount > 0)
+                Positioned(
+                  right: 8,
+                  top: 8,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 16,
+                      minHeight: 16,
+                    ),
+                    child: Text(
+                      '$_pendingCount',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _requests.isEmpty

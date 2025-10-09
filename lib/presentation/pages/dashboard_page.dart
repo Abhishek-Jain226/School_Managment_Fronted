@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:school_tracker/presentation/pages/school_profile_page.dart';
@@ -7,6 +8,8 @@ import '../../services/school_service.dart';
 import '../../services/student_service.dart';
 import '../../services/vehicle_service.dart';
 import '../../services/auth_service.dart';
+import '../../services/websocket_notification_service.dart';
+import '../../data/models/websocket_notification.dart';
 
 class SchoolAdminDashboardPage extends StatefulWidget {
   const SchoolAdminDashboardPage({super.key});
@@ -21,6 +24,7 @@ class _SchoolAdminDashboardPageState extends State<SchoolAdminDashboardPage> {
   int totalVehicles = 0;
   String todayAttendance = 'N/A';
   int vehiclesInTransit = 0;
+  int pendingRequests = 0;
 
   bool _isLoading = true;
   bool _hasError = false;
@@ -32,13 +36,100 @@ class _SchoolAdminDashboardPageState extends State<SchoolAdminDashboardPage> {
   int? schoolId;
 
   final SchoolService _schoolService = SchoolService();
+  final WebSocketNotificationService _webSocketService = WebSocketNotificationService();
 
   List<Map<String, String>> recentNotifications = [];
+  
+  // Real-time updates
+  bool _isConnected = false;
+  StreamSubscription<WebSocketNotification>? _notificationSubscription;
+  Timer? _autoRefreshTimer;
 
   @override
   void initState() {
     super.initState();
     _loadDashboardData();
+    _initializeWebSocket();
+  }
+
+  @override
+  void dispose() {
+    _notificationSubscription?.cancel();
+    _autoRefreshTimer?.cancel();
+    super.dispose();
+  }
+
+  /// Initialize WebSocket connection
+  void _initializeWebSocket() {
+    _webSocketService.initialize().then((_) {
+      setState(() {
+        _isConnected = _webSocketService.isConnected;
+      });
+      
+      // Listen to notifications
+      _notificationSubscription = _webSocketService.notificationStream.listen(
+        _handleWebSocketNotification,
+        onError: (error) {
+          print('WebSocket error: $error');
+          setState(() {
+            _isConnected = false;
+          });
+        },
+      );
+      
+      // Start auto-refresh timer
+      _startAutoRefresh();
+    });
+  }
+
+  /// Handle WebSocket notifications
+  void _handleWebSocketNotification(WebSocketNotification notification) {
+    print('🔔 Received notification: ${notification.type} - ${notification.message}');
+    
+    // Show notification using SnackBar
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${notification.title}: ${notification.message}'),
+          duration: const Duration(seconds: 3),
+          action: SnackBarAction(
+            label: 'View',
+            onPressed: () => _handleNotificationTap(notification),
+          ),
+        ),
+      );
+    }
+    
+    // Refresh dashboard data for relevant notifications
+    if (_isRelevantNotification(notification)) {
+      _loadDashboardData();
+    }
+  }
+
+  /// Check if notification is relevant for dashboard refresh
+  bool _isRelevantNotification(WebSocketNotification notification) {
+    return notification.type == NotificationType.vehicleAssignmentRequest ||
+           notification.type == NotificationType.vehicleAssignmentApproved ||
+           notification.type == NotificationType.vehicleAssignmentRejected ||
+           notification.type == NotificationType.attendanceUpdate ||
+           notification.type == NotificationType.vehicleStatusUpdate;
+  }
+
+  /// Handle notification tap
+  void _handleNotificationTap(WebSocketNotification notification) {
+    if (notification.type == NotificationType.vehicleAssignmentRequest) {
+      Navigator.pushNamed(context, AppRoutes.pendingRequests);
+    }
+    // Add more navigation logic as needed
+  }
+
+  /// Start auto-refresh timer
+  void _startAutoRefresh() {
+    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      if (mounted) {
+        _loadDashboardData();
+      }
+    });
   }
 
   /// Load data from SharedPreferences + services
@@ -92,16 +183,20 @@ class _SchoolAdminDashboardPageState extends State<SchoolAdminDashboardPage> {
         final attendanceData = await _getTodayAttendanceFromAPI();
         final todayPresent = attendanceData['studentsPresent'] ?? 0;
         
-        // Get real vehicles in transit count from API
-        final vehiclesInTransitCount = await _getVehiclesInTransitFromAPI();
-        
-        // Generate recent notifications
-        await _generateRecentNotifications(studentCount, vehicleCount, todayPresent);
+               // Get real vehicles in transit count from API
+               final vehiclesInTransitCount = await _getVehiclesInTransitFromAPI();
+               
+               // Get pending requests count
+               final pendingRequestsCount = await _getPendingRequestsCount();
+               
+               // Generate recent notifications
+               await _generateRecentNotifications(studentCount, vehicleCount, todayPresent);
         setState(() {
           totalStudents = studentCount;
           totalVehicles = vehicleCount;
           todayAttendance = "$todayPresent/$studentCount";
           vehiclesInTransit = vehiclesInTransitCount;
+          pendingRequests = pendingRequestsCount;
         });
       }
     } catch (e) {
@@ -116,14 +211,6 @@ class _SchoolAdminDashboardPageState extends State<SchoolAdminDashboardPage> {
     }
   }
 
-  /// Calculate today's attendance (mock implementation)
-  Future<int> _calculateTodayAttendance(int totalStudents) async {
-    if (totalStudents == 0) return 0;
-    
-    // Mock logic: 85-95% attendance rate
-    final attendanceRate = 0.85 + (DateTime.now().day % 10) * 0.01; // Varies by day
-    return (totalStudents * attendanceRate).round();
-  }
 
   /// Get vehicles in transit from real API
   Future<int> _getVehiclesInTransitFromAPI() async {
@@ -139,6 +226,25 @@ class _SchoolAdminDashboardPageState extends State<SchoolAdminDashboardPage> {
       }
     } catch (e) {
       debugPrint("Exception getting vehicles in transit: $e");
+      return 0;
+    }
+  }
+
+  /// Get pending requests count from real API
+  Future<int> _getPendingRequestsCount() async {
+    if (schoolId == null) return 0;
+    
+    try {
+      final response = await VehicleService().getPendingRequests(schoolId!);
+      if (response['success'] == true && response['data'] != null) {
+        final requests = List<Map<String, dynamic>>.from(response['data']);
+        return requests.length;
+      } else {
+        debugPrint("Error getting pending requests: ${response['message']}");
+        return 0;
+      }
+    } catch (e) {
+      debugPrint("Exception getting pending requests: $e");
       return 0;
     }
   }
@@ -514,11 +620,42 @@ class _SchoolAdminDashboardPageState extends State<SchoolAdminDashboardPage> {
                       onTap: () => Navigator.pushNamed(
                           context, AppRoutes.reports)),
                   
-                  // Pending Requests
+                  // Pending Requests with notification badge
                   ListTile(
-                      leading: const Icon(Icons.pending_actions),
+                      leading: Stack(
+                        children: [
+                          const Icon(Icons.pending_actions),
+                          if (pendingRequests > 0)
+                            Positioned(
+                              right: 0,
+                              top: 0,
+                              child: Container(
+                                padding: const EdgeInsets.all(2),
+                                decoration: BoxDecoration(
+                                  color: Colors.red,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                constraints: const BoxConstraints(
+                                  minWidth: 16,
+                                  minHeight: 16,
+                                ),
+                                child: Text(
+                                  '$pendingRequests',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
                       title: const Text('Pending Requests'),
-                      subtitle: const Text('Vehicle assignment requests'),
+                      subtitle: Text(pendingRequests > 0 
+                          ? '$pendingRequests vehicle assignment requests' 
+                          : 'Vehicle assignment requests'),
                       onTap: () => Navigator.pushNamed(
                           context, AppRoutes.pendingRequests)),
                   
@@ -565,43 +702,54 @@ class _SchoolAdminDashboardPageState extends State<SchoolAdminDashboardPage> {
           Text('School Admin'),
         ]),
         actions: [
-  Padding(
-    padding: const EdgeInsets.only(right: 12.0),
-    child: InkWell(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const SchoolProfilePage()),
-        );
-      },
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 20,
-            backgroundColor: Colors.blueGrey,
-            backgroundImage: schoolPhoto != null && schoolPhoto!.isNotEmpty
-                ? MemoryImage(base64Decode(schoolPhoto!))
-                : null,
-            child: schoolPhoto == null || schoolPhoto!.isEmpty
-                ? const Icon(Icons.school, color: Colors.white, size: 20)
-                : null,
+          // 🔹 Connection Status
+          Padding(
+            padding: const EdgeInsets.only(right: 8.0),
+            child: Icon(
+              _isConnected ? Icons.wifi : Icons.wifi_off,
+              color: _isConnected ? Colors.green : Colors.red,
+              size: 20,
+            ),
           ),
-          const SizedBox(width: 8),
-          Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(adminName,
-                  style: const TextStyle(
-                      fontSize: 14, fontWeight: FontWeight.bold)),
-              Text(schoolName, style: const TextStyle(fontSize: 12)),
-            ],
-          )
+          
+          // Profile section
+          Padding(
+            padding: const EdgeInsets.only(right: 12.0),
+            child: InkWell(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const SchoolProfilePage()),
+                );
+              },
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 20,
+                    backgroundColor: Colors.blueGrey,
+                    backgroundImage: schoolPhoto != null && schoolPhoto!.isNotEmpty
+                        ? MemoryImage(base64Decode(schoolPhoto!))
+                        : null,
+                    child: schoolPhoto == null || schoolPhoto!.isEmpty
+                        ? const Icon(Icons.school, color: Colors.white, size: 20)
+                        : null,
+                  ),
+                  const SizedBox(width: 8),
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(adminName,
+                          style: const TextStyle(
+                              fontSize: 14, fontWeight: FontWeight.bold)),
+                      Text(schoolName, style: const TextStyle(fontSize: 12)),
+                    ],
+                  )
+                ],
+              ),
+            ),
+          ),
         ],
-      ),
-    ),
-  ),
-],
 
       ),
       drawer: _buildDrawer(),

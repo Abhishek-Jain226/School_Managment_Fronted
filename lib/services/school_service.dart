@@ -212,4 +212,159 @@ Future<Map<String, dynamic>> getAllSchools() async {
       };
     }
   }
+
+  // ---------------- Get All Staff by School ----------------
+  Future<Map<String, dynamic>> getAllStaffBySchool(int schoolId) async {
+    final token = await _auth.getToken();
+    final url = Uri.parse("${AppConfig.baseUrl}/api/school-admin/school/$schoolId/staff");
+    final resp = await http.get(
+      url,
+      headers: {
+        if (token != null) "Authorization": "Bearer $token",
+      },
+    );
+    
+    if (resp.statusCode == 200) {
+      return jsonDecode(resp.body);
+    } else {
+      return {
+        'success': false,
+        'message': 'Failed to get staff list: ${resp.statusCode}',
+        'data': null
+      };
+    }
+  }
+
+  // ---------------- Update Staff Status ----------------
+  Future<Map<String, dynamic>> updateStaffStatus(int staffId, bool isActive, String updatedBy) async {
+    final token = await _auth.getToken();
+    final url = Uri.parse("${AppConfig.baseUrl}/api/school-admin/staff/$staffId/status?isActive=$isActive&updatedBy=$updatedBy");
+    final resp = await http.put(
+      url,
+      headers: {
+        if (token != null) "Authorization": "Bearer $token",
+      },
+    );
+    
+    if (resp.statusCode == 200) {
+      return jsonDecode(resp.body);
+    } else {
+      return {
+        'success': false,
+        'message': 'Failed to update staff status: ${resp.statusCode}',
+        'data': null
+      };
+    }
+  }
+
+  // ---------------- Delete Staff ----------------
+  Future<Map<String, dynamic>> deleteStaff(int staffId, String updatedBy) async {
+    final token = await _auth.getToken();
+    final url = Uri.parse("${AppConfig.baseUrl}/api/school-admin/staff/$staffId/delete?updatedBy=$updatedBy");
+    final resp = await http.put(
+      url,
+      headers: {
+        if (token != null) "Authorization": "Bearer $token",
+      },
+    );
+    
+    if (resp.statusCode == 200) {
+      return jsonDecode(resp.body);
+    } else {
+      return {
+        'success': false,
+        'message': 'Failed to delete staff: ${resp.statusCode}',
+        'data': null
+      };
+    }
+  }
+
+  // ---------------- Debug: Get Staff by Name ----------------
+  Future<Map<String, dynamic>> getStaffByName(int schoolId, String name) async {
+    final token = await _auth.getToken();
+    final url = Uri.parse("${AppConfig.baseUrl}/api/school-admin/school/$schoolId/staff/debug/$name");
+    final resp = await http.get(
+      url,
+      headers: {
+        if (token != null) "Authorization": "Bearer $token",
+      },
+    );
+    
+    if (resp.statusCode == 200) {
+      return jsonDecode(resp.body);
+    } else {
+      return {
+        'success': false,
+        'message': 'Failed to get staff by name: ${resp.statusCode}',
+        'data': null
+      };
+    }
+  }
+
+  // ---------------- Update Staff Role ----------------
+  Future<Map<String, dynamic>> updateStaffRole(int staffId, int newRoleId, String updatedBy) async {
+    final token = await _auth.getToken();
+    final url = Uri.parse("${AppConfig.baseUrl}/api/school-admin/staff/$staffId/role?newRoleId=$newRoleId&updatedBy=$updatedBy");
+    final resp = await http.put(
+      url,
+      headers: {
+        if (token != null) "Authorization": "Bearer $token",
+      },
+    );
+    
+    if (resp.statusCode == 200) {
+      return jsonDecode(resp.body);
+    } else {
+      return {
+        'success': false,
+        'message': 'Failed to update staff role: ${resp.statusCode}',
+        'data': null
+      };
+    }
+  }
+
+  // ---------------- Get All Users (Including PARENT) ----------------
+  Future<Map<String, dynamic>> getAllUsersBySchool(int schoolId) async {
+    final token = await _auth.getToken();
+    final url = Uri.parse("${AppConfig.baseUrl}/api/school-admin/school/$schoolId/all-users");
+    final resp = await http.get(
+      url,
+      headers: {
+        if (token != null) "Authorization": "Bearer $token",
+      },
+    );
+    
+    if (resp.statusCode == 200) {
+      return jsonDecode(resp.body);
+    } else {
+      return {
+        'success': false,
+        'message': 'Failed to get all users: ${resp.statusCode}',
+        'data': null
+      };
+    }
+  }
+
+  // ---------------- Get Dashboard Statistics ----------------
+  Future<Map<String, dynamic>> getDashboardStats(int schoolId) async {
+    final token = await _auth.getToken();
+    final url = Uri.parse("${AppConfig.baseUrl}/api/school-admin/dashboard/$schoolId");
+    final resp = await http.get(
+      url,
+      headers: {
+        if (token != null) "Authorization": "Bearer $token",
+      },
+    );
+    
+    if (resp.statusCode == 200) {
+      return jsonDecode(resp.body);
+    } else {
+      return {
+        'success': false,
+        'message': 'Failed to get dashboard stats: ${resp.statusCode}',
+        'data': null
+      };
+    }
+  }
+
 }

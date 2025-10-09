@@ -33,6 +33,7 @@ import 'package:school_tracker/presentation/pages/student_management_page.dart';
 import 'package:school_tracker/presentation/pages/class_management_page.dart';
 import 'package:school_tracker/presentation/pages/section_management_page.dart';
 import 'package:school_tracker/presentation/pages/bulk_student_import_page.dart';
+import 'package:school_tracker/presentation/pages/notification_page.dart';
 import 'presentation/pages/splash_page.dart';
 import 'presentation/pages/home_page.dart';
 import 'presentation/pages/login_screen.dart';
@@ -106,6 +107,7 @@ static const String createTrip = '/createTrip';
   static const classManagement = "/class-management";
   static const sectionManagement = "/section-management";
   static const bulkStudentImport = "/bulk-student-import";
+  static const notification = "/notifications";
 
   static Map<String, WidgetBuilder> routes = {
     splash: (_) => const SplashPage(),
@@ -187,5 +189,9 @@ activation: (context) {
     classManagement: (context) => const ClassManagementPage(),
     sectionManagement: (context) => const SectionManagementPage(),
     bulkStudentImport: (context) => const BulkStudentImportPage(),
+    
+    // Notification Route
+    notification: (context) => const NotificationPage(),
+    
   };
 }

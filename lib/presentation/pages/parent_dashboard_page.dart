@@ -1,11 +1,13 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:async';
 import '../../app_routes.dart';
 import '../../services/parent_service.dart';
 import '../../services/auth_service.dart';
+import '../../services/websocket_notification_service.dart';
 import '../../data/models/parent_dashboard.dart';
-import '../../data/models/parent_notification.dart';
+import '../../data/models/websocket_notification.dart';
 
 class ParentDashboardPage extends StatefulWidget {
   const ParentDashboardPage({super.key});
@@ -17,16 +19,79 @@ class ParentDashboardPage extends StatefulWidget {
 class _ParentDashboardPageState extends State<ParentDashboardPage> {
   final ParentService _parentService = ParentService();
   final AuthService _authService = AuthService();
+  final WebSocketNotificationService _webSocketService = WebSocketNotificationService();
   
   int? _userId;
   bool _isLoading = true;
   ParentDashboard? _dashboardData;
   String _error = '';
+  
+  // Real-time updates
+  bool _isConnected = false;
+  StreamSubscription<WebSocketNotification>? _notificationSubscription;
+  Timer? _autoRefreshTimer;
 
   @override
   void initState() {
     super.initState();
     _loadUserId();
+    _initializeWebSocket();
+  }
+
+  @override
+  void dispose() {
+    _notificationSubscription?.cancel();
+    _autoRefreshTimer?.cancel();
+    super.dispose();
+  }
+
+  void _initializeWebSocket() {
+    _webSocketService.initialize().then((_) {
+      setState(() {
+        _isConnected = _webSocketService.isConnected;
+      });
+      _notificationSubscription = _webSocketService.notificationStream.listen(
+        _handleWebSocketNotification,
+        onError: (error) {
+          print('WebSocket error: $error');
+          setState(() {
+            _isConnected = false;
+          });
+        },
+      );
+      _startAutoRefresh();
+    });
+  }
+
+  void _handleWebSocketNotification(WebSocketNotification notification) {
+    print('🔔 Parent - Received notification: ${notification.type} - ${notification.message}');
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${notification.title}: ${notification.message}'),
+          duration: const Duration(seconds: 3),
+          backgroundColor: Colors.blue,
+        ),
+      );
+    }
+    if (_isRelevantNotification(notification)) {
+      _loadDashboardData();
+    }
+  }
+
+  bool _isRelevantNotification(WebSocketNotification notification) {
+    return notification.type == NotificationType.arrivalNotification ||
+           notification.type == NotificationType.attendanceUpdate ||
+           notification.type == NotificationType.tripUpdate ||
+           notification.type == NotificationType.vehicleAssignmentRequest;
+  }
+
+  void _startAutoRefresh() {
+    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      if (mounted) {
+        _loadDashboardData();
+      }
+    });
   }
 
   Future<void> _loadUserId() async {
@@ -136,31 +201,7 @@ class _ParentDashboardPageState extends State<ParentDashboardPage> {
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async {
-        // Show confirmation dialog when back button is pressed
-        final shouldExit = await showDialog<bool>(
-          context: context,
-          builder: (BuildContext context) {
-            return AlertDialog(
-              title: const Text('Exit App'),
-              content: const Text('Are you sure you want to exit the app?'),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(false),
-                  child: const Text('Cancel'),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(true),
-                  child: const Text('Exit'),
-                ),
-              ],
-            );
-          },
-        );
-        return shouldExit ?? false;
-      },
-      child: Scaffold(
+    return Scaffold(
       appBar: AppBar(
         title: Row(
           children: const [
@@ -170,6 +211,15 @@ class _ParentDashboardPageState extends State<ParentDashboardPage> {
           ],
         ),
         actions: [
+          // WebSocket connection status
+          Padding(
+            padding: const EdgeInsets.only(right: 8.0),
+            child: Icon(
+              _isConnected ? Icons.wifi : Icons.wifi_off,
+              color: _isConnected ? Colors.green : Colors.red,
+              size: 20,
+            ),
+          ),
           // Refresh Button
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -461,7 +511,6 @@ class _ParentDashboardPageState extends State<ParentDashboardPage> {
                   ),
                 ),
               ),
-      ),
     );
   }
 

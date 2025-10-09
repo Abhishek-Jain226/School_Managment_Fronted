@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../app_routes.dart';
+import '../../services/school_service.dart';
 
 class StaffManagementPage extends StatefulWidget {
   const StaffManagementPage({super.key});
@@ -12,9 +13,16 @@ class StaffManagementPage extends StatefulWidget {
 class _StaffManagementPageState extends State<StaffManagementPage> {
   bool _loading = true;
   int? schoolId;
+  String? adminName;
   
-  // Mock data - in real app, this would come from API
+  // Real-time data from API
   List<Map<String, dynamic>> staffMembers = [];
+  int totalStaff = 0;
+  int activeStaff = 0;
+  int teachers = 0;
+  int gateStaff = 0;
+  
+  final SchoolService _schoolService = SchoolService();
 
   @override
   void initState() {
@@ -27,41 +35,39 @@ class _StaffManagementPageState extends State<StaffManagementPage> {
     try {
       final prefs = await SharedPreferences.getInstance();
       schoolId = prefs.getInt("schoolId");
+      adminName = prefs.getString("userName");
       
-      // Mock data - replace with actual API call
-      await Future.delayed(const Duration(seconds: 1));
-      setState(() {
-        staffMembers = [
-          {
-            'id': 1,
-            'name': 'John Smith',
-            'role': 'Gate Staff',
-            'email': 'john@school.com',
-            'contact': '9876543210',
-            'isActive': true,
-            'joinDate': '2024-01-15',
-          },
-          {
-            'id': 2,
-            'name': 'Sarah Johnson',
-            'role': 'Teacher',
-            'email': 'sarah@school.com',
-            'contact': '9876543211',
-            'isActive': true,
-            'joinDate': '2024-02-01',
-          },
-          {
-            'id': 3,
-            'name': 'Mike Wilson',
-            'role': 'Driver',
-            'email': 'mike@school.com',
-            'contact': '9876543212',
-            'isActive': false,
-            'joinDate': '2023-12-10',
-          },
-        ];
-        _loading = false;
-      });
+      if (schoolId == null) {
+        _showErrorSnackBar("School ID not found. Please login again.");
+        return;
+      }
+      
+      // Fetch real data from API
+      final response = await _schoolService.getAllStaffBySchool(schoolId!);
+      
+      if (response['success'] == true && response['data'] != null) {
+        final data = response['data'];
+        final staffList = List<Map<String, dynamic>>.from(data['staffList'] ?? []);
+        
+        setState(() {
+          staffMembers = staffList;
+          totalStaff = data['totalCount'] ?? 0;
+          activeStaff = data['activeCount'] ?? 0;
+          teachers = staffList.where((s) => s['role'] == 'TEACHER').length;
+          gateStaff = staffList.where((s) => s['role'] == 'GATE_STAFF').length;
+          _loading = false;
+        });
+        
+        // Debug: Print all staff data (only TEACHER and GATE_STAFF)
+        print('=== STAFF DATA DEBUG (TEACHER & GATE_STAFF ONLY) ===');
+        for (var staff in staffList) {
+          print('Name: ${staff['name']}, Role: ${staff['role']}, Email: ${staff['email']}');
+        }
+        print('=== END DEBUG ===');
+      } else {
+        setState(() => _loading = false);
+        _showErrorSnackBar(response['message'] ?? "Failed to load staff data");
+      }
     } catch (e) {
       setState(() => _loading = false);
       _showErrorSnackBar("Error loading staff data: $e");
@@ -158,10 +164,10 @@ class _StaffManagementPageState extends State<StaffManagementPage> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
-                        _buildStatItem('Total Staff', staffMembers.length.toString(), Icons.people),
-                        _buildStatItem('Active Staff', staffMembers.where((s) => s['isActive'] == true).length.toString(), Icons.check_circle),
-                        _buildStatItem('Teachers', staffMembers.where((s) => s['role'] == 'Teacher').length.toString(), Icons.school),
-                        _buildStatItem('Gate Staff', staffMembers.where((s) => s['role'] == 'Gate Staff').length.toString(), Icons.security),
+                        _buildStatItem('Total Staff', totalStaff.toString(), Icons.people),
+                        _buildStatItem('Active Staff', activeStaff.toString(), Icons.check_circle),
+                        _buildStatItem('Teachers', teachers.toString(), Icons.school),
+                        _buildStatItem('Gate Staff', gateStaff.toString(), Icons.security),
                       ],
                     ),
                   ),
@@ -214,7 +220,7 @@ class _StaffManagementPageState extends State<StaffManagementPage> {
                                   children: [
                                     Text('Role: ${staff['role']}'),
                                     Text('Email: ${staff['email']}'),
-                                    Text('Contact: ${staff['contact']}'),
+                                    Text('Contact: ${staff['contactNo']}'),
                                     Row(
                                       children: [
                                         Icon(
@@ -329,13 +335,15 @@ class _StaffManagementPageState extends State<StaffManagementPage> {
   }
 
   IconData _getRoleIcon(String role) {
-    switch (role.toLowerCase()) {
-      case 'teacher':
+    switch (role.toUpperCase()) {
+      case 'TEACHER':
         return Icons.school;
-      case 'gate staff':
+      case 'GATE_STAFF':
         return Icons.security;
-      case 'driver':
+      case 'DRIVER':
         return Icons.drive_eta;
+      case 'SCHOOL_ADMIN':
+        return Icons.admin_panel_settings;
       default:
         return Icons.person;
     }
@@ -354,7 +362,7 @@ class _StaffManagementPageState extends State<StaffManagementPage> {
             const SizedBox(height: 8),
             Text('Email: ${staff['email']}'),
             const SizedBox(height: 8),
-            Text('Contact: ${staff['contact']}'),
+            Text('Contact: ${staff['contactNo']}'),
             const SizedBox(height: 8),
             Text('Join Date: ${staff['joinDate']}'),
             const SizedBox(height: 8),
@@ -371,17 +379,38 @@ class _StaffManagementPageState extends State<StaffManagementPage> {
     );
   }
 
-  void _toggleStaffStatus(Map<String, dynamic> staff) {
-    setState(() {
-      staff['isActive'] = !staff['isActive'];
-    });
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${staff['name']} ${staff['isActive'] ? 'activated' : 'deactivated'} successfully'),
-        backgroundColor: Colors.green,
-      ),
-    );
+  Future<void> _toggleStaffStatus(Map<String, dynamic> staff) async {
+    try {
+      final newStatus = !staff['isActive'];
+      final response = await _schoolService.updateStaffStatus(
+        staff['staffId'], 
+        newStatus, 
+        adminName ?? 'Admin'
+      );
+      
+      if (response['success'] == true) {
+        setState(() {
+          staff['isActive'] = newStatus;
+          // Update counters
+          if (newStatus) {
+            activeStaff++;
+          } else {
+            activeStaff--;
+          }
+        });
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${staff['name']} ${newStatus ? 'activated' : 'deactivated'} successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        _showErrorSnackBar(response['message'] ?? 'Failed to update staff status');
+      }
+    } catch (e) {
+      _showErrorSnackBar('Error updating staff status: $e');
+    }
   }
 
   void _showDeleteDialog(Map<String, dynamic> staff) {
@@ -396,22 +425,60 @@ class _StaffManagementPageState extends State<StaffManagementPage> {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.of(ctx).pop();
-              setState(() {
-                staffMembers.removeWhere((s) => s['id'] == staff['id']);
-              });
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('${staff['name']} deleted successfully'),
-                  backgroundColor: Colors.green,
-                ),
-              );
+              await _deleteStaff(staff);
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             child: const Text('Delete', style: TextStyle(color: Colors.white)),
           ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _deleteStaff(Map<String, dynamic> staff) async {
+    try {
+      final response = await _schoolService.deleteStaff(
+        staff['staffId'], 
+        adminName ?? 'Admin'
+      );
+      
+      if (response['success'] == true) {
+        setState(() {
+          staffMembers.removeWhere((s) => s['staffId'] == staff['staffId']);
+          totalStaff--;
+          if (staff['isActive'] == true) {
+            activeStaff--;
+          }
+          // Update role counters
+          if (staff['role'] == 'TEACHER') {
+            teachers--;
+          } else if (staff['role'] == 'GATE_STAFF') {
+            gateStaff--;
+          }
+        });
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${staff['name']} deleted successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        _showErrorSnackBar(response['message'] ?? 'Failed to delete staff');
+      }
+    } catch (e) {
+      _showErrorSnackBar('Error deleting staff: $e');
+    }
+  }
+
+  void _showSuccessSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.green,
+        duration: const Duration(seconds: 3),
       ),
     );
   }

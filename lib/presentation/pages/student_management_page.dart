@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:async';
 import '../../services/student_service.dart';
-import '../../data/models/student_request.dart';
+import '../../services/websocket_notification_service.dart';
+import '../../data/models/websocket_notification.dart';
 
 class StudentManagementPage extends StatefulWidget {
   const StudentManagementPage({super.key});
@@ -12,6 +14,7 @@ class StudentManagementPage extends StatefulWidget {
 
 class _StudentManagementPageState extends State<StudentManagementPage> {
   final StudentService _studentService = StudentService();
+  final WebSocketNotificationService _webSocketService = WebSocketNotificationService();
   
   List<Map<String, dynamic>> _students = [];
   List<Map<String, dynamic>> _filteredStudents = [];
@@ -19,19 +22,79 @@ class _StudentManagementPageState extends State<StudentManagementPage> {
   bool _hasError = false;
   String? _errorMessage;
   
+  // Real-time updates
+  bool _isConnected = false;
+  StreamSubscription<WebSocketNotification>? _notificationSubscription;
+  Timer? _autoRefreshTimer;
+  
   // Filter states
   String? _selectedClass;
   String? _selectedSection;
   String _statusFilter = 'all'; // all, active, inactive
   
-  // Mock classes and sections - in real app, these would come from API
-  final List<String> _classes = ['Nursery', 'LKG', 'UKG', '1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th'];
-  final List<String> _sections = ['A', 'B', 'C', 'D'];
+  // Dynamic classes and sections from API
+  List<String> _classes = [];
+  List<String> _sections = [];
 
   @override
   void initState() {
     super.initState();
     _loadStudents();
+    _initializeWebSocket();
+  }
+
+  @override
+  void dispose() {
+    _notificationSubscription?.cancel();
+    _autoRefreshTimer?.cancel();
+    super.dispose();
+  }
+
+  void _initializeWebSocket() {
+    _webSocketService.initialize().then((_) {
+      setState(() {
+        _isConnected = _webSocketService.isConnected;
+      });
+      _notificationSubscription = _webSocketService.notificationStream.listen(
+        _handleWebSocketNotification,
+        onError: (error) {
+          print('WebSocket error: $error');
+          setState(() {
+            _isConnected = false;
+          });
+        },
+      );
+      _startAutoRefresh();
+    });
+  }
+
+  void _handleWebSocketNotification(WebSocketNotification notification) {
+    print('🔔 Student Management - Received notification: ${notification.type} - ${notification.message}');
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${notification.title}: ${notification.message}'),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+    if (_isRelevantNotification(notification)) {
+      _loadStudents();
+    }
+  }
+
+  bool _isRelevantNotification(WebSocketNotification notification) {
+    return notification.type == NotificationType.attendanceUpdate ||
+           notification.type == NotificationType.vehicleAssignmentRequest ||
+           notification.type == NotificationType.vehicleAssignmentApproved;
+  }
+
+  void _startAutoRefresh() {
+    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      if (mounted) {
+        _loadStudents();
+      }
+    });
   }
 
   Future<void> _loadStudents() async {
@@ -61,6 +124,7 @@ class _StudentManagementPageState extends State<StudentManagementPage> {
           _filteredStudents = _students;
           _isLoading = false;
         });
+        _extractClassesAndSections();
       } else {
         setState(() {
           _hasError = true;
@@ -75,6 +139,25 @@ class _StudentManagementPageState extends State<StudentManagementPage> {
         _isLoading = false;
       });
     }
+  }
+
+  void _extractClassesAndSections() {
+    final classes = <String>{};
+    final sections = <String>{};
+    
+    for (final student in _students) {
+      if (student['className'] != null) {
+        classes.add(student['className'].toString());
+      }
+      if (student['section'] != null) {
+        sections.add(student['section'].toString());
+      }
+    }
+    
+    setState(() {
+      _classes = classes.toList()..sort();
+      _sections = sections.toList()..sort();
+    });
   }
 
   void _applyFilters() {
@@ -137,6 +220,15 @@ class _StudentManagementPageState extends State<StudentManagementPage> {
       appBar: AppBar(
         title: const Text('Student Management'),
         actions: [
+          // WebSocket connection status
+          Padding(
+            padding: const EdgeInsets.only(right: 8.0),
+            child: Icon(
+              _isConnected ? Icons.wifi : Icons.wifi_off,
+              color: _isConnected ? Colors.green : Colors.red,
+              size: 20,
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadStudents,
