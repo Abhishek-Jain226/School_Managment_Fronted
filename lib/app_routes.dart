@@ -1,6 +1,9 @@
 import 'package:flutter/widgets.dart';
 import 'package:school_tracker/presentation/pages/StudentProfilePage.dart';
 import 'package:school_tracker/presentation/pages/activation_screen.dart';
+import 'package:school_tracker/presentation/pages/app_admin_dashboard.dart';
+import 'package:school_tracker/presentation/pages/app_admin_school_management.dart';
+import 'package:school_tracker/presentation/pages/app_admin_profile_page.dart';
 import 'package:school_tracker/presentation/pages/create_trip_page.dart';
 import 'package:school_tracker/presentation/pages/driver_dashboard.dart';
 import 'package:school_tracker/presentation/pages/forgot_password_screen.dart';
@@ -29,6 +32,7 @@ import 'package:school_tracker/presentation/pages/vehicle_owner_vehicle_manageme
 import 'package:school_tracker/presentation/pages/vehicle_owner_driver_management.dart';
 import 'package:school_tracker/presentation/pages/vehicle_owner_driver_assignment.dart';
 import 'package:school_tracker/presentation/pages/vehicle_owner_student_trip_assignment.dart';
+import 'package:school_tracker/presentation/pages/vehicle_owner_trip_assignment.dart';
 import 'package:school_tracker/presentation/pages/student_management_page.dart';
 import 'package:school_tracker/presentation/pages/class_management_page.dart';
 import 'package:school_tracker/presentation/pages/section_management_page.dart';
@@ -47,6 +51,9 @@ class AppRoutes {
   static const login = '/login';
   static const registerSchool = '/register-school';
   static const dashboard = '/dashboard';
+  static const appAdminDashboard = '/app-admin-dashboard';
+  static const appAdminSchoolManagement = '/app-admin-school-management';
+  static const appAdminProfile = '/app-admin-profile';
 // static const driverDashboard = '/driver-dashboard'; // Driver
    static const ownerDashboard = '/owner-dashboard';
   //static const registerVehicle = '/register-vehicle';
@@ -103,6 +110,7 @@ static const String createTrip = '/createTrip';
   static const vehicleOwnerAssignments = "/vehicle-owner-assignments";
   static const vehicleOwnerDriverAssignment = "/vehicle-owner-driver-assignment";
   static const vehicleOwnerStudentTripAssignment = "/vehicle-owner-student-trip-assignment";
+  static const vehicleOwnerTripAssignment = "/vehicle-owner-trip-assignment";
   static const studentManagement = "/student-management";
   static const classManagement = "/class-management";
   static const sectionManagement = "/section-management";
@@ -115,6 +123,9 @@ static const String createTrip = '/createTrip';
     login: (_) => const LoginScreen(),
     registerSchool: (_) => const RegisterSchoolScreen(),
     dashboard: (_) => const SchoolAdminDashboardPage(), // no argument needed
+    appAdminDashboard: (_) => const AppAdminDashboardPage(),
+    appAdminSchoolManagement: (_) => const AppAdminSchoolManagementPage(),
+    appAdminProfile: (_) => const AppAdminProfilePage(),
     //registerVehicle: (_) => const AddVehiclePage(), // no argument needed
    registerStudent: (_) => const RegisterStudentScreen(),
     //driverDashboard: (_) => const DriverDashboard(),
@@ -160,6 +171,7 @@ static const String createTrip = '/createTrip';
   //vehicleOwnerAssignments: (context) => const VehicleOwnerAssignmentsPage(),
   vehicleOwnerDriverAssignment: (context) => const VehicleOwnerDriverAssignmentPage(),
   vehicleOwnerStudentTripAssignment: (context) => const VehicleOwnerStudentTripAssignmentPage(),
+  vehicleOwnerTripAssignment: (context) => const VehicleOwnerTripAssignmentPage(),
   studentManagement: (context) => const StudentManagementPage(),
 
       vehicleOwnerProfile: (context) {

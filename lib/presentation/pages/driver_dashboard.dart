@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/models/driver_dashboard.dart';
 import '../../data/models/trip.dart';
+import '../../data/models/trip_type.dart';
 import '../../services/driver_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/websocket_notification_service.dart';
@@ -207,11 +208,11 @@ class _DriverDashboardPageState extends State<DriverDashboardPage> {
         }
       }
 
-      // Load dashboard data and assigned trips in parallel
-      final results = await Future.wait([
-        _driverService.getDriverDashboard(_driverId!),
-        _driverService.getAssignedTrips(_driverId!),
-      ]);
+               // Load dashboard data and assigned trips in parallel
+               final results = await Future.wait([
+                 _driverService.getDriverDashboard(_driverId!),
+                 _driverService.getAssignedTrips(_driverId!),
+               ]);
 
       // Validate results before setting state
       if (results.length >= 2 && results[0] != null && results[1] != null) {
@@ -822,6 +823,7 @@ class _DriverDashboardPageState extends State<DriverDashboardPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false, // Remove back button
         title: Row(
           children: [
             const Icon(Icons.local_taxi, size: 28),
@@ -1379,6 +1381,7 @@ class _DriverDashboardPageState extends State<DriverDashboardPage> {
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Text('Type: ${_getTripTypeDisplayName(trip.tripType)}'),
             Text('Time: ${trip.scheduledTime ?? 'N/A'}'),
             Text('Students: ${trip.students.length}'),
             Text('Status: ${trip.tripStatus}'),
@@ -1418,6 +1421,16 @@ class _DriverDashboardPageState extends State<DriverDashboardPage> {
   String _formatTime(DateTime? time) {
     if (time == null) return 'N/A';
     return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+  }
+
+  /// Get trip type display name
+  String _getTripTypeDisplayName(String? tripType) {
+    if (tripType == null) return 'Unknown';
+    try {
+      return TripType.fromValue(tripType).displayName;
+    } catch (e) {
+      return tripType; // Fallback to original value
+    }
   }
 
   /// View trip details with student list
@@ -1509,7 +1522,7 @@ class _DriverDashboardPageState extends State<DriverDashboardPage> {
                   color: _getStatusColor(trip.tripStatus),
                 ),
                 title: Text(trip.tripName),
-                subtitle: Text('${trip.tripType} - ${trip.scheduledTime ?? 'No time set'}'),
+                subtitle: Text('${_getTripTypeDisplayName(trip.tripType)} - ${trip.scheduledTime ?? 'No time set'}'),
                 trailing: Text(
                   trip.tripStatus ?? 'Unknown',
                   style: TextStyle(

@@ -103,8 +103,9 @@ class _RegisterVehicleScreenState extends State<RegisterVehicleScreen> {
         padding: const EdgeInsets.all(16),
         child: Form(
           key: _formKey,
-          child: Column(
-            children: [
+          child: SingleChildScrollView(
+            child: Column(
+              children: [
               GestureDetector(
                 onTap: () {
                   showModalBottomSheet(
@@ -214,6 +215,7 @@ class _RegisterVehicleScreenState extends State<RegisterVehicleScreen> {
                     : const Text("Register Vehicle"),
               ),
             ],
+            ),
           ),
         ),
       ),

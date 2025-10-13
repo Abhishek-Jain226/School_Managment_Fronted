@@ -27,7 +27,8 @@ class _VehicleOwnerDashboardPageState extends State<VehicleOwnerDashboardPage> {
   int _totalVehicles = 0;
   int _activeDrivers = 0;
   int _vehiclesInTransit = 0;
-  int _pendingApprovals = 0;
+  int _totalAssignments = 0;
+  int _pendingDriverRegistrations = 0;
   List<Map<String, dynamic>> _recentActivities = [];
   bool _isLoadingStats = false;
   bool _hasError = false;
@@ -236,19 +237,47 @@ class _VehicleOwnerDashboardPageState extends State<VehicleOwnerDashboardPage> {
       print('🔍 Drivers response: $driversResponse');
       if (driversResponse['success'] == true) {
         final drivers = driversResponse['data']['drivers'] as List;
-        final activeDrivers = drivers.where((driver) => driver['isActive'] == true).length;
+        // Since getDriversByOwner now only returns activated drivers, all are active
         setState(() {
-          _activeDrivers = activeDrivers;
-          _pendingApprovals = drivers.length - activeDrivers; // Assuming inactive drivers are pending
+          _activeDrivers = drivers.length;
         });
-        print('🔍 Active drivers: $_activeDrivers, Pending approvals: $_pendingApprovals');
+        print('🔍 Active drivers: $_activeDrivers');
       } else {
         // Fallback to mock data if API fails
         setState(() {
           _activeDrivers = 0;
-          _pendingApprovals = 0;
         });
         print('🔍 Drivers: 0 (API failed)');
+      }
+      
+      // Load total assignments
+      final assignmentsResponse = await _vehicleOwnerService.getTotalAssignmentsByOwner(ownerId);
+      print('🔍 Total assignments response: $assignmentsResponse');
+      if (assignmentsResponse['success'] == true) {
+        setState(() {
+          _totalAssignments = assignmentsResponse['data'] ?? 0;
+        });
+        print('🔍 Total assignments: $_totalAssignments');
+      } else {
+        setState(() {
+          _totalAssignments = 0;
+        });
+        print('🔍 Total assignments: 0 (API failed)');
+      }
+      
+      // Load pending driver registrations
+      final pendingResponse = await _vehicleOwnerService.getPendingDriverRegistrations(ownerId);
+      print('🔍 Pending driver registrations response: $pendingResponse');
+      if (pendingResponse['success'] == true) {
+        setState(() {
+          _pendingDriverRegistrations = pendingResponse['data'] ?? 0;
+        });
+        print('🔍 Pending driver registrations: $_pendingDriverRegistrations');
+      } else {
+        setState(() {
+          _pendingDriverRegistrations = 0;
+        });
+        print('🔍 Pending driver registrations: 0 (API failed)');
       }
       
       // Load recent activity
@@ -420,6 +449,14 @@ class _VehicleOwnerDashboardPageState extends State<VehicleOwnerDashboardPage> {
                     onTap: () {
                       Navigator.pop(context);
                       Navigator.pushNamed(context, AppRoutes.vehicleOwnerStudentTripAssignment);
+                    },
+                  ),
+                  _buildDrawerItem(
+                    icon: Icons.route,
+                    title: "Trip Assignment",
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(context, AppRoutes.vehicleOwnerTripAssignment);
                     },
                   ),
                 ]),
@@ -783,10 +820,26 @@ class _VehicleOwnerDashboardPageState extends State<VehicleOwnerDashboardPage> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: _buildCard(
-                          "Pending Approvals", 
-                          _isLoadingStats ? "..." : _pendingApprovals.toString(),
+                          "Total Assignments", 
+                          _isLoadingStats ? "..." : _totalAssignments.toString(),
+                          icon: Icons.assignment_ind,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildCard(
+                          "Pending Driver Registrations", 
+                          _isLoadingStats ? "..." : _pendingDriverRegistrations.toString(),
                           icon: Icons.pending_actions,
                         ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Container(), // Empty space for symmetry
                       ),
                     ],
                   ),
@@ -929,6 +982,19 @@ class _VehicleOwnerDashboardPageState extends State<VehicleOwnerDashboardPage> {
                         },
                         icon: const Icon(Icons.assignment_turned_in),
                         label: const Text("Request Vehicle Assignment"),
+                      ),
+                      const SizedBox(height: 8),
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.pushNamed(
+                              context, AppRoutes.vehicleOwnerTripAssignment);
+                        },
+                        icon: const Icon(Icons.route),
+                        label: const Text("Trip Assignment"),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue.shade600,
+                          foregroundColor: Colors.white,
+                        ),
                       ),
                     ],
                   ),

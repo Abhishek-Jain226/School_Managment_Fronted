@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../app_routes.dart';
 import '../../data/models/school_request.dart';
 import '../../services/school_service.dart';
+import '../../services/pincode_service.dart';
 
 class RegisterSchoolScreen extends StatefulWidget {
   const RegisterSchoolScreen({super.key});
@@ -38,6 +39,10 @@ class _RegisterSchoolScreenState extends State<RegisterSchoolScreen> {
   File? _selectedImage;
   final ImagePicker _picker = ImagePicker();
 
+  // Pincode auto-fill state
+  bool _isLoadingPincode = false;
+  bool _isPincodeAutoFilled = false;
+
   Future<void> _pickImage(ImageSource source) async {
     final picked = await _picker.pickImage(source: source);
     if (picked != null) {
@@ -45,6 +50,84 @@ class _RegisterSchoolScreenState extends State<RegisterSchoolScreen> {
         _selectedImage = File(picked.path);
       });
     }
+  }
+
+  /// Auto-fill city, district, state based on pincode
+  Future<void> _autoFillLocationFromPincode(String pincode) async {
+    if (!PincodeService.isValidPincode(pincode)) {
+      setState(() {
+        _isPincodeAutoFilled = false;
+        _isLoadingPincode = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _isLoadingPincode = true;
+    });
+
+    try {
+      final locationData = await PincodeService.getLocationByPincode(pincode);
+      
+      if (locationData != null) {
+        setState(() {
+          _city.text = locationData['city'] ?? '';
+          _district.text = locationData['district'] ?? '';
+          _state.text = locationData['state'] ?? '';
+          _isPincodeAutoFilled = true;
+        });
+        
+        // Show success message
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Location auto-filled: ${locationData['city']}, ${locationData['district']}, ${locationData['state']}'),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+      } else {
+        setState(() {
+          _isPincodeAutoFilled = false;
+        });
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Pincode not found. Please enter location manually.'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      setState(() {
+        _isPincodeAutoFilled = false;
+      });
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error fetching location: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } finally {
+      setState(() {
+        _isLoadingPincode = false;
+      });
+    }
+  }
+
+  /// Allow manual editing of location fields
+  void _enableManualEdit() {
+    setState(() {
+      _isPincodeAutoFilled = false;
+    });
   }
 
   Future<void> _submitForm() async {
@@ -187,43 +270,108 @@ class _RegisterSchoolScreenState extends State<RegisterSchoolScreen> {
               ),
 
               TextFormField(
-                controller: _address,
-                decoration: const InputDecoration(labelText: "Address"),
-                validator: (v) => v!.isEmpty ? "Enter address" : null,
-              ),
-
-              TextFormField(
-                controller: _city,
-                decoration: const InputDecoration(labelText: "City"),
-                validator: (v) => v!.isEmpty ? "Enter city" : null,
-              ),
-
-              TextFormField(
-                controller: _district,
-                decoration: const InputDecoration(labelText: "District"),
-                validator: (v) => v!.isEmpty ? "Enter district" : null,
-              ),
-
-              TextFormField(
-                controller: _state,
-                decoration: const InputDecoration(labelText: "State"),
-                validator: (v) => v!.isEmpty ? "Enter state" : null,
-              ),
-
-              TextFormField(
                 controller: _pincode,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: "Pincode",
                   hintText: "Enter 6-digit pincode",
+                  suffixIcon: _isLoadingPincode 
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: Padding(
+                          padding: EdgeInsets.all(12.0),
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      )
+                    : _isPincodeAutoFilled
+                        ? const Icon(Icons.check_circle, color: Colors.green)
+                        : null,
                 ),
                 keyboardType: TextInputType.number,
                 maxLength: 6,
+                onChanged: (value) {
+                  // Reset auto-fill status when pincode changes
+                  if (_isPincodeAutoFilled) {
+                    setState(() {
+                      _isPincodeAutoFilled = false;
+                    });
+                  }
+                  
+                  // Auto-fill when 6 digits are entered
+                  if (value.length == 6) {
+                    _autoFillLocationFromPincode(value);
+                  }
+                },
                 validator: (v) {
                   if (v == null || v.isEmpty) return "Enter pincode";
                   if (v.length != 6) return "Pincode must be 6 digits";
                   if (!RegExp(r'^[0-9]{6}$').hasMatch(v)) return "Pincode must contain only numbers";
                   return null;
                 },
+              ),
+
+              TextFormField(
+                controller: _city,
+                decoration: InputDecoration(
+                  labelText: "City",
+                  suffixIcon: _isPincodeAutoFilled 
+                    ? const Icon(Icons.auto_awesome, color: Colors.blue, size: 20)
+                    : null,
+                ),
+                readOnly: _isPincodeAutoFilled,
+                validator: (v) => v!.isEmpty ? "Enter city" : null,
+              ),
+
+              TextFormField(
+                controller: _district,
+                decoration: InputDecoration(
+                  labelText: "District",
+                  suffixIcon: _isPincodeAutoFilled 
+                    ? const Icon(Icons.auto_awesome, color: Colors.blue, size: 20)
+                    : null,
+                ),
+                readOnly: _isPincodeAutoFilled,
+                validator: (v) => v!.isEmpty ? "Enter district" : null,
+              ),
+
+              TextFormField(
+                controller: _state,
+                decoration: InputDecoration(
+                  labelText: "State",
+                  suffixIcon: _isPincodeAutoFilled 
+                    ? const Icon(Icons.auto_awesome, color: Colors.blue, size: 20)
+                    : null,
+                ),
+                readOnly: _isPincodeAutoFilled,
+                validator: (v) => v!.isEmpty ? "Enter state" : null,
+              ),
+
+              // Manual Edit Button (shown when auto-filled)
+              if (_isPincodeAutoFilled)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.info_outline, color: Colors.blue, size: 16),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          "Location auto-filled from pincode",
+                          style: TextStyle(color: Colors.blue, fontSize: 12),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: _enableManualEdit,
+                        child: const Text("Edit Manually", style: TextStyle(fontSize: 12)),
+                      ),
+                    ],
+                  ),
+                ),
+
+              TextFormField(
+                controller: _address,
+                decoration: const InputDecoration(labelText: "Address"),
+                validator: (v) => v!.isEmpty ? "Enter address" : null,
               ),
 
               TextFormField(

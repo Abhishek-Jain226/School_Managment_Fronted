@@ -76,11 +76,17 @@ if (data['driverId'] != null) {
 
         // ✅ success message
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(resp['message'] ?? "Login successful")),
+          const SnackBar(
+            content: Text("Login successful"),
+            backgroundColor: Colors.green,
+          ),
         );
 
         // ✅ Navigate role-wise
-        if (roles.contains("SCHOOL_ADMIN")) {
+        if (roles.contains("APP_ADMIN")) {
+          Navigator.pushReplacementNamed(context, AppRoutes.appAdminDashboard);
+          
+        } else if (roles.contains("SCHOOL_ADMIN")) {
          Navigator.pushReplacementNamed(context, AppRoutes.dashboard);
           
         } else if (roles.contains("VEHICLE_OWNER")) {
@@ -93,12 +99,13 @@ if (data['driverId'] != null) {
     }else if (roles.contains("DRIVER")) {
        Navigator.pushReplacementNamed(context, AppRoutes.driverDashboard);
     }
-  //   else if (roles.contains("GATE_STAFF")) {
-  // Navigator.pushReplacementNamed(context, AppRoutes.gateStaffDashboard);
-  else if (roles.isEmpty) {
-  // ⚠️ temporary fix: agar roles empty hai to sidha GateStaff dashboard
-  Navigator.pushReplacementNamed(context, AppRoutes.gateStaffDashboard);
-}
+    else if (roles.contains("GATE_STAFF")) {
+      Navigator.pushReplacementNamed(context, AppRoutes.gateStaffDashboard);
+    }
+    else if (roles.isEmpty) {
+      // ⚠️ temporary fix: agar roles empty hai to sidha GateStaff dashboard
+      Navigator.pushReplacementNamed(context, AppRoutes.gateStaffDashboard);
+    }
 
     else {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -138,16 +145,16 @@ if (data['driverId'] != null) {
             key: _formKey,
             child: Column(
               children: [
-                // -------- Username/Mobile field --------
+                // -------- Username field --------
                 TextFormField(
                   controller: _loginIdCtl,
                   decoration: const InputDecoration(
-                    labelText: 'Username or Mobile Number',
+                    labelText: 'Username/Mobile',
                     border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.person),
                   ),
                   validator: (v) =>
-                      v == null || v.isEmpty ? "Enter username or mobile" : null,
+                      v == null || v.isEmpty ? "Enter username" : null,
                 ),
                 const SizedBox(height: 16),
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/models/trip.dart';
+import '../../data/models/trip_type.dart';
 import '../../services/driver_service.dart';
 import 'student_attendance_page.dart';
 import 'notification_page.dart';
@@ -110,6 +111,15 @@ class _TripManagementPageState extends State<TripManagementPage> {
     }
   }
 
+  String _getTripTypeDisplayName(String? tripType) {
+    if (tripType == null) return 'Unknown';
+    try {
+      return TripType.fromValue(tripType).displayName;
+    } catch (e) {
+      return tripType; // Fallback to original value
+    }
+  }
+
   Future<void> _startTrip(Trip trip) async {
     try {
       await _driverService.startTrip(_driverId!, trip.tripId);
@@ -179,7 +189,7 @@ class _TripManagementPageState extends State<TripManagementPage> {
                           ),
                         ),
                         Text(
-                          '${trip.tripType} - ${trip.scheduledTime ?? 'No time set'}',
+                          '${_getTripTypeDisplayName(trip.tripType)} - ${trip.scheduledTime ?? 'No time set'}',
                           style: TextStyle(
                             fontSize: 14,
                             color: Colors.grey[600],

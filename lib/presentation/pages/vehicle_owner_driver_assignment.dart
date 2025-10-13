@@ -36,7 +36,7 @@ class _VehicleOwnerDriverAssignmentPageState extends State<VehicleOwnerDriverAss
     try {
       final prefs = await SharedPreferences.getInstance();
       final userId = prefs.getInt("userId");
-      _currentSchoolId = prefs.getInt("schoolId");
+      _currentSchoolId = prefs.getInt("currentSchoolId");
       
       if (userId != null) {
         // Load owner data
@@ -150,115 +150,150 @@ class _VehicleOwnerDriverAssignmentPageState extends State<VehicleOwnerDriverAss
   }
 
   Future<void> _showAssignDriverDialog() async {
+    print("🔍 _showAssignDriverDialog: Starting dialog");
     print("🔍 _showAssignDriverDialog: _vehicles.length = ${_vehicles.length}");
+    print("🔍 _showAssignDriverDialog: _drivers.length = ${_drivers.length}");
+    print("🔍 _showAssignDriverDialog: _currentSchoolId = $_currentSchoolId");
     print("🔍 _showAssignDriverDialog: _vehicles = $_vehicles");
+    print("🔍 _showAssignDriverDialog: _drivers = $_drivers");
     
     if (_vehicles.isEmpty) {
+      print("🔍 _showAssignDriverDialog: No vehicles available");
       _showError("No vehicles available. Please register a vehicle first.");
       return;
     }
     
     if (_drivers.isEmpty) {
+      print("🔍 _showAssignDriverDialog: No drivers available");
       _showError("No drivers available. Please register a driver first.");
       return;
     }
 
     if (_currentSchoolId == null) {
+      print("🔍 _showAssignDriverDialog: No school selected");
       _showError("No school selected. Please select a school first.");
       return;
     }
+
+    print("🔍 _showAssignDriverDialog: All validations passed, showing dialog");
 
     Map<String, dynamic>? selectedVehicle;
     Map<String, dynamic>? selectedDriver;
     bool isPrimary = false;
 
-    await showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text("Assign Driver to Vehicle"),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Vehicle Selection
-                DropdownButtonFormField<Map<String, dynamic>>(
-                  decoration: const InputDecoration(
-                    labelText: "Select Vehicle",
-                    border: OutlineInputBorder(),
-                  ),
-                  value: selectedVehicle,
-                  items: _vehicles.map((vehicle) {
-                    return DropdownMenuItem(
-                      value: vehicle,
-                      child: Text("${vehicle['vehicleNumber']} (${vehicle['vehicleType']})"),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    setDialogState(() {
-                      selectedVehicle = value;
-                    });
-                  },
-                ),
-                const SizedBox(height: 16),
-                
-                // Driver Selection
-                DropdownButtonFormField<Map<String, dynamic>>(
-                  decoration: const InputDecoration(
-                    labelText: "Select Driver",
-                    border: OutlineInputBorder(),
-                  ),
-                  value: selectedDriver,
-                  items: _drivers.map((driver) {
-                    return DropdownMenuItem(
-                      value: driver,
-                      child: Text("${driver['driverName']} (${driver['driverContactNumber']})"),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    setDialogState(() {
-                      selectedDriver = value;
-                    });
-                  },
-                ),
-                const SizedBox(height: 16),
-                
-                // Primary Driver Checkbox
-                CheckboxListTile(
-                  title: const Text("Primary Driver"),
-                  subtitle: const Text("Mark as primary driver for this vehicle"),
-                  value: isPrimary,
-                  onChanged: (value) {
-                    setDialogState(() {
-                      isPrimary = value ?? false;
-                    });
-                  },
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text("Cancel"),
-            ),
-            ElevatedButton(
-              onPressed: selectedVehicle != null && selectedDriver != null
-                  ? () async {
-                      Navigator.pop(ctx);
-                      await _assignDriverToVehicle(
-                        selectedVehicle!,
-                        selectedDriver!,
-                        isPrimary,
+    try {
+      print("🔍 _showAssignDriverDialog: About to show dialog");
+      
+      // Test with a working dialog that has the actual functionality
+      await showDialog(
+        context: context,
+        builder: (ctx) => StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+            title: const Text("Assign Driver to Vehicle"),
+            content: SizedBox(
+              width: double.maxFinite,
+              height: 500, // Fixed height to prevent overflow
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                  // Vehicle Selection
+                  DropdownButtonFormField<Map<String, dynamic>>(
+                    decoration: const InputDecoration(
+                      labelText: "Select Vehicle",
+                      border: OutlineInputBorder(),
+                    ),
+                    value: selectedVehicle,
+                    items: _vehicles.map((vehicle) {
+                      final vehicleNumber = vehicle['vehicleNumber'] ?? 'Unknown';
+                      final vehicleType = vehicle['vehicleType'] ?? 'Unknown';
+                      return DropdownMenuItem(
+                        value: vehicle,
+                        child: Text("$vehicleNumber ($vehicleType)"),
                       );
-                    }
-                  : null,
-              child: const Text("Assign"),
+                    }).toList(),
+                    onChanged: (value) {
+                      setDialogState(() {
+                        selectedVehicle = value;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Driver Selection
+                  const Text(
+                    "Only drivers who have completed user activation are shown below:",
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<Map<String, dynamic>>(
+                    decoration: const InputDecoration(
+                      labelText: "Select Driver",
+                      border: OutlineInputBorder(),
+                    ),
+                    value: selectedDriver,
+                    items: _drivers.map((driver) {
+                      final driverName = driver['driverName'] ?? 'Unknown';
+                      final driverContact = driver['driverContactNumber'] ?? 'Unknown';
+                      return DropdownMenuItem(
+                        value: driver,
+                        child: Text("$driverName ($driverContact)"),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      setDialogState(() {
+                        selectedDriver = value;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Primary Driver Checkbox
+                  CheckboxListTile(
+                    title: const Text("Primary Driver"),
+                    subtitle: const Text("Mark as primary driver for this vehicle"),
+                    value: isPrimary,
+                    onChanged: (value) {
+                      setDialogState(() {
+                        isPrimary = value ?? false;
+                      });
+                    },
+                  ),
+                ],
+                ),
+              ),
             ),
-          ],
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text("Cancel"),
+              ),
+              ElevatedButton(
+                onPressed: selectedVehicle != null && selectedDriver != null
+                    ? () async {
+                        Navigator.pop(ctx);
+                        await _assignDriverToVehicle(
+                          selectedVehicle!,
+                          selectedDriver!,
+                          isPrimary,
+                        );
+                      }
+                    : null,
+                child: const Text("Assign"),
+              ),
+            ],
+          ),
         ),
-      ),
-    );
+      );
+    print("🔍 _showAssignDriverDialog: Dialog closed");
+    } catch (e) {
+      print("🔍 _showAssignDriverDialog: Error showing dialog: $e");
+      _showError("Error opening dialog: $e");
+    }
   }
 
   Future<void> _assignDriverToVehicle(
@@ -267,19 +302,37 @@ class _VehicleOwnerDriverAssignmentPageState extends State<VehicleOwnerDriverAss
     bool isPrimary,
   ) async {
     try {
+      // Validate required data
+      if (_currentSchoolId == null) {
+        _showError("Please select a school first");
+        return;
+      }
+      
+      if (_ownerData == null) {
+        _showError("Owner data not available");
+        return;
+      }
+      
+      final createdBy = _ownerData!['name'] ?? 'Vehicle Owner';
+      if (createdBy.length < 3) {
+        _showError("Owner name is too short");
+        return;
+      }
+
       final assignmentData = {
         'vehicleId': vehicle['vehicleId'],
         'driverId': driver['driverId'],
         'schoolId': _currentSchoolId,
         'isPrimary': isPrimary,
         'isActive': true,
-        'createdBy': _ownerData?['name'] ?? 'Vehicle Owner',
+        'createdBy': createdBy,
       };
 
       print("🔍 _assignDriverToVehicle: assignmentData = $assignmentData");
       print("🔍 _assignDriverToVehicle: vehicle = $vehicle");
       print("🔍 _assignDriverToVehicle: driver = $driver");
       print("🔍 _assignDriverToVehicle: _currentSchoolId = $_currentSchoolId");
+      print("🔍 _assignDriverToVehicle: createdBy = $createdBy");
 
       final response = await _vehicleOwnerService.assignDriverToVehicle(assignmentData);
       print("🔍 _assignDriverToVehicle: response = $response");
@@ -373,7 +426,7 @@ class _VehicleOwnerDriverAssignmentPageState extends State<VehicleOwnerDriverAss
                       const SizedBox(width: 12),
                       Expanded(
                         child: _buildSummaryCard(
-                          "Drivers",
+                          "Activated Drivers",
                           _drivers.length.toString(),
                           Icons.person,
                           Colors.green,
@@ -410,12 +463,39 @@ class _VehicleOwnerDriverAssignmentPageState extends State<VehicleOwnerDriverAss
                               fontWeight: FontWeight.bold,
                             ),
                           ),
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.blue.shade200),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.info_outline, color: Colors.blue.shade600, size: 20),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    "Only drivers who have completed user activation can be assigned to vehicles.",
+                                    style: TextStyle(
+                                      color: Colors.blue.shade700,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                           const SizedBox(height: 12),
                           Row(
                             children: [
                               Expanded(
                                 child: ElevatedButton.icon(
-                                  onPressed: _showAssignDriverDialog,
+                                  onPressed: () {
+                                    print("🔍 Assign Driver button clicked");
+                                    _showAssignDriverDialog();
+                                  },
                                   icon: const Icon(Icons.assignment_ind),
                                   label: const Text("Assign Driver"),
                                 ),

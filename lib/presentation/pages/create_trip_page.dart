@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../data/models/trip_request.dart';
+import '../../data/models/trip_type.dart';
 import '../../data/models/vehicle.dart';
 import '../../services/trip_service.dart';
 import '../../services/vehicle_service.dart';
@@ -18,12 +19,10 @@ class _CreateTripPageState extends State<CreateTripPage> {
   final _tripNameController = TextEditingController();
   final _tripNumberController = TextEditingController();
   final _routeNameController = TextEditingController();
-  final _startTimeController = TextEditingController();
-  final _endTimeController = TextEditingController();
   final _routeDescriptionController = TextEditingController();
   
   Vehicle? _selectedVehicle;
-  String _selectedTripType = 'MORNING_PICKUP';
+  String _selectedTripType = TripType.morningPickup.value;
 
   final TripService _tripService = TripService();
   final VehicleService _vehicleService = VehicleService();
@@ -31,13 +30,6 @@ class _CreateTripPageState extends State<CreateTripPage> {
   List<Vehicle> vehicles = [];
   bool _loading = false;
   bool _loadingVehicles = true;
-
-  final List<String> _tripTypes = [
-    'MORNING_PICKUP',
-    'AFTERNOON_DROP',
-    'SPECIAL_TRIP',
-    'FIELD_TRIP',
-  ];
 
   @override
   void initState() {
@@ -50,8 +42,6 @@ class _CreateTripPageState extends State<CreateTripPage> {
     _tripNameController.dispose();
     _tripNumberController.dispose();
     _routeNameController.dispose();
-    _startTimeController.dispose();
-    _endTimeController.dispose();
     _routeDescriptionController.dispose();
     super.dispose();
   }
@@ -83,10 +73,8 @@ class _CreateTripPageState extends State<CreateTripPage> {
         tripName: _tripNameController.text.trim(),
         tripNumber: int.parse(_tripNumberController.text.trim()),
         tripType: _selectedTripType,
-        routeName: _routeNameController.text.trim().isEmpty ? null : _routeNameController.text.trim(),
-        startTime: _startTimeController.text.trim().isEmpty ? null : _startTimeController.text.trim(),
-        endTime: _endTimeController.text.trim().isEmpty ? null : _endTimeController.text.trim(),
-        routeDescription: _routeDescriptionController.text.trim().isEmpty ? null : _routeDescriptionController.text.trim(),
+        routeName: _routeNameController.text.trim(),
+        routeDescription: _routeDescriptionController.text.trim(),
         createdBy: userName,
       );
 
@@ -123,8 +111,9 @@ class _CreateTripPageState extends State<CreateTripPage> {
             ? const Center(child: CircularProgressIndicator())
             : Form(
                 key: _formKey,
-                child: Column(
-                  children: [
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: [
                     TextFormField(
                       controller: _tripNameController,
                       decoration: const InputDecoration(
@@ -145,11 +134,11 @@ class _CreateTripPageState extends State<CreateTripPage> {
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
-                      initialValue: _selectedTripType,
-                      items: _tripTypes
-                          .map((type) => DropdownMenuItem(
-                                value: type,
-                                child: Text(type.replaceAll('_', ' ').toLowerCase().split(' ').map((word) => word[0].toUpperCase() + word.substring(1)).join(' ')),
+                      value: _selectedTripType,
+                      items: TripType.getDropdownItems()
+                          .map((item) => DropdownMenuItem(
+                                value: item['value'],
+                                child: Text(item['label']!),
                               ))
                           .toList(),
                       onChanged: (val) => setState(() => _selectedTripType = val!),
@@ -173,42 +162,20 @@ class _CreateTripPageState extends State<CreateTripPage> {
                     TextFormField(
                       controller: _routeNameController,
                       decoration: const InputDecoration(
-                        labelText: "Route Name (Optional)",
-                        hintText: "Enter route name or description",
+                        labelText: "Route Name",
+                        hintText: "Enter route name",
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextFormField(
-                            controller: _startTimeController,
-                            decoration: const InputDecoration(
-                              labelText: "Start Time (Optional)",
-                              hintText: "HH:MM",
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: TextFormField(
-                            controller: _endTimeController,
-                            decoration: const InputDecoration(
-                              labelText: "End Time (Optional)",
-                              hintText: "HH:MM",
-                            ),
-                          ),
-                        ),
-                      ],
+                      validator: (v) => v == null || v.isEmpty ? "Enter route name" : null,
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: _routeDescriptionController,
                       decoration: const InputDecoration(
-                        labelText: "Route Description (Optional)",
+                        labelText: "Route Description",
                         hintText: "Enter detailed route information",
                       ),
                       maxLines: 3,
+                      validator: (v) => v == null || v.isEmpty ? "Enter route description" : null,
                     ),
                     const SizedBox(height: 20),
                     ElevatedButton(
@@ -232,6 +199,7 @@ class _CreateTripPageState extends State<CreateTripPage> {
                           : const Text("Create Trip"),
                     ),
                   ],
+                  ),
                 ),
               ),
       ),

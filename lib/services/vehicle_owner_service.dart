@@ -6,14 +6,14 @@ import '../config/app_config.dart';
 
 class VehicleOwnerService {
   // 🔹 Using centralized configuration
-  static String get base => AppConfig.vehicleOwnersUrl;
+  static String get baseUrl => AppConfig.vehicleOwnersUrl;
   final AuthService _auth = AuthService();
 
   /// ---------------- Register Vehicle Owner ----------------
   Future<Map<String, dynamic>> registerVehicleOwner(VehicleOwnerRequest req) async {
     final token = await _auth.getToken();
 
-    final url = Uri.parse("$base/register");
+    final url = Uri.parse("$baseUrl/register");
     final headers = {
       "Content-Type": "application/json",
       if (token != null) "Authorization": "Bearer $token",
@@ -27,7 +27,7 @@ class VehicleOwnerService {
   Future<Map<String, dynamic>> activateOwner(int ownerId, String activationCode) async {
     final token = await _auth.getToken();
 
-    final url = Uri.parse("$base/$ownerId/activate?activationCode=$activationCode");
+    final url = Uri.parse("$baseUrl/$ownerId/activate?activationCode=$activationCode");
     final headers = {
       "Content-Type": "application/json",
       if (token != null) "Authorization": "Bearer $token",
@@ -41,7 +41,7 @@ class VehicleOwnerService {
   Future<Map<String, dynamic>> updateOwner(int ownerId, VehicleOwnerRequest req) async {
     final token = await _auth.getToken();
 
-    final url = Uri.parse("$base/$ownerId");
+    final url = Uri.parse("$baseUrl/$ownerId");
     final headers = {
       "Content-Type": "application/json",
       if (token != null) "Authorization": "Bearer $token",
@@ -55,7 +55,7 @@ class VehicleOwnerService {
   Future<Map<String, dynamic>> deleteOwner(int ownerId) async {
     final token = await _auth.getToken();
 
-    final url = Uri.parse("$base/$ownerId");
+    final url = Uri.parse("$baseUrl/$ownerId");
     final headers = {
       if (token != null) "Authorization": "Bearer $token",
     };
@@ -68,7 +68,7 @@ class VehicleOwnerService {
   Future<Map<String, dynamic>> getOwnerById(int ownerId) async {
     final token = await _auth.getToken();
 
-    final url = Uri.parse("$base/$ownerId");
+    final url = Uri.parse("$baseUrl/$ownerId");
     final headers = {
       if (token != null) "Authorization": "Bearer $token",
     };
@@ -81,7 +81,7 @@ class VehicleOwnerService {
   Future<Map<String, dynamic>> getAllOwners(int schoolId) async {
     final token = await _auth.getToken();
 
-    final url = Uri.parse("$base/school/$schoolId");
+    final url = Uri.parse("$baseUrl/school/$schoolId");
     final headers = {
       if (token != null) "Authorization": "Bearer $token",
     };
@@ -93,7 +93,7 @@ class VehicleOwnerService {
   Future<Map<String, dynamic>> getOwnerByUserId(int userId) async {
   final token = await _auth.getToken();
 
-  final url = Uri.parse("$base/user/$userId");
+  final url = Uri.parse("$baseUrl/user/$userId");
   final headers = {
     if (token != null) "Authorization": "Bearer $token",
   };
@@ -107,7 +107,7 @@ class VehicleOwnerService {
   Future<Map<String, dynamic>> associateOwnerWithSchool(int ownerId, int schoolId, String createdBy) async {
     final token = await _auth.getToken();
 
-    final url = Uri.parse("$base/$ownerId/associate-school?schoolId=$schoolId&createdBy=$createdBy");
+    final url = Uri.parse("$baseUrl/$ownerId/associate-school?schoolId=$schoolId&createdBy=$createdBy");
     final headers = {
       "Content-Type": "application/json",
       if (token != null) "Authorization": "Bearer $token",
@@ -121,7 +121,7 @@ class VehicleOwnerService {
   Future<Map<String, dynamic>> getAssociatedSchools(int ownerId) async {
     final token = await _auth.getToken();
 
-    final url = Uri.parse("$base/$ownerId/schools");
+    final url = Uri.parse("$baseUrl/$ownerId/schools");
     final headers = {
       if (token != null) "Authorization": "Bearer $token",
     };
@@ -134,7 +134,7 @@ class VehicleOwnerService {
   Future<Map<String, dynamic>> getVehiclesByOwner(int ownerId) async {
     final token = await _auth.getToken();
 
-    final url = Uri.parse("$base/$ownerId/vehicles");
+    final url = Uri.parse("$baseUrl/$ownerId/vehicles");
     print("🔍 Frontend: Calling URL: $url");
     final headers = {
       if (token != null) "Authorization": "Bearer $token",
@@ -150,7 +150,7 @@ class VehicleOwnerService {
   Future<Map<String, dynamic>> getDriversByOwner(int ownerId) async {
     final token = await _auth.getToken();
 
-    final url = Uri.parse("$base/$ownerId/drivers");
+    final url = Uri.parse("$baseUrl/$ownerId/drivers");
     print("🔍 Frontend: getDriversByOwner URL: $url");
     print("🔍 Frontend: getDriversByOwner ownerId: $ownerId");
     
@@ -168,7 +168,7 @@ class VehicleOwnerService {
   Future<Map<String, dynamic>> getVehiclesInTransitByOwner(int ownerId) async {
     final token = await _auth.getToken();
 
-    final url = Uri.parse("$base/$ownerId/vehicles-in-transit");
+    final url = Uri.parse("$baseUrl/$ownerId/vehicles-in-transit");
     final headers = {
       if (token != null) "Authorization": "Bearer $token",
     };
@@ -181,7 +181,33 @@ class VehicleOwnerService {
   Future<Map<String, dynamic>> getRecentActivityByOwner(int ownerId) async {
     final token = await _auth.getToken();
 
-    final url = Uri.parse("$base/$ownerId/recent-activity");
+    final url = Uri.parse("$baseUrl/$ownerId/recent-activity");
+    final headers = {
+      if (token != null) "Authorization": "Bearer $token",
+    };
+
+    final resp = await http.get(url, headers: headers);
+    return _handleResponse(resp);
+  }
+
+  /// ---------------- Get Total Assignments by Owner ----------------
+  Future<Map<String, dynamic>> getTotalAssignmentsByOwner(int ownerId) async {
+    final token = await _auth.getToken();
+
+    final url = Uri.parse("$baseUrl/$ownerId/total-assignments");
+    final headers = {
+      if (token != null) "Authorization": "Bearer $token",
+    };
+
+    final resp = await http.get(url, headers: headers);
+    return _handleResponse(resp);
+  }
+
+  /// ---------------- Get Pending Driver Registrations by Owner ----------------
+  Future<Map<String, dynamic>> getPendingDriverRegistrations(int ownerId) async {
+    final token = await _auth.getToken();
+
+    final url = Uri.parse("$baseUrl/$ownerId/pending-driver-registrations");
     final headers = {
       if (token != null) "Authorization": "Bearer $token",
     };
@@ -241,6 +267,38 @@ class VehicleOwnerService {
   // Use TripStudentService for all student-trip assignment operations
 
   /// ---------------- Common Response Handler ----------------
+  // ========== TRIP ASSIGNMENT METHODS ==========
+  
+  /// Get all trips for a vehicle owner
+  Future<Map<String, dynamic>> getTripsByOwner(int ownerId) async {
+    print("🔍 Frontend: getTripsByOwner - Owner ID: $ownerId");
+    
+    final url = Uri.parse("$baseUrl/$ownerId/trips");
+    final resp = await http.get(url);
+    
+    return _handleResponse(resp);
+  }
+  
+  /// Get available vehicles for trip assignment
+  Future<Map<String, dynamic>> getAvailableVehiclesForTrip(int ownerId, int schoolId) async {
+    print("🔍 Frontend: getAvailableVehiclesForTrip - Owner ID: $ownerId, School ID: $schoolId");
+    
+    final url = Uri.parse("$baseUrl/$ownerId/available-vehicles/$schoolId");
+    final resp = await http.get(url);
+    
+    return _handleResponse(resp);
+  }
+  
+  /// Assign trip to vehicle
+  Future<Map<String, dynamic>> assignTripToVehicle(int ownerId, int tripId, int vehicleId, String updatedBy) async {
+    print("🔍 Frontend: assignTripToVehicle - Owner ID: $ownerId, Trip ID: $tripId, Vehicle ID: $vehicleId, Updated By: $updatedBy");
+    
+    final url = Uri.parse("$baseUrl/$ownerId/assign-trip/$tripId/vehicle/$vehicleId?updatedBy=$updatedBy");
+    final resp = await http.put(url);
+    
+    return _handleResponse(resp);
+  }
+
   Map<String, dynamic> _handleResponse(http.Response resp) {
     print("🔍 Frontend: _handleResponse - Status: ${resp.statusCode}");
     print("🔍 Frontend: _handleResponse - Body: ${resp.body}");

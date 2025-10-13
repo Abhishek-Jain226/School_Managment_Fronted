@@ -129,12 +129,22 @@ class _ParentDashboardPageState extends State<ParentDashboardPage> {
         _error = 'Error loading dashboard: $e';
       });
       
-      // Show error snackbar
+      // Show error snackbar with more helpful message
       if (mounted) {
+        String errorMessage = 'Failed to load dashboard';
+        if (e.toString().contains('No student linked')) {
+          errorMessage = 'No student linked to this parent account. Please contact school admin.';
+        } else if (e.toString().contains('Parent user not found')) {
+          errorMessage = 'Parent account not found. Please login again.';
+        } else {
+          errorMessage = 'Failed to load dashboard: $e';
+        }
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to load dashboard: $e'),
+            content: Text(errorMessage),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
             action: SnackBarAction(
               label: 'Retry',
               textColor: Colors.white,
@@ -203,6 +213,7 @@ class _ParentDashboardPageState extends State<ParentDashboardPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false, // Remove back button
         title: Row(
           children: const [
             Icon(Icons.family_restroom, size: 28),
@@ -306,16 +317,43 @@ class _ParentDashboardPageState extends State<ParentDashboardPage> {
           ? const Center(child: CircularProgressIndicator())
           : _error.isNotEmpty
               ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(_error, style: const TextStyle(color: Colors.red, fontSize: 16)),
-                      const SizedBox(height: 10),
-                      ElevatedButton(
-                        onPressed: _loadDashboardData,
-                        child: const Text('Retry'),
-                      ),
-                    ],
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.error_outline,
+                          size: 64,
+                          color: Colors.red[300],
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Unable to Load Dashboard',
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.red,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          _error,
+                          style: const TextStyle(color: Colors.red, fontSize: 16),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton.icon(
+                          onPressed: _loadDashboardData,
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('Retry'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 )
               : RefreshIndicator(
