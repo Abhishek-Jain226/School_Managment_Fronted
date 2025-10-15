@@ -42,6 +42,26 @@ class ParentService {
     return _handleResponse(resp);
   }
 
+  /// 🔹 Get Student trips by studentId
+  Future<Map<String, dynamic>> getStudentTrips(int studentId) async {
+    final token = await _auth.getToken();
+    final url = Uri.parse("$base/students/$studentId/trips");
+    final headers = _buildHeaders(token);
+
+    final resp = await http.get(url, headers: headers);
+    return _handleResponse(resp);
+  }
+
+  /// 🔹 Get Driver location by driverId
+  Future<Map<String, dynamic>> getDriverLocation(int driverId) async {
+    final token = await _auth.getToken();
+    final url = Uri.parse("$base/drivers/$driverId/location");
+    final headers = _buildHeaders(token);
+
+    final resp = await http.get(url, headers: headers);
+    return _handleResponse(resp);
+  }
+
   /// 🔹 Update Student profile
   Future<Map<String, dynamic>> updateStudent(
       int studentId, Map<String, dynamic> req) async {

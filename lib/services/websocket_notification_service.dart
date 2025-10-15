@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:web_socket_channel/web_socket_channel.dart';
+import 'package:stomp_dart_client/stomp.dart';
+import 'package:stomp_dart_client/stomp_config.dart';
+import 'package:stomp_dart_client/stomp_frame.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../data/models/websocket_notification.dart';
 import '../config/app_config.dart';
@@ -10,7 +12,7 @@ class WebSocketNotificationService {
   factory WebSocketNotificationService() => _instance;
   WebSocketNotificationService._internal();
 
-  WebSocketChannel? _channel;
+  StompClient? _stompClient;
   bool _isConnected = false;
   String? _currentUserRole;
   int? _currentSchoolId;
@@ -60,68 +62,79 @@ class WebSocketNotificationService {
     print('WebSocket User Data: Role=$_currentUserRole, SchoolId=$_currentSchoolId, UserId=$_currentUserId');
   }
 
-  // Connect to WebSocket
+  // Connect to WebSocket using STOMP
   Future<void> _connect() async {
     if (_isConnected) return;
 
     try {
-      // WebSocket URL with SockJS support
-      final wsUrl = AppConfig.baseUrl.replaceFirst('http', 'ws') + '/ws/websocket';
-      print('Connecting to WebSocket: $wsUrl');
+      // WebSocket URL for STOMP with SockJS
+      String wsUrl;
+      print('🔍 AppConfig.baseUrl: ${AppConfig.baseUrl}');
+      
+      if (AppConfig.baseUrl.contains('http://')) {
+        wsUrl = AppConfig.baseUrl.replaceFirst('http://', 'ws://') + '/ws/websocket';
+      } else if (AppConfig.baseUrl.contains('https://')) {
+        wsUrl = AppConfig.baseUrl.replaceFirst('https://', 'wss://') + '/ws/websocket';
+      } else {
+        wsUrl = 'ws://' + AppConfig.baseUrl + '/ws/websocket';
+      }
+      
+      print('🔍 Constructed WebSocket URL: $wsUrl');
+      print('Connecting to STOMP WebSocket: $wsUrl');
 
-      _channel = WebSocketChannel.connect(Uri.parse(wsUrl));
-      
-      // Listen to messages
-      _channel!.stream.listen(
-        _onMessage,
-        onError: _onWebSocketError,
-        onDone: _onDisconnect,
+      // Create STOMP configuration
+      final config = StompConfig(
+        url: wsUrl,
+        onConnect: _onStompConnect,
+        onWebSocketError: _onWebSocketError,
+        onStompError: _onStompError,
+        onDisconnect: _onDisconnect,
+        onDebugMessage: (String message) => print('STOMP Debug: $message'),
       );
+
+      // Create and activate STOMP client
+      _stompClient = StompClient(config: config);
+      _stompClient!.activate();
       
-      _isConnected = true;
-      print('WebSocket connected successfully');
-      
-      // Send subscription after connection
-      _subscribeToChannels();
     } catch (e) {
-      print('Error connecting to WebSocket: $e');
+      print('Error connecting to STOMP WebSocket: $e');
     }
   }
 
-  // Handle incoming messages
-  void _onMessage(dynamic message) {
+  // STOMP connection handler
+  void _onStompConnect(StompFrame frame) {
+    print('STOMP connected successfully');
+    _isConnected = true;
+    _subscribeToChannels();
+  }
+
+  // STOMP error handler
+  void _onStompError(StompFrame frame) {
+    print('STOMP Error: ${frame.body}');
+    _isConnected = false;
+  }
+
+  // Handle incoming STOMP messages
+  void _onStompMessage(StompFrame frame) {
     try {
-      print('Raw WebSocket message received: $message');
-      
-      // Handle SockJS messages (they might be wrapped)
-      String messageStr = message.toString();
-      if (messageStr.startsWith('a[') && messageStr.endsWith(']')) {
-        // SockJS array message format
-        messageStr = messageStr.substring(2, messageStr.length - 1);
-        if (messageStr.startsWith('"') && messageStr.endsWith('"')) {
-          messageStr = messageStr.substring(1, messageStr.length - 1);
-        }
+      print('STOMP message received: ${frame.body}');
+
+      if (frame.body != null) {
+        final Map<String, dynamic> jsonData = jsonDecode(frame.body!);
+        print('Parsed STOMP JSON message: $jsonData');
+        
+        final notification = WebSocketNotification.fromJson(jsonData);
+        _notificationController.add(notification);
+        _routeNotificationToSpecificStreams(notification);
+        print('✅ STOMP notification processed successfully');
       }
-      
-      final notificationData = jsonDecode(messageStr);
-      final notification = WebSocketNotification.fromJson(notificationData);
-      
-      print('Received notification: ${notification.type} - ${notification.message}');
-      
-      // Add to general notification stream
-      _notificationController.add(notification);
-      
-      // Add to specific streams based on type
-      _routeNotificationToSpecificStreams(notification);
-      
     } catch (e) {
-      print('Error handling message: $e');
-      print('Message was: $message');
+      print('❌ Error processing STOMP message: $e');
     }
   }
 
   // Handle disconnection
-  void _onDisconnect() {
+  void _onDisconnect(StompFrame frame) {
     print('WebSocket disconnected');
     _isConnected = false;
   }
@@ -132,24 +145,47 @@ class WebSocketNotificationService {
     _isConnected = false;
   }
 
-  // Subscribe to notification channels (simplified for basic WebSocket)
+  // Subscribe to STOMP notification channels
   void _subscribeToChannels() {
-    if (!_isConnected || _channel == null) return;
+    if (!_isConnected || _stompClient == null) return;
 
     try {
-      // Send subscription message to backend for school-specific notifications
+      // Subscribe to school-specific notifications
       if (_currentSchoolId != null) {
-        final subscriptionMessage = {
-          'type': 'SUBSCRIBE',
-          'schoolId': _currentSchoolId,
-          'userRole': _currentUserRole,
-          'userId': _currentUserId,
-        };
-        _channel!.sink.add(jsonEncode(subscriptionMessage));
-        print('Subscribed to school notifications: $_currentSchoolId');
+        _stompClient!.subscribe(
+          destination: '/topic/school/$_currentSchoolId',
+          callback: _onStompMessage,
+        );
+        print('Subscribed to school notifications: /topic/school/$_currentSchoolId');
       }
+
+      // Subscribe to user-specific notifications
+      if (_currentUserId != null) {
+        _stompClient!.subscribe(
+          destination: '/user/queue/notifications',
+          callback: _onStompMessage,
+        );
+        print('Subscribed to user notifications: /user/queue/notifications');
+      }
+
+      // Subscribe to role-specific notifications
+      if (_currentUserRole != null) {
+        _stompClient!.subscribe(
+          destination: '/topic/role/${_currentUserRole!.toLowerCase()}',
+          callback: _onStompMessage,
+        );
+        print('Subscribed to role notifications: /topic/role/${_currentUserRole!.toLowerCase()}');
+      }
+
+      // Subscribe to general notifications
+      _stompClient!.subscribe(
+        destination: '/topic/all',
+        callback: _onStompMessage,
+      );
+      print('Subscribed to general notifications: /topic/all');
+
     } catch (e) {
-      print('Error subscribing to channels: $e');
+      print('Error subscribing to STOMP channels: $e');
     }
   }
 
@@ -189,12 +225,15 @@ class WebSocketNotificationService {
 
   // Send notification (for testing)
   void sendNotification(Map<String, dynamic> notification) {
-    if (!_isConnected || _channel == null) return;
+    if (!_isConnected || _stompClient == null) return;
 
     try {
-      _channel!.sink.add(jsonEncode(notification));
+      _stompClient!.send(
+        destination: '/app/chat.sendMessage',
+        body: jsonEncode(notification),
+      );
     } catch (e) {
-      print('Error sending notification: $e');
+      print('Error sending STOMP notification: $e');
     }
   }
 
@@ -208,12 +247,12 @@ class WebSocketNotificationService {
 
   // Disconnect
   void disconnect() {
-    if (_channel != null) {
-      _channel!.sink.close();
-      _channel = null;
+    if (_stompClient != null) {
+      _stompClient!.deactivate();
+      _stompClient = null;
     }
     _isConnected = false;
-    print('WebSocket disconnected');
+    print('STOMP WebSocket disconnected');
   }
 
   // Update user data and resubscribe

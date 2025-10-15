@@ -256,4 +256,45 @@ class AppAdminService {
       };
     }
   }
+
+  // Resend activation link for school admin
+  static Future<Map<String, dynamic>> resendActivationLink(
+    int schoolId,
+    String updatedBy,
+  ) async {
+    try {
+      final token = await _getAuthToken();
+      if (token == null) {
+        return {'success': false, 'message': 'No authentication token found'};
+      }
+
+      final response = await http.put(
+        Uri.parse('$_baseUrl/api/app-admin/schools/$schoolId/resend-activation?updatedBy=$updatedBy'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      final data = jsonDecode(response.body);
+      
+      if (response.statusCode == 200) {
+        return {
+          'success': true,
+          'data': data['data'],
+          'message': data['message'],
+        };
+      } else {
+        return {
+          'success': false,
+          'message': data['message'] ?? 'Failed to resend activation link',
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Error resending activation link: $e',
+      };
+    }
+  }
 }

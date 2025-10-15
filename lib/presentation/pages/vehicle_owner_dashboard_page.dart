@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../app_routes.dart';
@@ -100,6 +101,15 @@ class _VehicleOwnerDashboardPageState extends State<VehicleOwnerDashboardPage> {
         _loadDashboardStatistics();
       }
     });
+  }
+
+  MemoryImage? _getMemoryImage(String base64String) {
+    try {
+      return MemoryImage(base64Decode(base64String));
+    } catch (e) {
+      print('Error decoding base64 image: $e');
+      return null;
+    }
   }
   
   void _handleWebSocketNotification(WebSocketNotification notification) {
@@ -326,11 +336,16 @@ class _VehicleOwnerDashboardPageState extends State<VehicleOwnerDashboardPage> {
                 CircleAvatar(
                   radius: 30,
                   backgroundColor: Colors.white,
-                  child: Icon(
-                    Icons.person,
-                    size: 40,
-                    color: Colors.blue.shade600,
-                  ),
+                  backgroundImage: _ownerData?['ownerPhoto'] != null && _ownerData!['ownerPhoto'].toString().isNotEmpty
+                      ? _getMemoryImage(_ownerData!['ownerPhoto']) as ImageProvider<Object>?
+                      : null,
+                  child: _ownerData?['ownerPhoto'] == null || _ownerData!['ownerPhoto'].toString().isEmpty
+                      ? Icon(
+                          Icons.person,
+                          size: 40,
+                          color: Colors.blue.shade600,
+                        )
+                      : null,
                 ),
                 const SizedBox(height: 12),
                 Text(

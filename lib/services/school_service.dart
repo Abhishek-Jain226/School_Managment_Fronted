@@ -257,6 +257,50 @@ Future<Map<String, dynamic>> getAllSchools() async {
     }
   }
 
+  // ---------------- Update Staff Details ----------------
+  Future<Map<String, dynamic>> updateStaffDetails(
+    int staffId,
+    String name,
+    String email,
+    String contact,
+    String role,
+    String joinDate,
+    bool isActive,
+    String updatedBy,
+  ) async {
+    final token = await _auth.getToken();
+    final url = Uri.parse("${AppConfig.baseUrl}/api/school-admin/staff/$staffId");
+    
+    final requestBody = {
+      'name': name,
+      'email': email,
+      'contact': contact,
+      'role': role,
+      'joinDate': joinDate,
+      'isActive': isActive,
+      'updatedBy': updatedBy,
+    };
+    
+    final resp = await http.put(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        if (token != null) "Authorization": "Bearer $token",
+      },
+      body: jsonEncode(requestBody),
+    );
+    
+    if (resp.statusCode == 200) {
+      return jsonDecode(resp.body);
+    } else {
+      return {
+        'success': false,
+        'message': 'Failed to update staff details: ${resp.statusCode}',
+        'data': null
+      };
+    }
+  }
+
   // ---------------- Delete Staff ----------------
   Future<Map<String, dynamic>> deleteStaff(int staffId, String updatedBy) async {
     final token = await _auth.getToken();

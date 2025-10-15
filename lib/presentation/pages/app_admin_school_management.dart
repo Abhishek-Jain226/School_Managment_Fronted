@@ -110,6 +110,7 @@ class _AppAdminSchoolManagementPageState extends State<AppAdminSchoolManagementP
     }
   }
 
+
   void _showSnackBar(String message, Color color) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -471,6 +472,27 @@ class _AppAdminSchoolManagementPageState extends State<AppAdminSchoolManagementP
                 ),
               ],
             ),
+            
+            // Resend Activation Link Button (only for schools without active users)
+            if (school['hasActiveUser'] != true) ...[
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () => _resendActivationLink(
+                    school['schoolId'],
+                    school['schoolName'] ?? 'School',
+                  ),
+                  icon: const Icon(Icons.email),
+                  label: const Text('Resend Activation Link'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.purple,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+            
           ],
         ),
       ),
@@ -483,6 +505,74 @@ class _AppAdminSchoolManagementPageState extends State<AppAdminSchoolManagementP
       return '${date.day}/${date.month}/${date.year}';
     } catch (e) {
       return dateString;
+    }
+  }
+
+  Future<void> _resendActivationLink(int schoolId, String schoolName) async {
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Resend Activation Link'),
+        content: Text('Are you sure you want to resend the activation link for $schoolName?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Resend'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    // Show loading dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const AlertDialog(
+        content: Row(
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(width: 16),
+            Text('Sending activation link...'),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      // Get current user info for updatedBy parameter
+      final prefs = await SharedPreferences.getInstance();
+      final currentUser = prefs.getString('userName') ?? 'AppAdmin';
+
+      final response = await AppAdminService.resendActivationLink(
+        schoolId,
+        currentUser,
+      );
+
+      // Close loading dialog
+      Navigator.of(context).pop();
+
+      if (response['success'] == true) {
+        _showSnackBar(
+          response['message'] ?? 'Activation link sent successfully',
+          Colors.green,
+        );
+      } else {
+        _showSnackBar(
+          response['message'] ?? 'Failed to send activation link',
+          Colors.red,
+        );
+      }
+    } catch (e) {
+      // Close loading dialog
+      Navigator.of(context).pop();
+      _showSnackBar('Error sending activation link: $e', Colors.red);
     }
   }
 

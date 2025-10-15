@@ -123,33 +123,16 @@ class _StaffManagementPageState extends State<StaffManagementPage> {
                           ),
                         ),
                         const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: ElevatedButton.icon(
-                                onPressed: _navigateToAddStaff,
-                                icon: const Icon(Icons.person_add_alt_1),
-                                label: const Text('Add Staff'),
-                                style: ElevatedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(vertical: 12),
-                                ),
-                              ),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: _navigateToAddStaff,
+                            icon: const Icon(Icons.person_add_alt_1),
+                            label: const Text('Add Staff'),
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: ElevatedButton.icon(
-                                onPressed: () {
-                                  // TODO: Navigate to bulk import
-                                  _showErrorSnackBar('Bulk import not implemented yet');
-                                },
-                                icon: const Icon(Icons.upload_file),
-                                label: const Text('Bulk Import'),
-                                style: ElevatedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(vertical: 12),
-                                ),
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
                       ],
                     ),
@@ -350,33 +333,279 @@ class _StaffManagementPageState extends State<StaffManagementPage> {
   }
 
   void _showStaffDetails(Map<String, dynamic> staff) {
+    // Create controllers with current staff data
+    final nameController = TextEditingController(text: staff['name'] ?? '');
+    final emailController = TextEditingController(text: staff['email'] ?? '');
+    final contactController = TextEditingController(text: staff['contactNo'] ?? '');
+    final roleController = TextEditingController(text: staff['role'] ?? '');
+    final joinDateController = TextEditingController(text: staff['joinDate'] ?? '');
+    
+    bool isEditing = false;
+    bool isActive = staff['isActive'] == true;
+    
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(staff['name']),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Role: ${staff['role']}'),
-            const SizedBox(height: 8),
-            Text('Email: ${staff['email']}'),
-            const SizedBox(height: 8),
-            Text('Contact: ${staff['contactNo']}'),
-            const SizedBox(height: 8),
-            Text('Join Date: ${staff['joinDate']}'),
-            const SizedBox(height: 8),
-            Text('Status: ${staff['isActive'] == true ? 'Active' : 'Inactive'}'),
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.person, color: Colors.blue),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  isEditing ? 'Edit Staff Details' : 'Staff Details',
+                  style: const TextStyle(fontSize: 18),
+                ),
+              ),
+              IconButton(
+                onPressed: () {
+                  setState(() {
+                    isEditing = !isEditing;
+                  });
+                },
+                icon: Icon(
+                  isEditing ? Icons.visibility : Icons.edit,
+                  color: Colors.blue,
+                ),
+                tooltip: isEditing ? 'View Mode' : 'Edit Mode',
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Name Field
+                TextFormField(
+                  controller: nameController,
+                  enabled: isEditing,
+                  decoration: InputDecoration(
+                    labelText: 'Name',
+                    prefixIcon: const Icon(Icons.person),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                
+                // Email Field
+                TextFormField(
+                  controller: emailController,
+                  enabled: isEditing,
+                  decoration: InputDecoration(
+                    labelText: 'Email',
+                    prefixIcon: const Icon(Icons.email),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                
+                // Contact Field
+                TextFormField(
+                  controller: contactController,
+                  enabled: isEditing,
+                  decoration: InputDecoration(
+                    labelText: 'Contact Number',
+                    prefixIcon: const Icon(Icons.phone),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                
+                // Role Field
+                TextFormField(
+                  controller: roleController,
+                  enabled: isEditing,
+                  decoration: InputDecoration(
+                    labelText: 'Role',
+                    prefixIcon: Icon(_getRoleIcon(roleController.text)),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                
+                // Join Date Field
+                TextFormField(
+                  controller: joinDateController,
+                  enabled: isEditing,
+                  decoration: InputDecoration(
+                    labelText: 'Join Date',
+                    prefixIcon: const Icon(Icons.calendar_today),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                
+                // Status Toggle (only in edit mode)
+                if (isEditing) ...[
+                  Row(
+                    children: [
+                      const Icon(Icons.toggle_on, color: Colors.blue),
+                      const SizedBox(width: 8),
+                      const Text('Status:'),
+                      const SizedBox(width: 8),
+                      Switch(
+                        value: isActive,
+                        onChanged: (value) {
+                          setState(() {
+                            isActive = value;
+                          });
+                        },
+                        activeColor: Colors.green,
+                        inactiveThumbColor: Colors.red,
+                      ),
+                      Text(
+                        isActive ? 'Active' : 'Inactive',
+                        style: TextStyle(
+                          color: isActive ? Colors.green : Colors.red,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ] else ...[
+                  // Status Display (view mode)
+                  Row(
+                    children: [
+                      Icon(
+                        isActive ? Icons.check_circle : Icons.cancel,
+                        color: isActive ? Colors.green : Colors.red,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Status: ${isActive ? 'Active' : 'Inactive'}',
+                        style: TextStyle(
+                          color: isActive ? Colors.green : Colors.red,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Cancel'),
+            ),
+            if (isEditing) ...[
+              ElevatedButton(
+                onPressed: () async {
+                  await _updateStaffDetails(
+                    staff,
+                    nameController.text,
+                    emailController.text,
+                    contactController.text,
+                    roleController.text,
+                    joinDateController.text,
+                    isActive,
+                    ctx,
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Save Changes'),
+              ),
+            ],
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Close'),
-          ),
-        ],
       ),
     );
+  }
+
+  Future<void> _updateStaffDetails(
+    Map<String, dynamic> staff,
+    String name,
+    String email,
+    String contact,
+    String role,
+    String joinDate,
+    bool isActive,
+    BuildContext dialogContext,
+  ) async {
+    try {
+      // Show loading indicator
+      showDialog(
+        context: dialogContext,
+        barrierDismissible: false,
+        builder: (context) => const AlertDialog(
+          content: Row(
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(width: 16),
+              Text('Updating staff details...'),
+            ],
+          ),
+        ),
+      );
+
+      // Call the API to update staff details
+      final response = await _schoolService.updateStaffDetails(
+        staff['staffId'],
+        name,
+        email,
+        contact,
+        role,
+        joinDate,
+        isActive,
+        adminName ?? 'Admin',
+      );
+
+      // Close loading dialog
+      Navigator.of(dialogContext).pop();
+
+      if (response['success'] == true) {
+        // Update local data
+        setState(() {
+          staff['name'] = name;
+          staff['email'] = email;
+          staff['contactNo'] = contact;
+          staff['role'] = role;
+          staff['joinDate'] = joinDate;
+          staff['isActive'] = isActive;
+          
+          // Update counters if status changed
+          if (staff['isActive'] != isActive) {
+            if (isActive) {
+              activeStaff++;
+            } else {
+              activeStaff--;
+            }
+          }
+        });
+
+        // Close the edit dialog
+        Navigator.of(dialogContext).pop();
+
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${name} details updated successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        _showErrorSnackBar(response['message'] ?? 'Failed to update staff details');
+      }
+    } catch (e) {
+      // Close loading dialog if it's still open
+      Navigator.of(dialogContext).pop();
+      _showErrorSnackBar('Error updating staff details: $e');
+    }
   }
 
   Future<void> _toggleStaffStatus(Map<String, dynamic> staff) async {

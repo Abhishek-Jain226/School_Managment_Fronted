@@ -1,9 +1,11 @@
 // lib/services/driver_service.dart
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 import '../data/models/driver_request.dart';
 import '../data/models/driver_dashboard.dart';
+import '../data/models/driver_profile.dart';
+import '../data/models/driver_reports.dart';
+import '../data/models/time_based_trips.dart';
 import '../data/models/trip.dart';
 import '../data/models/student_attendance.dart';
 import '../data/models/notification_request.dart';
@@ -16,7 +18,6 @@ class DriverService {
   final AuthService _auth = AuthService();
 
   Future<Map<String, dynamic>> createDriver(DriverRequest req) async {
-    final prefs = await SharedPreferences.getInstance();
     final token = await _auth.getToken();
 
     final url = Uri.parse("$base/create");
@@ -164,7 +165,12 @@ class DriverService {
     };
 
     final body = jsonEncode(attendanceData.toJson());
+    print("🔍 DriverService: markAttendance URL: $url");
+    print("🔍 DriverService: markAttendance body: $body");
+    
     final resp = await http.post(url, headers: headers, body: body);
+    print("🔍 DriverService: markAttendance response status: ${resp.statusCode}");
+    print("🔍 DriverService: markAttendance response body: ${resp.body}");
 
     if (resp.statusCode == 200) {
       final responseData = jsonDecode(resp.body) as Map<String, dynamic>;
@@ -174,26 +180,6 @@ class DriverService {
     }
   }
 
-  // Send notification to parents
-  Future<NotificationResponse> sendNotification(int driverId, NotificationRequest notificationData) async {
-    final token = await _auth.getToken();
-    
-    final url = Uri.parse("$base/$driverId/notify-parents");
-    final headers = {
-      "Content-Type": "application/json",
-      if (token != null) "Authorization": "Bearer $token",
-    };
-
-    final body = jsonEncode(notificationData.toJson());
-    final resp = await http.post(url, headers: headers, body: body);
-
-    if (resp.statusCode == 200) {
-      final responseData = jsonDecode(resp.body) as Map<String, dynamic>;
-      return NotificationResponse.fromJson(responseData);
-    } else {
-      throw Exception("Send notification failed: ${resp.statusCode} ${resp.body}");
-    }
-  }
 
   // Start trip
   Future<Map<String, dynamic>> startTrip(int driverId, int tripId) async {
@@ -214,27 +200,11 @@ class DriverService {
     }
   }
 
-  // End trip
-  Future<Map<String, dynamic>> endTrip(int driverId, int tripId) async {
-    final token = await _auth.getToken();
-    
-    final url = Uri.parse("$base/$driverId/trip/$tripId/end");
-    final headers = {
-      "Content-Type": "application/json",
-      if (token != null) "Authorization": "Bearer $token",
-    };
 
-    final resp = await http.post(url, headers: headers);
 
-    if (resp.statusCode == 200) {
-      return jsonDecode(resp.body) as Map<String, dynamic>;
-    } else {
-      throw Exception("End trip failed: ${resp.statusCode} ${resp.body}");
-    }
-  }
 
-  // Send 5-minute notification before arrival
-  Future<Map<String, dynamic>> sendArrivalNotification(int driverId, int tripId, String message) async {
+  // Send notification to parents (CRITICAL FIX)
+  Future<NotificationResponse> sendNotification(int driverId, NotificationRequest request) async {
     final token = await _auth.getToken();
     
     final url = Uri.parse("$base/$driverId/notify-parents");
@@ -243,38 +213,246 @@ class DriverService {
       if (token != null) "Authorization": "Bearer $token",
     };
 
-    final body = jsonEncode({
-      "tripId": tripId,
-      "message": message,
-      "notificationType": "ARRIVAL_NOTIFICATION"
-    });
-
+    final body = jsonEncode(request.toJson());
     final resp = await http.post(url, headers: headers, body: body);
 
     if (resp.statusCode == 200) {
-      return jsonDecode(resp.body) as Map<String, dynamic>;
+      final responseData = jsonDecode(resp.body) as Map<String, dynamic>;
+      return NotificationResponse.fromJson(responseData);
     } else {
       throw Exception("Send notification failed: ${resp.statusCode} ${resp.body}");
     }
   }
 
-  // Mark student attendance (Pickup/Drop/Absent)
-  Future<Map<String, dynamic>> markStudentAttendance(int driverId, Map<String, dynamic> attendanceData) async {
+  // ================ ENHANCED DRIVER DASHBOARD METHODS ================
+
+  // Get time-based filtered trips
+  Future<TimeBasedTrips> getTimeBasedTrips(int driverId) async {
     final token = await _auth.getToken();
+    final url = Uri.parse("$base/$driverId/trips/time-based");
     
-    final url = Uri.parse("$base/$driverId/attendance");
+    print("🔍 DriverService: getTimeBasedTrips URL: $url");
+    
+    final headers = {
+      if (token != null) "Authorization": "Bearer $token",
+    };
+
+    final resp = await http.get(url, headers: headers);
+    print("🔍 DriverService: getTimeBasedTrips response status: ${resp.statusCode}");
+    print("🔍 DriverService: getTimeBasedTrips response body: ${resp.body}");
+
+    if (resp.statusCode == 200) {
+      final responseData = jsonDecode(resp.body) as Map<String, dynamic>;
+      if (responseData['success'] == true && responseData['data'] != null) {
+        return TimeBasedTrips.fromJson(responseData['data']);
+      } else {
+        throw Exception("Failed to get time-based trips: ${responseData['message']}");
+      }
+    } else {
+      throw Exception("Get time-based trips failed: ${resp.statusCode} ${resp.body}");
+    }
+  }
+
+  // Get driver profile
+  Future<DriverProfile> getDriverProfile(int driverId) async {
+    final token = await _auth.getToken();
+    final url = Uri.parse("$base/$driverId/profile");
+    
+    print("🔍 DriverService: getDriverProfile URL: $url");
+    
+    final headers = {
+      if (token != null) "Authorization": "Bearer $token",
+    };
+
+    final resp = await http.get(url, headers: headers);
+    print("🔍 DriverService: getDriverProfile response status: ${resp.statusCode}");
+    print("🔍 DriverService: getDriverProfile response body: ${resp.body}");
+
+    if (resp.statusCode == 200) {
+      final responseData = jsonDecode(resp.body) as Map<String, dynamic>;
+      if (responseData['success'] == true && responseData['data'] != null) {
+        return DriverProfile.fromJson(responseData['data']);
+      } else {
+        throw Exception("Failed to get driver profile: ${responseData['message']}");
+      }
+    } else {
+      throw Exception("Get driver profile failed: ${resp.statusCode} ${resp.body}");
+    }
+  }
+
+  // Update driver profile
+  Future<Map<String, dynamic>> updateDriverProfile(int driverId, DriverRequest request) async {
+    final token = await _auth.getToken();
+    final url = Uri.parse("$base/$driverId/profile");
+    
+    print("🔍 DriverService: updateDriverProfile URL: $url");
+    print("🔍 DriverService: updateDriverProfile request: ${request.toJson()}");
+    
     final headers = {
       "Content-Type": "application/json",
       if (token != null) "Authorization": "Bearer $token",
     };
 
-    final body = jsonEncode(attendanceData);
-    final resp = await http.post(url, headers: headers, body: body);
+    final body = jsonEncode(request.toJson());
+    final resp = await http.put(url, headers: headers, body: body);
+    print("🔍 DriverService: updateDriverProfile response status: ${resp.statusCode}");
+    print("🔍 DriverService: updateDriverProfile response body: ${resp.body}");
 
     if (resp.statusCode == 200) {
       return jsonDecode(resp.body) as Map<String, dynamic>;
     } else {
-      throw Exception("Mark attendance failed: ${resp.statusCode} ${resp.body}");
+      throw Exception("Update driver profile failed: ${resp.statusCode} ${resp.body}");
+    }
+  }
+
+  // Get driver reports
+  Future<DriverReports> getDriverReports(int driverId) async {
+    final token = await _auth.getToken();
+    final url = Uri.parse("$base/$driverId/reports");
+    
+    print("🔍 DriverService: getDriverReports URL: $url");
+    
+    final headers = {
+      if (token != null) "Authorization": "Bearer $token",
+    };
+
+    final resp = await http.get(url, headers: headers);
+    print("🔍 DriverService: getDriverReports response status: ${resp.statusCode}");
+    print("🔍 DriverService: getDriverReports response body: ${resp.body}");
+
+    if (resp.statusCode == 200) {
+      final responseData = jsonDecode(resp.body) as Map<String, dynamic>;
+      if (responseData['success'] == true && responseData['data'] != null) {
+        return DriverReports.fromJson(responseData['data']);
+      } else {
+        throw Exception("Failed to get driver reports: ${responseData['message']}");
+      }
+    } else {
+      throw Exception("Get driver reports failed: ${resp.statusCode} ${resp.body}");
+    }
+  }
+
+  // Send 5-minute alert
+  Future<Map<String, dynamic>> send5MinuteAlert(int driverId, int tripId) async {
+    final token = await _auth.getToken();
+    final url = Uri.parse("$base/$driverId/trip/$tripId/alert-5min");
+    
+    print("🔍 DriverService: send5MinuteAlert URL: $url");
+    
+    final headers = {
+      if (token != null) "Authorization": "Bearer $token",
+    };
+
+    final resp = await http.post(url, headers: headers);
+    print("🔍 DriverService: send5MinuteAlert response status: ${resp.statusCode}");
+    print("🔍 DriverService: send5MinuteAlert response body: ${resp.body}");
+
+    if (resp.statusCode == 200) {
+      return jsonDecode(resp.body) as Map<String, dynamic>;
+    } else {
+      throw Exception("Send 5-minute alert failed: ${resp.statusCode} ${resp.body}");
+    }
+  }
+
+  // ================ CONTEXT-SENSITIVE STUDENT ACTIONS ================
+
+  // Mark pickup from home (Morning Trip)
+  Future<Map<String, dynamic>> markPickupFromHome(int driverId, int tripId, int studentId) async {
+    return _markStudentAction(driverId, tripId, studentId, 'pickup-home');
+  }
+
+  // Mark drop to school (Morning Trip)
+  Future<Map<String, dynamic>> markDropToSchool(int driverId, int tripId, int studentId) async {
+    return _markStudentAction(driverId, tripId, studentId, 'drop-school');
+  }
+
+  // Mark pickup from school (Afternoon Trip)
+  Future<Map<String, dynamic>> markPickupFromSchool(int driverId, int tripId, int studentId) async {
+    return _markStudentAction(driverId, tripId, studentId, 'pickup-school');
+  }
+
+  // Mark drop to home (Afternoon Trip)
+  Future<Map<String, dynamic>> markDropToHome(int driverId, int tripId, int studentId) async {
+    return _markStudentAction(driverId, tripId, studentId, 'drop-home');
+  }
+
+  // Helper method for context-sensitive student actions
+  Future<Map<String, dynamic>> _markStudentAction(int driverId, int tripId, int studentId, String action) async {
+    final token = await _auth.getToken();
+    final url = Uri.parse("$base/$driverId/trip/$tripId/student/$studentId/$action");
+    
+    print("🔍 DriverService: _markStudentAction URL: $url");
+    print("🔍 DriverService: _markStudentAction - driverId: $driverId, tripId: $tripId, studentId: $studentId, action: $action");
+    
+    final headers = {
+      if (token != null) "Authorization": "Bearer $token",
+    };
+
+    final resp = await http.post(url, headers: headers);
+    print("🔍 DriverService: _markStudentAction response status: ${resp.statusCode}");
+    print("🔍 DriverService: _markStudentAction response body: ${resp.body}");
+
+    if (resp.statusCode == 200) {
+      return jsonDecode(resp.body) as Map<String, dynamic>;
+    } else {
+      throw Exception("Mark student action failed: ${resp.statusCode} ${resp.body}");
+    }
+  }
+
+  // ================ TRIP MANAGEMENT METHODS ================
+
+  // End trip
+  Future<Map<String, dynamic>> endTrip(int driverId, int tripId) async {
+    final token = await _auth.getToken();
+    final url = Uri.parse("$base/$driverId/trip/$tripId/end");
+    
+    print("🔍 DriverService: endTrip URL: $url");
+    print("🔍 DriverService: endTrip - driverId: $driverId, tripId: $tripId");
+    
+    final headers = {
+      if (token != null) "Authorization": "Bearer $token",
+    };
+
+    final resp = await http.post(url, headers: headers);
+    print("🔍 DriverService: endTrip response status: ${resp.statusCode}");
+    print("🔍 DriverService: endTrip response body: ${resp.body}");
+
+    if (resp.statusCode == 200) {
+      return jsonDecode(resp.body) as Map<String, dynamic>;
+    } else {
+      throw Exception("End trip failed: ${resp.statusCode} ${resp.body}");
+    }
+  }
+
+  // ================ LOCATION TRACKING METHODS ================
+
+  // Update driver location
+  Future<Map<String, dynamic>> updateDriverLocation(int driverId, double latitude, double longitude) async {
+    final token = await _auth.getToken();
+    final url = Uri.parse("$base/$driverId/location");
+    
+    print("🔍 DriverService: updateDriverLocation URL: $url");
+    print("🔍 DriverService: updateDriverLocation - driverId: $driverId, lat: $latitude, lng: $longitude");
+    
+    final headers = {
+      "Content-Type": "application/json",
+      if (token != null) "Authorization": "Bearer $token",
+    };
+
+    final body = jsonEncode({
+      'latitude': latitude,
+      'longitude': longitude,
+      'timestamp': DateTime.now().toIso8601String(),
+    });
+
+    final resp = await http.post(url, headers: headers, body: body);
+    print("🔍 DriverService: updateDriverLocation response status: ${resp.statusCode}");
+    print("🔍 DriverService: updateDriverLocation response body: ${resp.body}");
+
+    if (resp.statusCode == 200) {
+      return jsonDecode(resp.body) as Map<String, dynamic>;
+    } else {
+      throw Exception("Update driver location failed: ${resp.statusCode} ${resp.body}");
     }
   }
 }

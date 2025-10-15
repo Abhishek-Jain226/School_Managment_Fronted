@@ -1,6 +1,7 @@
 class NotificationRequest {
   final int driverId;
   final int tripId;
+  final int? dispatchLogId; // Required by backend but can be null for new notifications
   final String notificationType; // ARRIVAL_NOTIFICATION, PICKUP_CONFIRMATION, DROP_CONFIRMATION, DELAY_NOTIFICATION
   final String message;
   final String? title;
@@ -19,6 +20,7 @@ class NotificationRequest {
   NotificationRequest({
     required this.driverId,
     required this.tripId,
+    this.dispatchLogId,
     required this.notificationType,
     required this.message,
     this.title,
@@ -33,6 +35,7 @@ class NotificationRequest {
     return NotificationRequest(
       driverId: json['driverId'],
       tripId: json['tripId'],
+      dispatchLogId: json['dispatchLogId'],
       notificationType: json['notificationType'],
       message: json['message'],
       title: json['title'],
@@ -50,6 +53,7 @@ class NotificationRequest {
     return {
       'driverId': driverId,
       'tripId': tripId,
+      'dispatchLogId': dispatchLogId,
       'notificationType': notificationType,
       'message': message,
       'title': title,
@@ -64,6 +68,7 @@ class NotificationRequest {
   NotificationRequest copyWith({
     int? driverId,
     int? tripId,
+    int? dispatchLogId,
     String? notificationType,
     String? message,
     String? title,
@@ -76,6 +81,7 @@ class NotificationRequest {
     return NotificationRequest(
       driverId: driverId ?? this.driverId,
       tripId: tripId ?? this.tripId,
+      dispatchLogId: dispatchLogId ?? this.dispatchLogId,
       notificationType: notificationType ?? this.notificationType,
       message: message ?? this.message,
       title: title ?? this.title,

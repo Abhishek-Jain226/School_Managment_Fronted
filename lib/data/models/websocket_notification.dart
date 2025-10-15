@@ -133,6 +133,7 @@ class NotificationType {
   static const String vehicleAssignmentApproved = 'VEHICLE_ASSIGNMENT_APPROVED';
   static const String vehicleAssignmentRejected = 'VEHICLE_ASSIGNMENT_REJECTED';
   static const String connectionEstablished = 'CONNECTION_ESTABLISHED';
+  static const String locationUpdate = 'LOCATION_UPDATE';
 }
 
 // Notification Priority

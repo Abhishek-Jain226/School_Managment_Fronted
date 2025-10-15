@@ -96,8 +96,8 @@ if (data['driverId'] != null) {
         else if (roles.contains("PARENT")) {
     Navigator.pushReplacementNamed(context, AppRoutes.parentDashboard);
     
-    }else if (roles.contains("DRIVER")) {
-       Navigator.pushReplacementNamed(context, AppRoutes.driverDashboard);
+    }else     if (roles.contains("DRIVER")) {
+      Navigator.pushReplacementNamed(context, AppRoutes.simplifiedDriverDashboard);
     }
     else if (roles.contains("GATE_STAFF")) {
       Navigator.pushReplacementNamed(context, AppRoutes.gateStaffDashboard);
@@ -108,6 +108,7 @@ if (data['driverId'] != null) {
     }
 
     else {
+      
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text("Unknown role, contact support")),
           );

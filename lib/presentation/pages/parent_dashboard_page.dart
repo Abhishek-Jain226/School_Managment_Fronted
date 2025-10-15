@@ -83,7 +83,10 @@ class _ParentDashboardPageState extends State<ParentDashboardPage> {
     return notification.type == NotificationType.arrivalNotification ||
            notification.type == NotificationType.attendanceUpdate ||
            notification.type == NotificationType.tripUpdate ||
-           notification.type == NotificationType.vehicleAssignmentRequest;
+           notification.type == NotificationType.vehicleAssignmentRequest ||
+           notification.type == NotificationType.pickupConfirmation ||
+           notification.type == NotificationType.dropConfirmation ||
+           notification.type == NotificationType.delayNotification;
   }
 
   void _startAutoRefresh() {
@@ -467,6 +470,10 @@ class _ParentDashboardPageState extends State<ParentDashboardPage> {
                       ),
                       const SizedBox(height: 16),
 
+                      // ✅ Live Trip ETA (if active trip exists)
+                      _buildLiveTripETACard(),
+                      const SizedBox(height: 16),
+
                       // ✅ Recent Notifications
                       Card(
                         elevation: 3,
@@ -532,6 +539,14 @@ class _ParentDashboardPageState extends State<ParentDashboardPage> {
                                 },
                                 icon: const Icon(Icons.assessment),
                                 label: const Text("View Monthly Reports"),
+                              ),
+                              const SizedBox(height: 8),
+                              ElevatedButton.icon(
+                                onPressed: () {
+                                  Navigator.pushNamed(context, AppRoutes.enhancedVehicleTracking);
+                                },
+                                icon: const Icon(Icons.location_on),
+                                label: const Text("Live Vehicle Tracking"),
                               ),
                               const SizedBox(height: 8),
                               ElevatedButton.icon(
@@ -612,6 +627,201 @@ class _ParentDashboardPageState extends State<ParentDashboardPage> {
       return '${dt.day}/${dt.month} ${dt.hour}:${dt.minute.toString().padLeft(2, '0')}';
     } catch (e) {
       return 'N/A';
+    }
+  }
+
+  Widget _buildLiveTripETACard() {
+    // This is a placeholder for now - in real implementation, you would check for active trips
+    // and display ETA information
+    return FutureBuilder<Map<String, dynamic>>(
+      future: _checkForActiveTrip(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SizedBox.shrink(); // Don't show anything while loading
+        }
+        
+        if (snapshot.hasData && snapshot.data!['hasActiveTrip'] == true) {
+          final tripData = snapshot.data!['tripData'];
+          return Card(
+            elevation: 3,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                gradient: LinearGradient(
+                  colors: [Colors.blue[50]!, Colors.blue[100]!],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.local_taxi,
+                        color: Colors.blue[700],
+                        size: 24,
+                      ),
+                      const SizedBox(width: 8),
+                      const Text(
+                        "Live Trip Status",
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue,
+                        ),
+                      ),
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.green,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Text(
+                          "LIVE",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _buildETAInfo(
+                        icon: Icons.access_time,
+                        label: "ETA",
+                        value: tripData['eta'] ?? "Calculating...",
+                        color: Colors.orange,
+                      ),
+                      _buildETAInfo(
+                        icon: Icons.location_on,
+                        label: "Status",
+                        value: tripData['status'] ?? "In Progress",
+                        color: Colors.green,
+                      ),
+                      _buildETAInfo(
+                        icon: Icons.person,
+                        label: "Driver",
+                        value: tripData['driverName'] ?? "Unknown",
+                        color: Colors.blue,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.pushNamed(context, AppRoutes.enhancedVehicleTracking);
+                      },
+                      icon: const Icon(Icons.map),
+                      label: const Text("View Live Map"),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue[700],
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+        
+        return const SizedBox.shrink(); // Don't show card if no active trip
+      },
+    );
+  }
+
+  Widget _buildETAInfo({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Column(
+      children: [
+        Icon(icon, color: color, size: 20),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey[600],
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ],
+    );
+  }
+
+  Future<Map<String, dynamic>> _checkForActiveTrip() async {
+    try {
+      if (_userId == null) return {'hasActiveTrip': false};
+      
+      // Get student data for this parent
+      final studentResponse = await _parentService.getStudentByParentUserId(_userId!);
+      
+      if (studentResponse['success'] == true && studentResponse['data'] != null) {
+        final studentData = studentResponse['data'];
+        final studentId = studentData['studentId'];
+        
+        // Get active trips for this student
+        final tripsResponse = await _parentService.getStudentTrips(studentId);
+        
+        if (tripsResponse['success'] == true && tripsResponse['data'] != null) {
+          final trips = tripsResponse['data'] as List;
+          
+          // Find active trip
+          final activeTrip = trips.firstWhere(
+            (trip) => trip['tripStatus'] == 'IN_PROGRESS' || trip['tripStatus'] == 'STARTED',
+            orElse: () => null,
+          );
+          
+          if (activeTrip != null) {
+            // Calculate mock ETA (in real implementation, this would come from location data)
+            final now = DateTime.now();
+            final eta = now.add(const Duration(minutes: 15)); // Mock 15 minutes
+            
+            return {
+              'hasActiveTrip': true,
+              'tripData': {
+                'eta': '${eta.hour.toString().padLeft(2, '0')}:${eta.minute.toString().padLeft(2, '0')}',
+                'status': activeTrip['tripStatus'],
+                'driverName': activeTrip['driverName'] ?? 'Unknown',
+                'vehicleNumber': activeTrip['vehicleNumber'] ?? 'Unknown',
+              }
+            };
+          }
+        }
+      }
+      
+      return {'hasActiveTrip': false};
+    } catch (e) {
+      print('Error checking for active trip: $e');
+      return {'hasActiveTrip': false};
     }
   }
 }
