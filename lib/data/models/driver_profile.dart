@@ -1,3 +1,5 @@
+import '../../utils/constants.dart';
+
 class DriverProfile {
   final int driverId;
   final String driverName;
@@ -37,43 +39,43 @@ class DriverProfile {
 
   factory DriverProfile.fromJson(Map<String, dynamic> json) {
     return DriverProfile(
-      driverId: json['driverId'] ?? 0,
-      driverName: json['driverName'] ?? '',
-      email: json['email'] ?? '',
-      driverContactNumber: json['driverContactNumber'] ?? '',
-      driverAddress: json['driverAddress'] ?? '',
-      driverPhoto: json['driverPhoto'],
-      schoolName: json['schoolName'] ?? '',
-      vehicleNumber: json['vehicleNumber'] ?? '',
-      vehicleType: json['vehicleType'] ?? '',
-      isActive: json['isActive'] ?? false,
-      createdDate: DateTime.parse(json['createdDate'] ?? DateTime.now().toIso8601String()),
-      updatedDate: DateTime.parse(json['updatedDate'] ?? DateTime.now().toIso8601String()),
-      licenseNumber: json['licenseNumber'],
-      emergencyContact: json['emergencyContact'],
-      bloodGroup: json['bloodGroup'],
-      experience: json['experience'],
+      driverId: json[AppConstants.keyDriverId] ?? 0,
+      driverName: json[AppConstants.keyDriverName] ?? '',
+      email: json[AppConstants.keyEmail] ?? '',
+      driverContactNumber: json[AppConstants.keyDriverContactNumber] ?? '',
+      driverAddress: json[AppConstants.keyDriverAddress] ?? '',
+      driverPhoto: json[AppConstants.keyDriverPhoto],
+      schoolName: json[AppConstants.keySchoolName] ?? '',
+      vehicleNumber: json[AppConstants.keyVehicleNumber] ?? '',
+      vehicleType: json[AppConstants.keyVehicleType] ?? '',
+      isActive: json[AppConstants.keyIsActive] ?? false,
+      createdDate: DateTime.parse(json[AppConstants.keyCreatedDate] ?? DateTime.now().toIso8601String()),
+      updatedDate: DateTime.parse(json[AppConstants.keyUpdatedDate] ?? DateTime.now().toIso8601String()),
+      licenseNumber: json[AppConstants.keyLicenseNumber],
+      emergencyContact: json[AppConstants.keyEmergencyContact],
+      bloodGroup: json[AppConstants.keyBloodGroup],
+      experience: json[AppConstants.keyExperience],
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'driverId': driverId,
-      'driverName': driverName,
-      'email': email,
-      'driverContactNumber': driverContactNumber,
-      'driverAddress': driverAddress,
-      'driverPhoto': driverPhoto,
-      'schoolName': schoolName,
-      'vehicleNumber': vehicleNumber,
-      'vehicleType': vehicleType,
-      'isActive': isActive,
-      'createdDate': createdDate.toIso8601String(),
-      'updatedDate': updatedDate.toIso8601String(),
-      'licenseNumber': licenseNumber,
-      'emergencyContact': emergencyContact,
-      'bloodGroup': bloodGroup,
-      'experience': experience,
+      AppConstants.keyDriverId: driverId,
+      AppConstants.keyDriverName: driverName,
+      AppConstants.keyEmail: email,
+      AppConstants.keyDriverContactNumber: driverContactNumber,
+      AppConstants.keyDriverAddress: driverAddress,
+      AppConstants.keyDriverPhoto: driverPhoto,
+      AppConstants.keySchoolName: schoolName,
+      AppConstants.keyVehicleNumber: vehicleNumber,
+      AppConstants.keyVehicleType: vehicleType,
+      AppConstants.keyIsActive: isActive,
+      AppConstants.keyCreatedDate: createdDate.toIso8601String(),
+      AppConstants.keyUpdatedDate: updatedDate.toIso8601String(),
+      AppConstants.keyLicenseNumber: licenseNumber,
+      AppConstants.keyEmergencyContact: emergencyContact,
+      AppConstants.keyBloodGroup: bloodGroup,
+      AppConstants.keyExperience: experience,
     };
   }
 

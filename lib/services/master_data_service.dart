@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../data/models/class_master.dart';
 import '../data/models/section_master.dart';
+import '../utils/constants.dart';
 import 'auth_service.dart';
 import '../config/app_config.dart';
 
@@ -19,7 +20,7 @@ class MasterDataService {
     final resp = await http.get(
       Uri.parse("$_baseUrl/class-master/all?schoolId=$schoolId"),
       headers: {
-        if (token != null) "Authorization": "Bearer $token",
+        if (token != null) AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token",
       },
     );
     return _handleResponse(resp);
@@ -31,7 +32,7 @@ class MasterDataService {
     final resp = await http.get(
       Uri.parse("$_baseUrl/class-master/active?schoolId=$schoolId"),
       headers: {
-        if (token != null) "Authorization": "Bearer $token",
+        if (token != null) AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token",
       },
     );
     return _handleResponse(resp);
@@ -43,8 +44,8 @@ class MasterDataService {
     final resp = await http.post(
       Uri.parse("$_baseUrl/class-master/create"),
       headers: {
-        "Content-Type": "application/json",
-        if (token != null) "Authorization": "Bearer $token",
+        AppConstants.headerContentType: AppConstants.headerApplicationJson,
+        if (token != null) AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token",
       },
       body: jsonEncode(classMaster.toJson()),
     );
@@ -57,8 +58,8 @@ class MasterDataService {
     final resp = await http.put(
       Uri.parse("$_baseUrl/class-master/$classId"),
       headers: {
-        "Content-Type": "application/json",
-        if (token != null) "Authorization": "Bearer $token",
+        AppConstants.headerContentType: AppConstants.headerApplicationJson,
+        if (token != null) AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token",
       },
       body: jsonEncode(classMaster.toJson()),
     );
@@ -71,7 +72,7 @@ class MasterDataService {
     final resp = await http.delete(
       Uri.parse("$_baseUrl/class-master/$classId"),
       headers: {
-        if (token != null) "Authorization": "Bearer $token",
+        if (token != null) AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token",
       },
     );
     return _handleResponse(resp);
@@ -83,7 +84,7 @@ class MasterDataService {
     final resp = await http.patch(
       Uri.parse("$_baseUrl/class-master/$classId/toggle-status"),
       headers: {
-        if (token != null) "Authorization": "Bearer $token",
+        if (token != null) AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token",
       },
     );
     return _handleResponse(resp);
@@ -97,7 +98,7 @@ class MasterDataService {
     final resp = await http.get(
       Uri.parse("$_baseUrl/section-master/all?schoolId=$schoolId"),
       headers: {
-        if (token != null) "Authorization": "Bearer $token",
+        if (token != null) AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token",
       },
     );
     return _handleResponse(resp);
@@ -109,7 +110,7 @@ class MasterDataService {
     final resp = await http.get(
       Uri.parse("$_baseUrl/section-master/active?schoolId=$schoolId"),
       headers: {
-        if (token != null) "Authorization": "Bearer $token",
+        if (token != null) AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token",
       },
     );
     return _handleResponse(resp);
@@ -122,8 +123,8 @@ class MasterDataService {
     final resp = await http.post(
       Uri.parse("$_baseUrl/section-master/create"),
       headers: {
-        "Content-Type": "application/json",
-        if (token != null) "Authorization": "Bearer $token",
+        AppConstants.headerContentType: AppConstants.headerApplicationJson,
+        if (token != null) AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token",
       },
       body: jsonEncode(sectionMaster.toJson()),
     );
@@ -136,8 +137,8 @@ class MasterDataService {
     final resp = await http.put(
       Uri.parse("$_baseUrl/section-master/$sectionId"),
       headers: {
-        "Content-Type": "application/json",
-        if (token != null) "Authorization": "Bearer $token",
+        AppConstants.headerContentType: AppConstants.headerApplicationJson,
+        if (token != null) AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token",
       },
       body: jsonEncode(sectionMaster.toJson()),
     );
@@ -150,7 +151,7 @@ class MasterDataService {
     final resp = await http.delete(
       Uri.parse("$_baseUrl/section-master/$sectionId"),
       headers: {
-        if (token != null) "Authorization": "Bearer $token",
+        if (token != null) AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token",
       },
     );
     return _handleResponse(resp);
@@ -162,7 +163,7 @@ class MasterDataService {
     final resp = await http.patch(
       Uri.parse("$_baseUrl/section-master/$sectionId/toggle-status"),
       headers: {
-        if (token != null) "Authorization": "Bearer $token",
+        if (token != null) AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token",
       },
     );
     return _handleResponse(resp);
@@ -175,9 +176,9 @@ class MasterDataService {
       return jsonDecode(response.body);
     } else {
       return {
-        'success': false,
-        'message': 'Request failed with status: ${response.statusCode}',
-        'data': null,
+        AppConstants.keySuccess: false,
+        AppConstants.keyMessage: '${AppConstants.errorRequestFailed}: ${response.statusCode}',
+        AppConstants.keyData: null,
       };
     }
   }

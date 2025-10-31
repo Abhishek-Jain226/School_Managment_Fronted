@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../utils/constants.dart';
 import '../../data/models/student_request.dart';
 import '../../data/models/class_master.dart';
 import '../../data/models/section_master.dart';
@@ -30,10 +31,10 @@ class _RegisterStudentScreenState extends State<RegisterStudentScreen> {
   final _emailCtl = TextEditingController();
 
   // dropdown selections
-  String _gender = 'Male';
+  String _gender = AppConstants.genderMale;
   ClassMaster? _selectedClass;
   SectionMaster? _selectedSection;
-  String _relation = 'GUARDIAN'; // Hidden field with default value
+  String _relation = AppConstants.relationGuardian; // Hidden field with default value
 
   // image
   String? _photoBase64;
@@ -45,7 +46,11 @@ class _RegisterStudentScreenState extends State<RegisterStudentScreen> {
   final MasterDataService _masterDataService = MasterDataService();
   final ImagePicker _picker = ImagePicker();
 
-  final List<String> _genders = ['Male', 'Female', 'Other'];
+  final List<String> _genders = [
+    AppConstants.genderMale,
+    AppConstants.genderFemale,
+    AppConstants.genderOther,
+  ];
   List<ClassMaster> _classes = []; // Will be loaded from API
   List<SectionMaster> _sections = []; // Will be loaded from API
 
@@ -72,55 +77,55 @@ class _RegisterStudentScreenState extends State<RegisterStudentScreen> {
 
   Future<void> _loadMasterData() async {
     try {
-      debugPrint('Loading master data...');
+      debugPrint(AppConstants.logLoadingMasterData);
       
       // Get school ID from preferences
       final prefs = await SharedPreferences.getInstance();
-      final int? schoolId = prefs.getInt('schoolId');
+      final int? schoolId = prefs.getInt(AppConstants.keySchoolId);
       
       if (schoolId == null) {
-        debugPrint('School ID not found in preferences');
+        debugPrint(AppConstants.msgSchoolIdMissingPrefs);
         return;
       }
       
       // Load classes for this school
       final classesResponse = await _masterDataService.getAllActiveClasses(schoolId);
-      debugPrint('Classes response: $classesResponse');
+      debugPrint('${AppConstants.logClassesResponse}$classesResponse');
       
-      if (classesResponse['success'] == true && classesResponse['data'] != null) {
+      if (classesResponse[AppConstants.keySuccess] == true && classesResponse[AppConstants.keyData] != null) {
         setState(() {
-          _classes = (classesResponse['data'] as List)
+          _classes = (classesResponse[AppConstants.keyData] as List)
               .map((json) => ClassMaster.fromJson(json))
               .toList();
-          debugPrint('Loaded ${_classes.length} classes');
+          debugPrint('${AppConstants.logLoadedClassesCount}${_classes.length} classes');
           // Set default selection to first class
           if (_classes.isNotEmpty && _selectedClass == null) {
             _selectedClass = _classes.first;
-            debugPrint('Set default class: ${_selectedClass?.className}');
+            debugPrint('${AppConstants.logSetDefaultClass}${_selectedClass?.className}');
           }
         });
       } else {
-        debugPrint('Failed to load classes: ${classesResponse['message']}');
+        debugPrint('${AppConstants.logFailedToLoadClasses}${classesResponse[AppConstants.keyMessage]}');
       }
 
       // Load sections for this school
       final sectionsResponse = await _masterDataService.getAllActiveSections(schoolId);
-      debugPrint('Sections response: $sectionsResponse');
+      debugPrint('${AppConstants.logSectionsResponse}$sectionsResponse');
       
-      if (sectionsResponse['success'] == true && sectionsResponse['data'] != null) {
+      if (sectionsResponse[AppConstants.keySuccess] == true && sectionsResponse[AppConstants.keyData] != null) {
         setState(() {
-          _sections = (sectionsResponse['data'] as List)
+          _sections = (sectionsResponse[AppConstants.keyData] as List)
               .map((json) => SectionMaster.fromJson(json))
               .toList();
-          debugPrint('Loaded ${_sections.length} sections');
+          debugPrint('${AppConstants.logLoadedSectionsCount}${_sections.length} sections');
           // Set default selection to first section
           if (_sections.isNotEmpty && _selectedSection == null) {
             _selectedSection = _sections.first;
-            debugPrint('Set default section: ${_selectedSection?.sectionName}');
+            debugPrint('${AppConstants.logSetDefaultSection}${_selectedSection?.sectionName}');
           }
         });
       } else {
-        debugPrint('Failed to load sections: ${sectionsResponse['message']}');
+        debugPrint('${AppConstants.logFailedToLoadSections}${sectionsResponse[AppConstants.keyMessage]}');
       }
     } catch (e) {
       debugPrint('Error loading master data: $e');
@@ -129,43 +134,43 @@ class _RegisterStudentScreenState extends State<RegisterStudentScreen> {
 
 
   String? _validateRequired(String? v) =>
-      (v == null || v.trim().isEmpty) ? 'This field is required' : null;
+      (v == null || v.trim().isEmpty) ? AppConstants.msgThisFieldRequired : null;
 
   String? _validateName(String? v) {
-    if (v == null || v.trim().isEmpty) return 'Name is required';
-    if (v.trim().length < 2) return 'Name must be at least 2 characters';
-    if (v.trim().length > 50) return 'Name must not exceed 50 characters';
-    if (!RegExp(r'^[a-zA-Z\s]+$').hasMatch(v.trim())) return 'Name can only contain letters and spaces';
+    if (v == null || v.trim().isEmpty) return AppConstants.msgNameRequired;
+    if (v.trim().length < AppSizes.registerStudentNameMinLength) return AppConstants.msgNameMin2;
+    if (v.trim().length > AppSizes.registerStudentNameMaxLength) return AppConstants.msgNameMax50;
+    if (!RegExp(r'^[a-zA-Z\s]+$').hasMatch(v.trim())) return AppConstants.msgNameLettersSpaces;
     return null;
   }
 
   String? _validatePhone(String? v) {
-    if (v == null || v.trim().isEmpty) return 'Contact number is required';
+    if (v == null || v.trim().isEmpty) return AppConstants.msgContactRequired;
     final digits = v.replaceAll(RegExp(r'\D'), '');
-    if (digits.length != 10) return 'Contact number must be exactly 10 digits';
-    if (!RegExp(r'^[6-9]\d{9}$').hasMatch(digits)) return 'Enter valid Indian mobile number (starting with 6-9)';
+    if (digits.length != AppSizes.registerStudentContactLength) return AppConstants.msgContactExact10;
+    if (!RegExp(r'^[6-9]\d{9}$').hasMatch(digits)) return AppConstants.msgValidIndianMobileStart6to9;
     return null;
   }
 
   String? _validateOptionalPhone(String? v) {
     if (v == null || v.trim().isEmpty) return null; // Optional field
     final digits = v.replaceAll(RegExp(r'\D'), '');
-    if (digits.length != 10) return 'Contact number must be exactly 10 digits';
-    if (!RegExp(r'^[6-9]\d{9}$').hasMatch(digits)) return 'Enter valid Indian mobile number (starting with 6-9)';
+    if (digits.length != AppSizes.registerStudentContactLength) return AppConstants.msgContactExact10;
+    if (!RegExp(r'^[6-9]\d{9}$').hasMatch(digits)) return AppConstants.msgValidIndianMobileStart6to9;
     return null;
   }
 
   String? _validateEmail(String? v) {
-    if (v == null || v.trim().isEmpty) return 'Email is required';
-    if (v.trim().length > 150) return 'Email must not exceed 150 characters';
+    if (v == null || v.trim().isEmpty) return AppConstants.msgEmailRequired;
+    if (v.trim().length > AppSizes.registerStudentEmailMaxLength) return AppConstants.msgEmailMax150;
     final regex = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
-    return regex.hasMatch(v.trim()) ? null : 'Enter valid email address';
+    return regex.hasMatch(v.trim()) ? null : AppConstants.msgEnterValidEmail;
   }
 
   Future<void> _pickImage(ImageSource source) async {
     try {
       final XFile? picked =
-          await _picker.pickImage(source: source, imageQuality: 75);
+          await _picker.pickImage(source: source, imageQuality: AppSizes.registerStudentImageQuality);
       if (picked == null) return;
       final bytes = await picked.readAsBytes();
       setState(() {
@@ -175,7 +180,7 @@ class _RegisterStudentScreenState extends State<RegisterStudentScreen> {
     } catch (e) {
       debugPrint("Image pick error: $e");
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text("Image pick error: $e")));
+          .showSnackBar(SnackBar(content: Text('${AppConstants.msgImagePickError}$e')));
     }
   }
 
@@ -187,7 +192,7 @@ class _RegisterStudentScreenState extends State<RegisterStudentScreen> {
           children: [
             ListTile(
               leading: const Icon(Icons.photo_library),
-              title: const Text("Choose from gallery"),
+              title: const Text(AppConstants.labelChooseFromGallery),
               onTap: () {
                 Navigator.pop(context);
                 _pickImage(ImageSource.gallery);
@@ -195,7 +200,7 @@ class _RegisterStudentScreenState extends State<RegisterStudentScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.camera_alt),
-              title: const Text("Take photo"),
+              title: const Text(AppConstants.labelTakePhoto),
               onTap: () {
                 Navigator.pop(context);
                 _pickImage(ImageSource.camera);
@@ -213,19 +218,19 @@ class _RegisterStudentScreenState extends State<RegisterStudentScreen> {
     setState(() => _submitting = true);
     try {
       final prefs = await SharedPreferences.getInstance();
-      final int? schoolId = prefs.getInt('schoolId');
-      final String createdBy = prefs.getString('userName') ?? '';
+      final int? schoolId = prefs.getInt(AppConstants.keySchoolId);
+      final String createdBy = prefs.getString(AppConstants.keyUserName) ?? '';
 
       if (schoolId == null) {
-        throw Exception("School not found in preferences");
+        throw Exception(AppConstants.msgSchoolIdMissingPrefs);
       }
 
       if (_selectedClass == null) {
-        throw Exception("Please select a class");
+        throw Exception(AppConstants.msgPleaseSelectClass);
       }
 
       if (_selectedSection == null) {
-        throw Exception("Please select a section");
+        throw Exception(AppConstants.msgPleaseSelectSection);
       }
 
       final req = StudentRequest(
@@ -248,18 +253,18 @@ class _RegisterStudentScreenState extends State<RegisterStudentScreen> {
 
       final res = await _service.createStudent(req);
 
-      if (res['success'] == true) {
+      if (res[AppConstants.keySuccess] == true) {
         if (!mounted) return;
-        _showSuccessDialog(res['message'] ?? 'Student registered successfully');
+        _showSuccessDialog(res[AppConstants.keyMessage] ?? AppConstants.labelStudentRegisteredSuccessfully);
         _resetForm(); // Clear form after successful registration
       } else {
         if (!mounted) return;
-        _showErrorSnackBar(res['message'] ?? 'Failed to register student');
+        _showErrorSnackBar(res[AppConstants.keyMessage] ?? AppConstants.msgFailedToRegisterStudent);
       }
     } catch (e) {
-      debugPrint("Submit error: $e");
+      debugPrint('${AppConstants.logSubmitError}$e');
       if (mounted) {
-        _showErrorSnackBar("Error: $e");
+        _showErrorSnackBar('${AppConstants.labelError}: $e');
       }
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -271,11 +276,9 @@ class _RegisterStudentScreenState extends State<RegisterStudentScreen> {
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        title: const Text("Registration Successful!"),
+        title: const Text(AppConstants.msgRegistrationSuccessfulTitle),
         content: Text(
-          "$message\n\n"
-          "A parent activation link has been sent to the provided email address. "
-          "The parent can use this link to complete their registration and access the parent dashboard."
+          "$message\n\n${AppConstants.msgParentActivationInfo}"
         ),
         actions: [
           TextButton(
@@ -283,7 +286,7 @@ class _RegisterStudentScreenState extends State<RegisterStudentScreen> {
               Navigator.of(ctx).pop();
               Navigator.pop(context, true); // return true so dashboard can refresh
             },
-            child: const Text("OK"),
+            child: const Text(AppConstants.buttonOk),
           ),
         ],
       ),
@@ -294,8 +297,8 @@ class _RegisterStudentScreenState extends State<RegisterStudentScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: Colors.red,
-        duration: const Duration(seconds: 4),
+        backgroundColor: AppColors.errorColor,
+        duration: const Duration(seconds: AppSizes.registerGateStaffErrorDuration),
       ),
     );
   }
@@ -313,9 +316,9 @@ class _RegisterStudentScreenState extends State<RegisterStudentScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Register Student")),
+      appBar: AppBar(title: const Text(AppConstants.labelRegisterStudent)),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSizes.registerStudentPadding),
         child: Form(
           key: _formKey,
           child: Column(
@@ -324,27 +327,27 @@ class _RegisterStudentScreenState extends State<RegisterStudentScreen> {
               GestureDetector(
                 onTap: _showImageOptions,
                 child: CircleAvatar(
-                  radius: 48,
-                  backgroundColor: Colors.grey.shade200,
+                  radius: AppSizes.registerStudentAvatarRadius,
+                  backgroundColor: AppColors.grey200,
                   backgroundImage:
                       _photoFile != null ? FileImage(_photoFile!) : null,
                   child:
-                      _photoFile == null ? const Icon(Icons.camera_alt, size: 36) : null,
+                      _photoFile == null ? const Icon(Icons.camera_alt, size: AppSizes.registerStudentIconSize) : null,
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSizes.registerStudentSpacing),
 
-              _buildText('First Name *', _firstCtl, validator: _validateName),
-              const SizedBox(height: 8),
-              _buildText('Middle Name (Optional)', _middleCtl, validator: (v) {
+              _buildText(AppConstants.labelFirstNameRequired, _firstCtl, validator: _validateName),
+              const SizedBox(height: AppSizes.registerStudentSpacingSM),
+              _buildText(AppConstants.labelMiddleNameOptional, _middleCtl, validator: (v) {
                 if (v == null || v.trim().isEmpty) return null; // Optional field
-                if (v.trim().length > 50) return 'Name must not exceed 50 characters';
-                if (!RegExp(r'^[a-zA-Z\s]+$').hasMatch(v.trim())) return 'Name can only contain letters and spaces';
+                if (v.trim().length > AppSizes.registerStudentNameMaxLength) return AppConstants.msgNameMax50;
+                if (!RegExp(r'^[a-zA-Z\s]+$').hasMatch(v.trim())) return AppConstants.msgNameLettersSpaces;
                 return null;
               }),
-              const SizedBox(height: 8),
-              _buildText('Last Name *', _lastCtl, validator: _validateName),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSizes.registerStudentSpacingSM),
+              _buildText(AppConstants.labelLastNameRequired, _lastCtl, validator: _validateName),
+              const SizedBox(height: AppSizes.registerStudentSpacingSM),
 
               // gender + class + section row
               Row(
@@ -352,7 +355,7 @@ class _RegisterStudentScreenState extends State<RegisterStudentScreen> {
                   Expanded(
                     child: DropdownButtonFormField<String>(
                       value: _gender,
-                      decoration: const InputDecoration(labelText: 'Gender'),
+                      decoration: const InputDecoration(labelText: AppConstants.labelGender),
                       items: _genders
                           .map((g) =>
                               DropdownMenuItem(value: g, child: Text(g)))
@@ -360,11 +363,11 @@ class _RegisterStudentScreenState extends State<RegisterStudentScreen> {
                       onChanged: (v) => setState(() => _gender = v!),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: AppSizes.registerStudentSpacingSM),
                   Expanded(
                     child: DropdownButtonFormField<ClassMaster>(
                       value: _selectedClass,
-                      decoration: const InputDecoration(labelText: 'Class'),
+                      decoration: const InputDecoration(labelText: AppConstants.labelClass),
                       items: _classes
                           .map((c) =>
                               DropdownMenuItem(value: c, child: Text(c.className)))
@@ -375,17 +378,17 @@ class _RegisterStudentScreenState extends State<RegisterStudentScreen> {
                       },
                       validator: (value) {
                         if (value == null) {
-                          return 'Please select a class';
+                          return AppConstants.msgPleaseSelectClass;
                         }
                         return null;
                       },
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: AppSizes.registerStudentSpacingSM),
                   Expanded(
                     child: DropdownButtonFormField<SectionMaster>(
                       value: _selectedSection,
-                      decoration: const InputDecoration(labelText: 'Section'),
+                      decoration: const InputDecoration(labelText: AppConstants.labelSection),
                       items: _sections
                           .map((s) =>
                               DropdownMenuItem(value: s, child: Text(s.sectionName)))
@@ -396,7 +399,7 @@ class _RegisterStudentScreenState extends State<RegisterStudentScreen> {
                       },
                       validator: (value) {
                         if (value == null) {
-                          return 'Please select a section';
+                          return AppConstants.msgPleaseSelectSection;
                         }
                         return null;
                       },
@@ -405,51 +408,51 @@ class _RegisterStudentScreenState extends State<RegisterStudentScreen> {
                 ],
               ),
 
-              const SizedBox(height: 12),
-              _buildText('Mother Name *', _motherCtl, validator: _validateName),
-              const SizedBox(height: 8),
-              _buildText('Father Name *', _fatherCtl, validator: _validateName),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSizes.registerStudentSpacing),
+              _buildText(AppConstants.labelMotherNameRequired, _motherCtl, validator: _validateName),
+              const SizedBox(height: AppSizes.registerStudentSpacingSM),
+              _buildText(AppConstants.labelFatherNameRequired, _fatherCtl, validator: _validateName),
+              const SizedBox(height: AppSizes.registerStudentSpacingSM),
               TextFormField(
                 controller: _primaryContactCtl,
                 decoration: const InputDecoration(
-                  labelText: 'Primary Contact *',
-                  hintText: 'Enter 10-digit mobile number',
+                  labelText: AppConstants.labelPrimaryContactRequired,
+                  hintText: AppConstants.hintMobile10Digits,
                 ),
                 keyboardType: TextInputType.phone,
-                maxLength: 10,
+                maxLength: AppSizes.registerStudentContactLength,
                 validator: _validatePhone,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSizes.registerStudentSpacingSM),
               TextFormField(
                 controller: _altContactCtl,
                 decoration: const InputDecoration(
-                  labelText: 'Alternate Contact (Optional)',
-                  hintText: 'Enter 10-digit mobile number',
+                  labelText: AppConstants.labelAlternateContactOptional,
+                  hintText: AppConstants.hintMobile10Digits,
                 ),
                 keyboardType: TextInputType.phone,
-                maxLength: 10,
+                maxLength: AppSizes.registerStudentContactLength,
                 validator: _validateOptionalPhone,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSizes.registerStudentSpacingSM),
               TextFormField(
                 controller: _emailCtl,
                 decoration: const InputDecoration(
-                  labelText: 'Email (Parent Contact Email) *',
-                  hintText: 'Enter parent email address',
+                  labelText: AppConstants.labelParentEmailRequired,
+                  hintText: AppConstants.hintParentEmail,
                 ),
                 keyboardType: TextInputType.emailAddress,
                 validator: _validateEmail,
               ),
 
-              const SizedBox(height: 20),
+              const SizedBox(height: AppSizes.registerStudentSpacingLG),
               ElevatedButton(
                 onPressed: _submitting ? null : _submit,
                 child: _submitting
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text('Register Student'),
+                      ? const CircularProgressIndicator(color: AppColors.loadingIndicatorColor)
+                    : const Text(AppConstants.labelRegisterStudent),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: AppSizes.registerStudentSpacingLG),
             ],
           ),
         ),

@@ -1,10 +1,12 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import '../utils/constants.dart';
 import 'auth_service.dart';
 import '../config/app_config.dart';
 
 class GateStaffService {
-  static String get base => AppConfig.baseUrl + '/api/gate-staff';
+  static String get base => AppConfig.baseUrl + AppConstants.endpointGateStaff;
   final AuthService _auth = AuthService();
 
   /// ---------------- Get Gate Staff Dashboard ----------------
@@ -12,16 +14,16 @@ class GateStaffService {
     final token = await _auth.getToken();
 
     final url = Uri.parse("$base/$userId/dashboard");
-    print("🔍 Frontend: getGateStaffDashboard URL: $url");
-    print("🔍 Frontend: getGateStaffDashboard userId: $userId");
+    debugPrint("🔍 Frontend: getGateStaffDashboard URL: $url");
+    debugPrint("🔍 Frontend: getGateStaffDashboard userId: $userId");
 
     final headers = {
-      if (token != null) "Authorization": "Bearer $token",
+      if (token != null) AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token",
     };
 
     final resp = await http.get(url, headers: headers);
-    print("🔍 Frontend: getGateStaffDashboard response status: ${resp.statusCode}");
-    print("🔍 Frontend: getGateStaffDashboard response body: ${resp.body}");
+    debugPrint("🔍 Frontend: getGateStaffDashboard response status: ${resp.statusCode}");
+    debugPrint("🔍 Frontend: getGateStaffDashboard response body: ${resp.body}");
     return _handleResponse(resp);
   }
 
@@ -30,14 +32,14 @@ class GateStaffService {
     final token = await _auth.getToken();
 
     final url = Uri.parse("$base/$userId/trips/$tripId/students");
-    print("🔍 Frontend: getStudentsByTrip URL: $url");
+    debugPrint("🔍 Frontend: getStudentsByTrip URL: $url");
 
     final headers = {
-      if (token != null) "Authorization": "Bearer $token",
+      if (token != null) AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token",
     };
 
     final resp = await http.get(url, headers: headers);
-    print("🔍 Frontend: getStudentsByTrip response status: ${resp.statusCode}");
+    debugPrint("🔍 Frontend: getStudentsByTrip response status: ${resp.statusCode}");
     return _handleResponse(resp);
   }
 
@@ -46,21 +48,21 @@ class GateStaffService {
     final token = await _auth.getToken();
 
     final url = Uri.parse("$base/$userId/gate-entry");
-    print("🔍 Frontend: markGateEntry URL: $url");
+    debugPrint("🔍 Frontend: markGateEntry URL: $url");
 
     final requestData = {
-      "studentId": studentId,
-      "tripId": tripId,
-      "remarks": remarks,
+      AppConstants.keyStudentId: studentId,
+      AppConstants.keyTripId: tripId,
+      AppConstants.keyRemarks: remarks,
     };
 
     final headers = {
-      "Content-Type": "application/json",
-      if (token != null) "Authorization": "Bearer $token",
+      AppConstants.headerContentType: AppConstants.headerApplicationJson,
+      if (token != null) AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token",
     };
 
     final resp = await http.post(url, headers: headers, body: jsonEncode(requestData));
-    print("🔍 Frontend: markGateEntry response status: ${resp.statusCode}");
+    debugPrint("🔍 Frontend: markGateEntry response status: ${resp.statusCode}");
     return _handleResponse(resp);
   }
 
@@ -69,21 +71,21 @@ class GateStaffService {
     final token = await _auth.getToken();
 
     final url = Uri.parse("$base/$userId/gate-exit");
-    print("🔍 Frontend: markGateExit URL: $url");
+    debugPrint("🔍 Frontend: markGateExit URL: $url");
 
     final requestData = {
-      "studentId": studentId,
-      "tripId": tripId,
-      "remarks": remarks,
+      AppConstants.keyStudentId: studentId,
+      AppConstants.keyTripId: tripId,
+      AppConstants.keyRemarks: remarks,
     };
 
     final headers = {
-      "Content-Type": "application/json",
-      if (token != null) "Authorization": "Bearer $token",
+      AppConstants.headerContentType: AppConstants.headerApplicationJson,
+      if (token != null) AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token",
     };
 
     final resp = await http.post(url, headers: headers, body: jsonEncode(requestData));
-    print("🔍 Frontend: markGateExit response status: ${resp.statusCode}");
+    debugPrint("🔍 Frontend: markGateExit response status: ${resp.statusCode}");
     return _handleResponse(resp);
   }
 
@@ -92,14 +94,14 @@ class GateStaffService {
     final token = await _auth.getToken();
 
     final url = Uri.parse("$base/$userId/recent-logs");
-    print("🔍 Frontend: getRecentDispatchLogs URL: $url");
+    debugPrint("🔍 Frontend: getRecentDispatchLogs URL: $url");
 
     final headers = {
-      if (token != null) "Authorization": "Bearer $token",
+      if (token != null) AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token",
     };
 
     final resp = await http.get(url, headers: headers);
-    print("🔍 Frontend: getRecentDispatchLogs response status: ${resp.statusCode}");
+    debugPrint("🔍 Frontend: getRecentDispatchLogs response status: ${resp.statusCode}");
     return _handleResponse(resp);
   }
 
@@ -108,29 +110,29 @@ class GateStaffService {
     final token = await _auth.getToken();
 
     final url = Uri.parse("$base/user/$userId");
-    print("🔍 Frontend: getGateStaffByUserId URL: $url");
+    debugPrint("🔍 Frontend: getGateStaffByUserId URL: $url");
 
     final headers = {
-      if (token != null) "Authorization": "Bearer $token",
+      if (token != null) AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token",
     };
 
     final resp = await http.get(url, headers: headers);
-    print("🔍 Frontend: getGateStaffByUserId response status: ${resp.statusCode}");
+    debugPrint("🔍 Frontend: getGateStaffByUserId response status: ${resp.statusCode}");
     return _handleResponse(resp);
   }
 
   /// ---------------- Common Response Handler ----------------
   Map<String, dynamic> _handleResponse(http.Response resp) {
-    print("🔍 Frontend: _handleResponse - Status: ${resp.statusCode}");
-    print("🔍 Frontend: _handleResponse - Body: ${resp.body}");
+    debugPrint("🔍 Frontend: _handleResponse - Status: ${resp.statusCode}");
+    debugPrint("🔍 Frontend: _handleResponse - Body: ${resp.body}");
     
     final data = jsonDecode(resp.body);
     if (resp.statusCode == 200 && data is Map<String, dynamic>) {
-      print("🔍 Frontend: _handleResponse - Success: $data");
+      debugPrint("🔍 Frontend: _handleResponse - Success: $data");
       return data;
     } else {
-      print("🔍 Frontend: _handleResponse - Error: ${resp.statusCode} ${resp.body}");
-      throw Exception("API Error: ${resp.statusCode} ${resp.body}");
+      debugPrint("🔍 Frontend: _handleResponse - Error: ${resp.statusCode} ${resp.body}");
+      throw Exception("${AppConstants.errorApiError}: ${resp.statusCode} ${resp.body}");
     }
   }
 }

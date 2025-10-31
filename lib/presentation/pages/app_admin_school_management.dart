@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/app_admin_service.dart';
+import '../../utils/constants.dart';
 
 class AppAdminSchoolManagementPage extends StatefulWidget {
   const AppAdminSchoolManagementPage({super.key});
@@ -30,19 +31,24 @@ class _AppAdminSchoolManagementPageState extends State<AppAdminSchoolManagementP
       final schoolsResponse = await AppAdminService.getAllSchools();
       final statsResponse = await AppAdminService.getSchoolStatistics();
       
-      if (schoolsResponse['success'] == true) {
+      if (schoolsResponse[AppConstants.keySuccess] == true) {
         setState(() {
-          schools = List<dynamic>.from(schoolsResponse['data']['schools'] ?? []);
+          schools = List<dynamic>.from(
+            schoolsResponse[AppConstants.keyData][AppConstants.keySchools] ?? [],
+          );
         });
       }
       
-      if (statsResponse['success'] == true) {
+      if (statsResponse[AppConstants.keySuccess] == true) {
         setState(() {
-          statistics = statsResponse['data'] ?? {};
+          statistics = statsResponse[AppConstants.keyData] ?? {};
         });
       }
     } catch (e) {
-      _showSnackBar('Error loading data: $e', Colors.red);
+      _showSnackBar(
+        '${AppConstants.msgErrorLoadingData}$e',
+        AppColors.schoolMgmtErrorColor,
+      );
     } finally {
       setState(() => isLoading = false);
     }
@@ -59,16 +65,24 @@ class _AppAdminSchoolManagementPageState extends State<AppAdminSchoolManagementP
     try {
       final response = await AppAdminService.searchSchools(_searchController.text.trim());
       
-      if (response['success'] == true) {
+      if (response[AppConstants.keySuccess] == true) {
         setState(() {
-          schools = List<dynamic>.from(response['data']['schools'] ?? []);
+          schools = List<dynamic>.from(
+            response[AppConstants.keyData][AppConstants.keySchools] ?? [],
+          );
           searchQuery = _searchController.text.trim();
         });
       } else {
-        _showSnackBar(response['message'] ?? 'Search failed', Colors.red);
+        _showSnackBar(
+          response[AppConstants.keyMessage] ?? AppConstants.msgSearchFailed,
+          AppColors.schoolMgmtErrorColor,
+        );
       }
     } catch (e) {
-      _showSnackBar('Error searching schools: $e', Colors.red);
+      _showSnackBar(
+        '${AppConstants.msgErrorSearchingSchools}$e',
+        AppColors.schoolMgmtErrorColor,
+      );
     } finally {
       setState(() => isLoading = false);
     }
@@ -77,36 +91,69 @@ class _AppAdminSchoolManagementPageState extends State<AppAdminSchoolManagementP
   Future<void> _updateSchoolStatus(int schoolId, bool isActive, String schoolName) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final updatedBy = prefs.getString('userName') ?? 'AppAdmin';
+      final updatedBy = prefs.getString(AppConstants.keyUserName) ?? 
+          AppConstants.defaultAppAdminName;
       
-      final response = await AppAdminService.updateSchoolStatus(schoolId, isActive, updatedBy);
+      final response = await AppAdminService.updateSchoolStatus(
+        schoolId,
+        isActive,
+        updatedBy,
+      );
       
-      if (response['success'] == true) {
-        _showSnackBar(response['message'] ?? 'Status updated successfully', Colors.green);
+      if (response[AppConstants.keySuccess] == true) {
+        _showSnackBar(
+          response[AppConstants.keyMessage] ?? 
+              AppConstants.msgStatusUpdatedSuccessfully,
+          AppColors.schoolMgmtSuccessColor,
+        );
         _loadData(); // Refresh data
       } else {
-        _showSnackBar(response['message'] ?? 'Failed to update status', Colors.red);
+        _showSnackBar(
+          response[AppConstants.keyMessage] ?? 
+              AppConstants.msgFailedToUpdateStatus,
+          AppColors.schoolMgmtErrorColor,
+        );
       }
     } catch (e) {
-      _showSnackBar('Error updating status: $e', Colors.red);
+      _showSnackBar(
+        '${AppConstants.msgErrorUpdatingStatus}$e',
+        AppColors.schoolMgmtErrorColor,
+      );
     }
   }
 
   Future<void> _updateSchoolDates(int schoolId, String? startDate, String? endDate, String schoolName) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final updatedBy = prefs.getString('userName') ?? 'AppAdmin';
+      final updatedBy = prefs.getString(AppConstants.keyUserName) ?? 
+          AppConstants.defaultAppAdminName;
       
-      final response = await AppAdminService.updateSchoolDates(schoolId, startDate, endDate, updatedBy);
+      final response = await AppAdminService.updateSchoolDates(
+        schoolId,
+        startDate,
+        endDate,
+        updatedBy,
+      );
       
-      if (response['success'] == true) {
-        _showSnackBar(response['message'] ?? 'Dates updated successfully', Colors.green);
+      if (response[AppConstants.keySuccess] == true) {
+        _showSnackBar(
+          response[AppConstants.keyMessage] ?? 
+              AppConstants.msgDatesUpdatedSuccessfully,
+          AppColors.schoolMgmtSuccessColor,
+        );
         _loadData(); // Refresh data
       } else {
-        _showSnackBar(response['message'] ?? 'Failed to update dates', Colors.red);
+        _showSnackBar(
+          response[AppConstants.keyMessage] ?? 
+              AppConstants.msgFailedToUpdateDates,
+          AppColors.schoolMgmtErrorColor,
+        );
       }
     } catch (e) {
-      _showSnackBar('Error updating dates: $e', Colors.red);
+      _showSnackBar(
+        '${AppConstants.msgErrorUpdatingDates}$e',
+        AppColors.schoolMgmtErrorColor,
+      );
     }
   }
 
@@ -136,20 +183,24 @@ class _AppAdminSchoolManagementPageState extends State<AppAdminSchoolManagementP
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: Text('Update Dates for $schoolName'),
+          title: Text('${AppConstants.labelUpdateDatesFor} $schoolName'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               ListTile(
-                title: const Text('Start Date'),
-                subtitle: Text(startDate != null ? '${startDate!.day}/${startDate!.month}/${startDate!.year}' : 'Not set'),
+                title: const Text(AppConstants.labelStartDate),
+                subtitle: Text(
+                  startDate != null 
+                      ? '${startDate!.day}/${startDate!.month}/${startDate!.year}' 
+                      : AppConstants.labelNotSet,
+                ),
                 trailing: const Icon(Icons.calendar_today),
                 onTap: () async {
                   final picked = await showDatePicker(
                     context: context,
                     initialDate: startDate ?? DateTime.now(),
-                    firstDate: DateTime(2020),
-                    lastDate: DateTime(2030),
+                    firstDate: DateTime(AppConstants.defaultDatePickerFirstYear),
+                    lastDate: DateTime(AppConstants.defaultDatePickerLastYear),
                   );
                   if (picked != null) {
                     setDialogState(() {
@@ -159,15 +210,19 @@ class _AppAdminSchoolManagementPageState extends State<AppAdminSchoolManagementP
                 },
               ),
               ListTile(
-                title: const Text('End Date'),
-                subtitle: Text(endDate != null ? '${endDate!.day}/${endDate!.month}/${endDate!.year}' : 'Not set'),
+                title: const Text(AppConstants.labelEndDate),
+                subtitle: Text(
+                  endDate != null 
+                      ? '${endDate!.day}/${endDate!.month}/${endDate!.year}' 
+                      : AppConstants.labelNotSet,
+                ),
                 trailing: const Icon(Icons.calendar_today),
                 onTap: () async {
                   final picked = await showDatePicker(
                     context: context,
                     initialDate: endDate ?? DateTime.now(),
-                    firstDate: startDate ?? DateTime(2020),
-                    lastDate: DateTime(2030),
+                    firstDate: startDate ?? DateTime(AppConstants.defaultDatePickerFirstYear),
+                    lastDate: DateTime(AppConstants.defaultDatePickerLastYear),
                   );
                   if (picked != null) {
                     setDialogState(() {
@@ -181,16 +236,20 @@ class _AppAdminSchoolManagementPageState extends State<AppAdminSchoolManagementP
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
+              child: const Text(AppConstants.labelCancel),
             ),
             ElevatedButton(
               onPressed: () {
                 Navigator.pop(context);
-                final startDateStr = startDate != null ? startDate!.toIso8601String().split('T')[0] : null;
-                final endDateStr = endDate != null ? endDate!.toIso8601String().split('T')[0] : null;
+                final startDateStr = startDate != null 
+                    ? startDate!.toIso8601String().split('T')[0] 
+                    : null;
+                final endDateStr = endDate != null 
+                    ? endDate!.toIso8601String().split('T')[0] 
+                    : null;
                 _updateSchoolDates(schoolId, startDateStr, endDateStr, schoolName);
               },
-              child: const Text('Update'),
+              child: const Text(AppConstants.labelUpdate),
             ),
           ],
         ),
@@ -202,8 +261,8 @@ class _AppAdminSchoolManagementPageState extends State<AppAdminSchoolManagementP
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('School Management'),
-        backgroundColor: Colors.deepPurple,
+        title: const Text(AppConstants.labelSchoolManagement),
+        backgroundColor: AppColors.schoolMgmtAppBarColor,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -220,24 +279,24 @@ class _AppAdminSchoolManagementPageState extends State<AppAdminSchoolManagementP
                 
                 // Search Bar
                 Padding(
-                  padding: const EdgeInsets.all(16.0),
+                  padding: const EdgeInsets.all(AppSizes.schoolMgmtPadding),
                   child: Row(
                     children: [
                       Expanded(
                         child: TextField(
                           controller: _searchController,
                           decoration: const InputDecoration(
-                            hintText: 'Search schools by name, city, or state...',
+                            hintText: AppConstants.hintSearchSchools,
                             prefixIcon: Icon(Icons.search),
                             border: OutlineInputBorder(),
                           ),
                           onSubmitted: (_) => _searchSchools(),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: AppSizes.schoolMgmtSpacingSM),
                       ElevatedButton(
                         onPressed: _searchSchools,
-                        child: const Text('Search'),
+                        child: const Text(AppConstants.labelSearch),
                       ),
                       if (searchQuery.isNotEmpty)
                         IconButton(
@@ -261,17 +320,17 @@ class _AppAdminSchoolManagementPageState extends State<AppAdminSchoolManagementP
                             children: [
                               Icon(
                                 Icons.school,
-                                size: 64,
-                                color: Colors.grey[400],
+                                size: AppSizes.schoolMgmtEmptyIconSize,
+                                color: AppColors.schoolMgmtAppBarColor.shade400,
                               ),
-                              const SizedBox(height: 16),
+                              const SizedBox(height: AppSizes.schoolMgmtPadding),
                               Text(
                                 searchQuery.isNotEmpty
-                                    ? 'No schools found for "$searchQuery"'
-                                    : 'No schools found',
+                                    ? '${AppConstants.msgNoSchoolsFoundFor} "$searchQuery"'
+                                    : AppConstants.msgNoSchoolsFound,
                                 style: TextStyle(
-                                  fontSize: 18,
-                                  color: Colors.grey[600],
+                                  fontSize: AppSizes.schoolMgmtEmptyTextFontSize,
+                                  color: AppColors.schoolMgmtAppBarColor.shade600,
                                 ),
                               ),
                             ],
@@ -292,33 +351,33 @@ class _AppAdminSchoolManagementPageState extends State<AppAdminSchoolManagementP
 
   Widget _buildStatisticsCards() {
     return Container(
-      padding: const EdgeInsets.all(16.0),
+      padding: const EdgeInsets.all(AppSizes.schoolMgmtPadding),
       child: Row(
         children: [
           Expanded(
             child: _buildStatCard(
-              'Total Schools',
-              '${statistics['totalSchools'] ?? 0}',
+              AppConstants.labelTotalSchools,
+              '${statistics[AppConstants.keyTotalSchools] ?? 0}',
               Icons.school,
-              Colors.blue,
+              AppColors.schoolMgmtPrimaryColor,
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: AppSizes.schoolMgmtSpacingSM),
           Expanded(
             child: _buildStatCard(
-              'Active',
-              '${statistics['activeSchools'] ?? 0}',
+              AppConstants.labelActive,
+              '${statistics[AppConstants.keyActiveSchools] ?? 0}',
               Icons.check_circle,
-              Colors.green,
+              AppColors.schoolMgmtSuccessColor,
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: AppSizes.schoolMgmtSpacingSM),
           Expanded(
             child: _buildStatCard(
-              'Inactive',
-              '${statistics['inactiveSchools'] ?? 0}',
+              AppConstants.labelInactive,
+              '${statistics[AppConstants.keyInactiveSchools] ?? 0}',
               Icons.cancel,
-              Colors.red,
+              AppColors.schoolMgmtErrorColor,
             ),
           ),
         ],
@@ -328,24 +387,30 @@ class _AppAdminSchoolManagementPageState extends State<AppAdminSchoolManagementP
 
   Widget _buildStatCard(String title, String value, IconData icon, Color color) {
     return Card(
-      elevation: 2,
+      elevation: AppSizes.schoolMgmtCardElevation,
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(AppSizes.schoolMgmtPadding),
         child: Column(
           children: [
-            Icon(icon, color: color, size: 24),
-            const SizedBox(height: 8),
+            Icon(
+              icon,
+              color: color,
+              size: AppSizes.schoolMgmtStatIconSize,
+            ),
+            const SizedBox(height: AppSizes.schoolMgmtSpacingSM),
             Text(
               value,
               style: TextStyle(
-                fontSize: 20,
+                fontSize: AppSizes.schoolMgmtStatValueFontSize,
                 fontWeight: FontWeight.bold,
                 color: color,
               ),
             ),
             Text(
               title,
-              style: const TextStyle(fontSize: 12),
+              style: const TextStyle(
+                fontSize: AppSizes.schoolMgmtStatTitleFontSize,
+              ),
               textAlign: TextAlign.center,
             ),
           ],
@@ -355,14 +420,17 @@ class _AppAdminSchoolManagementPageState extends State<AppAdminSchoolManagementP
   }
 
   Widget _buildSchoolCard(Map<String, dynamic> school) {
-    final isActive = school['isActive'] == true;
-    final startDate = school['startDate'];
-    final endDate = school['endDate'];
+    final isActive = school[AppConstants.keyIsActive] == true;
+    final startDate = school[AppConstants.keyStartDate];
+    final endDate = school[AppConstants.keyEndDate];
     
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      margin: const EdgeInsets.symmetric(
+        horizontal: AppSizes.schoolMgmtCardMarginH,
+        vertical: AppSizes.schoolMgmtCardMarginV,
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(AppSizes.schoolMgmtPadding),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -373,34 +441,44 @@ class _AppAdminSchoolManagementPageState extends State<AppAdminSchoolManagementP
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        school['schoolName'] ?? 'Unknown School',
+                        school[AppConstants.keySchoolName] ?? 
+                            AppConstants.defaultUnknownSchool,
                         style: const TextStyle(
-                          fontSize: 18,
+                          fontSize: AppSizes.schoolMgmtSchoolNameFontSize,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: AppSizes.schoolMgmtSpacingXS),
                       Text(
-                        '${school['city'] ?? ''}, ${school['state'] ?? ''}',
+                        '${school[AppConstants.keyCity] ?? ''}, ${school[AppConstants.keyState] ?? ''}',
                         style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 14,
+                          color: AppColors.schoolMgmtAppBarColor.shade600,
+                          fontSize: AppSizes.schoolMgmtSchoolLocationFontSize,
                         ),
                       ),
                     ],
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSizes.schoolMgmtStatusPaddingH,
+                    vertical: AppSizes.schoolMgmtStatusPaddingV,
+                  ),
                   decoration: BoxDecoration(
-                    color: isActive ? Colors.green : Colors.red,
-                    borderRadius: BorderRadius.circular(12),
+                    color: isActive 
+                        ? AppColors.schoolMgmtSuccessColor 
+                        : AppColors.schoolMgmtErrorColor,
+                    borderRadius: BorderRadius.circular(
+                      AppSizes.schoolMgmtStatusRadius,
+                    ),
                   ),
                   child: Text(
-                    isActive ? 'Active' : 'Inactive',
+                    isActive 
+                        ? AppConstants.labelActive 
+                        : AppConstants.labelInactive,
                     style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
+                      color: AppColors.schoolMgmtTextWhite,
+                      fontSize: AppSizes.schoolMgmtStatusFontSize,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -408,32 +486,36 @@ class _AppAdminSchoolManagementPageState extends State<AppAdminSchoolManagementP
               ],
             ),
             
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSizes.schoolMgmtSpacingMD),
             
             // Date Information
             Row(
               children: [
-                Icon(Icons.calendar_today, size: 16, color: Colors.grey[600]),
-                const SizedBox(width: 8),
+                Icon(
+                  Icons.calendar_today,
+                  size: AppSizes.schoolMgmtDateIconSize,
+                  color: AppColors.schoolMgmtAppBarColor.shade600,
+                ),
+                const SizedBox(width: AppSizes.schoolMgmtSpacingSM),
                 Expanded(
                   child: Text(
                     startDate != null && endDate != null
-                        ? 'Session: ${_formatDate(startDate)} to ${_formatDate(endDate)}'
+                        ? '${AppConstants.labelSession} ${_formatDate(startDate)} to ${_formatDate(endDate)}'
                         : startDate != null
-                            ? 'Starts: ${_formatDate(startDate)}'
+                            ? '${AppConstants.labelStarts} ${_formatDate(startDate)}'
                             : endDate != null
-                                ? 'Ends: ${_formatDate(endDate)}'
-                                : 'No dates set',
+                                ? '${AppConstants.labelEnds} ${_formatDate(endDate)}'
+                                : AppConstants.labelNoDatesSet,
                     style: TextStyle(
-                      color: Colors.grey[600],
-                      fontSize: 14,
+                      color: AppColors.schoolMgmtAppBarColor.shade600,
+                      fontSize: AppSizes.schoolMgmtSchoolLocationFontSize,
                     ),
                   ),
                 ),
               ],
             ),
             
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSizes.schoolMgmtSpacingMD),
             
             // Action Buttons
             Row(
@@ -441,32 +523,40 @@ class _AppAdminSchoolManagementPageState extends State<AppAdminSchoolManagementP
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: () => _updateSchoolStatus(
-                      school['schoolId'],
+                      school[AppConstants.keySchoolId],
                       !isActive,
-                      school['schoolName'] ?? 'School',
+                      school[AppConstants.keySchoolName] ?? 
+                          AppConstants.defaultSchoolName,
                     ),
                     icon: Icon(isActive ? Icons.pause : Icons.play_arrow),
-                    label: Text(isActive ? 'Deactivate' : 'Activate'),
+                    label: Text(
+                      isActive 
+                          ? AppConstants.labelDeactivate 
+                          : AppConstants.labelActivate,
+                    ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: isActive ? Colors.orange : Colors.green,
-                      foregroundColor: Colors.white,
+                      backgroundColor: isActive 
+                          ? AppColors.schoolMgmtWarningColor 
+                          : AppColors.schoolMgmtSuccessColor,
+                      foregroundColor: AppColors.schoolMgmtTextWhite,
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: AppSizes.schoolMgmtSpacingSM),
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: () => _showDatePickerDialog(
-                      school['schoolId'],
-                      school['schoolName'] ?? 'School',
+                      school[AppConstants.keySchoolId],
+                      school[AppConstants.keySchoolName] ?? 
+                          AppConstants.defaultSchoolName,
                       startDate,
                       endDate,
                     ),
                     icon: const Icon(Icons.edit_calendar),
-                    label: const Text('Set Dates'),
+                    label: const Text(AppConstants.labelSetDates),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
-                      foregroundColor: Colors.white,
+                      backgroundColor: AppColors.schoolMgmtPrimaryColor,
+                      foregroundColor: AppColors.schoolMgmtTextWhite,
                     ),
                   ),
                 ),
@@ -474,20 +564,21 @@ class _AppAdminSchoolManagementPageState extends State<AppAdminSchoolManagementP
             ),
             
             // Resend Activation Link Button (only for schools without active users)
-            if (school['hasActiveUser'] != true) ...[
-              const SizedBox(height: 8),
+            if (school[AppConstants.keyHasActiveUser] != true) ...[
+              const SizedBox(height: AppSizes.schoolMgmtSpacingSM),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   onPressed: () => _resendActivationLink(
-                    school['schoolId'],
-                    school['schoolName'] ?? 'School',
+                    school[AppConstants.keySchoolId],
+                    school[AppConstants.keySchoolName] ?? 
+                        AppConstants.defaultSchoolName,
                   ),
                   icon: const Icon(Icons.email),
-                  label: const Text('Resend Activation Link'),
+                  label: const Text(AppConstants.labelResendActivationLink),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.purple,
-                    foregroundColor: Colors.white,
+                    backgroundColor: AppColors.schoolMgmtAccentColor,
+                    foregroundColor: AppColors.schoolMgmtTextWhite,
                   ),
                 ),
               ),
@@ -513,16 +604,18 @@ class _AppAdminSchoolManagementPageState extends State<AppAdminSchoolManagementP
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Resend Activation Link'),
-        content: Text('Are you sure you want to resend the activation link for $schoolName?'),
+        title: const Text(AppConstants.labelResendActivationLink),
+        content: Text(
+          '${AppConstants.msgConfirmResendActivationLink} $schoolName?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            child: const Text(AppConstants.labelCancel),
           ),
           ElevatedButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Resend'),
+            child: const Text(AppConstants.labelResend),
           ),
         ],
       ),
@@ -530,6 +623,9 @@ class _AppAdminSchoolManagementPageState extends State<AppAdminSchoolManagementP
 
     if (confirmed != true) return;
 
+    // Store context for later use to avoid async gaps
+    if (!mounted) return;
+    
     // Show loading dialog
     showDialog(
       context: context,
@@ -538,8 +634,8 @@ class _AppAdminSchoolManagementPageState extends State<AppAdminSchoolManagementP
         content: Row(
           children: [
             CircularProgressIndicator(),
-            SizedBox(width: 16),
-            Text('Sending activation link...'),
+            SizedBox(width: AppSizes.schoolMgmtPadding),
+            Text(AppConstants.msgSendingActivationLink),
           ],
         ),
       ),
@@ -548,7 +644,8 @@ class _AppAdminSchoolManagementPageState extends State<AppAdminSchoolManagementP
     try {
       // Get current user info for updatedBy parameter
       final prefs = await SharedPreferences.getInstance();
-      final currentUser = prefs.getString('userName') ?? 'AppAdmin';
+      final currentUser = prefs.getString(AppConstants.keyUserName) ?? 
+          AppConstants.defaultAppAdminName;
 
       final response = await AppAdminService.resendActivationLink(
         schoolId,
@@ -556,23 +653,30 @@ class _AppAdminSchoolManagementPageState extends State<AppAdminSchoolManagementP
       );
 
       // Close loading dialog
+      if (!mounted) return;
       Navigator.of(context).pop();
 
-      if (response['success'] == true) {
+      if (response[AppConstants.keySuccess] == true) {
         _showSnackBar(
-          response['message'] ?? 'Activation link sent successfully',
-          Colors.green,
+          response[AppConstants.keyMessage] ?? 
+              AppConstants.msgActivationLinkSentSuccessfully,
+          AppColors.schoolMgmtSuccessColor,
         );
       } else {
         _showSnackBar(
-          response['message'] ?? 'Failed to send activation link',
-          Colors.red,
+          response[AppConstants.keyMessage] ?? 
+              AppConstants.msgFailedToSendActivationLink,
+          AppColors.schoolMgmtErrorColor,
         );
       }
     } catch (e) {
       // Close loading dialog
+      if (!mounted) return;
       Navigator.of(context).pop();
-      _showSnackBar('Error sending activation link: $e', Colors.red);
+      _showSnackBar(
+        '${AppConstants.msgErrorSendingActivationLink}$e',
+        AppColors.schoolMgmtErrorColor,
+      );
     }
   }
 

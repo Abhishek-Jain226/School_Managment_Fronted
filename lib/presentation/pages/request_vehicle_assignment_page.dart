@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../utils/constants.dart';
 import '../../services/vehicle_service.dart';
 
 class RequestVehicleAssignmentPage extends StatefulWidget {
@@ -25,24 +26,78 @@ class _RequestVehicleAssignmentPageState
 
   Future<void> _fetchVehicles() async {
     final prefs = await SharedPreferences.getInstance();
-    final userName = prefs.getString("userName"); // login ke time save hua tha
+    final ownerId = prefs.getInt(AppConstants.keyOwnerId); // Vehicle Owner's ID
+    final schoolId = prefs.getInt(AppConstants.keySchoolId); // Current School ID
 
-    if (userName == null) {
+    debugPrint("🔹 Fetching vehicles for ownerId: $ownerId, schoolId: $schoolId");
+
+    if (ownerId == null || schoolId == null) {
+      debugPrint("❌ Owner ID or School ID not found in SharedPreferences");
       setState(() => _loading = false);
       return;
     }
 
-    // 🔹 Ab API call username se karenge
-    final res = await _service.getVehiclesByCreatedBy(userName);
+    // 🔹 Fetch ALL vehicles by ownerId
+    final res = await _service.getVehiclesByOwner(ownerId);
 
     debugPrint("🔹 Vehicles API Response: $res");
 
-    if (res['success'] == true && res['data'] != null) {
+    if (res[AppConstants.keySuccess] == true && res[AppConstants.keyData] != null) {
+      // Handle both direct list and nested list response
+      List vehiclesList;
+      if (res[AppConstants.keyData] is List) {
+        vehiclesList = res[AppConstants.keyData];
+      } else if (res[AppConstants.keyData] is Map && res[AppConstants.keyData]['vehicles'] != null) {
+        vehiclesList = res[AppConstants.keyData]['vehicles'];
+      } else {
+        vehiclesList = [];
+      }
+
+      debugPrint("🔹 Total vehicles found: ${vehiclesList.length}");
+
+      // 🔹 Fetch ALL requests (PENDING + APPROVED + REJECTED) to filter out already assigned vehicles
+      final requestsRes = await VehicleService().getAllRequestsBySchool(schoolId);
+      List<int> assignedVehicleIds = [];
+      
+      if (requestsRes[AppConstants.keySuccess] == true && requestsRes[AppConstants.keyData] != null) {
+        final requests = requestsRes[AppConstants.keyData] as List;
+        
+        debugPrint("🔹 Total requests found: ${requests.length}");
+        debugPrint("🔹 Request statuses: ${requests.map((r) => r['status']).toList()}");
+        
+        // Filter vehicles that have PENDING or APPROVED requests for this school
+        for (var req in requests) {
+          final status = req['status'] as String?;
+          final vehicleData = req['vehicle']; // Backend sends nested 'vehicle' object
+          
+          debugPrint("🔹 Request: vehicleData=$vehicleData, status=$status");
+          
+          if (status == 'PENDING' || status == 'APPROVED') {
+            if (vehicleData is Map && vehicleData['vehicleId'] != null) {
+              final vehicleId = vehicleData['vehicleId'] as int;
+              assignedVehicleIds.add(vehicleId);
+              debugPrint("🔹 Added to filter list: vehicleId=$vehicleId");
+            }
+          }
+        }
+        
+        debugPrint("🔹 Already assigned/pending vehicle IDs: $assignedVehicleIds");
+      }
+
+      // Filter out already assigned vehicles
+      final unassignedVehicles = vehiclesList.where((v) {
+        final vehicleId = v['vehicleId'] as int;
+        return !assignedVehicleIds.contains(vehicleId);
+      }).toList();
+
+      debugPrint("🔹 Unassigned vehicles: ${unassignedVehicles.length}");
+
       setState(() {
-        _vehicles = List<Map<String, dynamic>>.from(res['data']);
+        _vehicles = List<Map<String, dynamic>>.from(unassignedVehicles);
         _loading = false;
       });
     } else {
+      debugPrint("❌ Failed to fetch vehicles: ${res[AppConstants.keyMessage]}");
       setState(() => _loading = false);
     }
   }
@@ -50,18 +105,18 @@ class _RequestVehicleAssignmentPageState
   Future<void> _submit() async {
     if (_selectedVehicle == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please select vehicle")),
+        const SnackBar(content: Text(AppConstants.msgPleaseSelectVehicle)),
       );
       return;
     }
 
     final prefs = await SharedPreferences.getInstance();
-    final schoolId = prefs.getInt("schoolId");
-    final ownerId = prefs.getInt("ownerId");
+    final schoolId = prefs.getInt(AppConstants.keySchoolId);
+    final ownerId = prefs.getInt(AppConstants.keyOwnerId);
 
     if (schoolId == null || ownerId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Missing school or owner info")),
+        const SnackBar(content: Text(AppConstants.msgMissingSchoolOrOwner)),
       );
       return;
     }
@@ -70,7 +125,7 @@ class _RequestVehicleAssignmentPageState
       "schoolId": schoolId,
       "vehicleId": int.parse(_selectedVehicle!),
       "ownerId": ownerId,
-      "createdBy": prefs.getString("userName") ?? "owner"
+      "createdBy": prefs.getString(AppConstants.keyUserName) ?? "owner"
     };
 
     debugPrint("📤 Sending Request Body: $req");
@@ -80,14 +135,14 @@ class _RequestVehicleAssignmentPageState
     debugPrint("✅ Request API Response: $res");
 
     if (!mounted) return;
-    if (res['success'] == true) {
+    if (res[AppConstants.keySuccess] == true) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(res['message'] ?? "Request submitted")),
+        SnackBar(content: Text(res[AppConstants.keyMessage] ?? AppConstants.msgRequestSubmitted)),
       );
       Navigator.pop(context, true);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(res['message'] ?? "Failed to submit request")),
+        SnackBar(content: Text(res[AppConstants.keyMessage] ?? AppConstants.msgFailedToSubmitRequest)),
       );
     }
   }
@@ -95,13 +150,13 @@ class _RequestVehicleAssignmentPageState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Request Vehicle Assignment")),
+      appBar: AppBar(title: const Text(AppConstants.labelRequestVehicleAssignment)),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _vehicles.isEmpty
-              ? const Center(child: Text("No vehicles found"))
+              ? const Center(child: Text(AppConstants.msgNoVehiclesFound))
               : Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(AppConstants.requestVehiclePadding),
                   child: Column(
                     children: [
                       DropdownButtonFormField<String>(
@@ -118,14 +173,14 @@ class _RequestVehicleAssignmentPageState
                         onChanged: (val) =>
                             setState(() => _selectedVehicle = val),
                         decoration: const InputDecoration(
-                          labelText: "Select Vehicle",
+                          labelText: AppConstants.labelSelectVehicle,
                           border: OutlineInputBorder(),
                         ),
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: AppConstants.requestVehicleSpacingLG),
                       ElevatedButton(
                         onPressed: _submit,
-                        child: const Text("Submit Request"),
+                        child: const Text(AppConstants.labelSubmitRequest),
                       ),
                     ],
                   ),

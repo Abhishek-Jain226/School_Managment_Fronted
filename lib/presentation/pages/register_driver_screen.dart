@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../utils/constants.dart';
 import '../../data/models/driver_request.dart';
 import '../../services/driver_service.dart';
 
@@ -30,7 +31,7 @@ class _RegisterDriverScreenState extends State<RegisterDriverScreen> {
   final ImagePicker _picker = ImagePicker();
 
   Future<void> _pickImage(ImageSource source) async {
-    final XFile? picked = await _picker.pickImage(source: source, imageQuality: 75);
+    final XFile? picked = await _picker.pickImage(source: source, imageQuality: AppSizes.registerDriverImageQuality);
     if (picked == null) return;
     final bytes = await picked.readAsBytes();
     setState(() {
@@ -46,7 +47,7 @@ class _RegisterDriverScreenState extends State<RegisterDriverScreen> {
         child: Wrap(children: [
           ListTile(
             leading: const Icon(Icons.photo_library),
-            title: const Text("Choose from gallery"),
+            title: const Text(AppConstants.labelChooseFromGallery),
             onTap: () {
               Navigator.pop(context);
               _pickImage(ImageSource.gallery);
@@ -54,7 +55,7 @@ class _RegisterDriverScreenState extends State<RegisterDriverScreen> {
           ),
           ListTile(
             leading: const Icon(Icons.camera_alt),
-            title: const Text("Take photo"),
+            title: const Text(AppConstants.labelTakePhoto),
             onTap: () {
               Navigator.pop(context);
               _pickImage(ImageSource.camera);
@@ -71,15 +72,15 @@ class _RegisterDriverScreenState extends State<RegisterDriverScreen> {
     setState(() => _submitting = true);
     try {
       final prefs = await SharedPreferences.getInstance();
-      final int? userId = prefs.getInt("userId");
-      final String createdBy = prefs.getString("userName") ?? "";
+      final int? userId = prefs.getInt(AppConstants.keyUserId);
+      final String createdBy = prefs.getString(AppConstants.keyUserName) ?? '';
 
-      print("🔍 Driver Registration: userId = $userId");
-      print("🔍 Driver Registration: createdBy = $createdBy");
-      print("🔍 Driver Registration: driverName = ${_nameCtl.text.trim()}");
-      print("🔍 Driver Registration: contactNumber = ${_contactCtl.text.trim()}");
+      debugPrint('🔍 Driver Registration: userId = $userId');
+      debugPrint('🔍 Driver Registration: createdBy = $createdBy');
+      debugPrint('🔍 Driver Registration: driverName = ${_nameCtl.text.trim()}');
+      debugPrint('🔍 Driver Registration: contactNumber = ${_contactCtl.text.trim()}');
 
-      if (userId == null) throw Exception("User not found in prefs");
+      if (userId == null) throw Exception(AppConstants.msgUserNotFoundPrefs);
 
       final req = DriverRequest(
         userId: userId,
@@ -91,21 +92,21 @@ class _RegisterDriverScreenState extends State<RegisterDriverScreen> {
         createdBy: createdBy,
       );
 
-      print("🔍 Driver Registration: request = $req");
+      debugPrint('🔍 Driver Registration: request = $req');
 
       final res = await _service.createDriver(req);
-      print("🔍 Driver Registration: response = $res");
+      debugPrint('🔍 Driver Registration: response = $res');
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(res['message'] ?? "Driver created")),
+          SnackBar(content: Text(res[AppConstants.keyMessage] ?? AppConstants.msgDriverCreated)),
         );
         Navigator.pop(context, true);
       }
     } catch (e) {
-      print("🔍 Driver Registration: error = $e");
+      debugPrint('🔍 Driver Registration: error = $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${AppConstants.labelError}: $e')));
       }
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -120,69 +121,69 @@ class _RegisterDriverScreenState extends State<RegisterDriverScreen> {
           labelText: label,
           hintText: hintText,
         ),
-        validator: validator ?? (v) => v == null || v.isEmpty ? "Required" : null,
+        validator: validator ?? (v) => v == null || v.isEmpty ? AppConstants.labelRequired : null,
         keyboardType: type,
       );
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Register Driver")),
+      appBar: AppBar(title: const Text(AppConstants.labelRegisterDriver)),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSizes.registerDriverPadding),
         child: Form(
           key: _formKey,
           child: Column(children: [
             GestureDetector(
               onTap: _showImageOptions,
               child: CircleAvatar(
-                radius: 48,
+                radius: AppSizes.registerDriverAvatarRadius,
                 backgroundColor: Colors.grey.shade200,
                 backgroundImage: _photoFile != null ? FileImage(_photoFile!) : null,
-                child: _photoFile == null ? const Icon(Icons.camera_alt, size: 36) : null,
+                child: _photoFile == null ? const Icon(Icons.camera_alt, size: AppSizes.registerDriverIconSize) : null,
               ),
             ),
-            const SizedBox(height: 12),
-            _buildText("Driver Name *", _nameCtl, 
+            const SizedBox(height: AppSizes.registerDriverSpacing),
+            _buildText(AppConstants.labelDriverName, _nameCtl, 
                 validator: (v) {
-                  if (v == null || v.trim().isEmpty) return "Driver name is required";
-                  if (v.trim().length > 100) return "Driver name cannot exceed 100 characters";
+                  if (v == null || v.trim().isEmpty) return AppConstants.msgDriverNameRequired;
+                  if (v.trim().length > AppSizes.registerDriverNameMaxLength) return AppConstants.msgDriverNameMaxLength;
                   return null;
                 }),
-            const SizedBox(height: 8),
-            _buildText("Driver Contact Number *", _contactCtl, 
+            const SizedBox(height: AppSizes.registerDriverSpacingSM),
+            _buildText(AppConstants.labelDriverContactNumber, _contactCtl, 
                 type: TextInputType.phone,
-                hintText: "10-digit mobile number",
+                hintText: AppConstants.hintMobileNumber,
                 validator: (v) {
-                  if (v == null || v.trim().isEmpty) return "Contact number is required";
+                  if (v == null || v.trim().isEmpty) return AppConstants.msgContactNumberRequired;
                   final digits = v.replaceAll(RegExp(r'\D'), '');
-                  if (digits.length != 10) return "Contact number must be exactly 10 digits";
-                  if (!RegExp(r'^[6-9]\d{9}$').hasMatch(digits)) return "Enter valid Indian mobile number (starting with 6-9)";
+                  if (digits.length != AppSizes.registerDriverContactLength) return AppConstants.msgContactNumberExactDigits;
+                  if (!RegExp(r'^[6-9]\d{9}$').hasMatch(digits)) return AppConstants.msgValidIndianMobile;
                   return null;
                 }),
-            const SizedBox(height: 8),
-            _buildText("Driver Address *", _addressCtl,
+            const SizedBox(height: AppSizes.registerDriverSpacingSM),
+            _buildText(AppConstants.labelDriverAddress, _addressCtl,
                 validator: (v) {
-                  if (v == null || v.trim().isEmpty) return "Driver address is required";
-                  if (v.trim().length > 255) return "Driver address cannot exceed 255 characters";
+                  if (v == null || v.trim().isEmpty) return AppConstants.msgDriverAddressRequired;
+                  if (v.trim().length > AppSizes.registerDriverAddressMaxLength) return AppConstants.msgDriverAddressMaxLength;
                   return null;
                 }),
-            const SizedBox(height: 8),
-            _buildText("Email (Optional)", _emailCtl, 
+            const SizedBox(height: AppSizes.registerDriverSpacingSM),
+            _buildText(AppConstants.labelEmailOptional, _emailCtl, 
                 type: TextInputType.emailAddress,
-                hintText: "driver@example.com",
+                hintText: AppConstants.hintEmailAddress,
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) return null; // Optional field
-                  if (v.trim().length > 150) return "Email cannot exceed 150 characters";
+                  if (v.trim().length > AppSizes.registerDriverEmailMaxLength) return AppConstants.msgEmailMaxLength;
                   final regex = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
-                  return regex.hasMatch(v.trim()) ? null : "Enter valid email address";
+                  return regex.hasMatch(v.trim()) ? null : AppConstants.msgEnterValidEmailAddress;
                 }),
-            const SizedBox(height: 20),
+            const SizedBox(height: AppSizes.registerDriverSpacingLG),
             ElevatedButton(
               onPressed: _submitting ? null : _submit,
               child: _submitting
                   ? const CircularProgressIndicator(color: Colors.white)
-                  : const Text("Register Driver"),
+                  : const Text(AppConstants.labelRegisterDriver),
             ),
           ]),
         ),

@@ -1,3 +1,5 @@
+import '../../utils/constants.dart';
+
 class AttendanceHistory {
   final int studentId;
   final String studentName;
@@ -25,16 +27,16 @@ class AttendanceHistory {
 
   factory AttendanceHistory.fromJson(Map<String, dynamic> json) {
     return AttendanceHistory(
-      studentId: json['studentId'] ?? 0,
-      studentName: json['studentName'] ?? '',
-      fromDate: DateTime.parse(json['fromDate'] ?? DateTime.now().toIso8601String()),
-      toDate: DateTime.parse(json['toDate'] ?? DateTime.now().toIso8601String()),
-      totalDays: json['totalDays'] ?? 0,
-      presentDays: json['presentDays'] ?? 0,
-      absentDays: json['absentDays'] ?? 0,
-      lateDays: json['lateDays'] ?? 0,
-      attendancePercentage: (json['attendancePercentage'] ?? 0.0).toDouble(),
-      attendanceRecords: (json['attendanceRecords'] as List<dynamic>?)
+      studentId: json[AppConstants.keyStudentId] ?? 0,
+      studentName: json[AppConstants.keyStudentName] ?? '',
+      fromDate: DateTime.parse(json[AppConstants.keyFromDate] ?? DateTime.now().toIso8601String()),
+      toDate: DateTime.parse(json[AppConstants.keyToDate] ?? DateTime.now().toIso8601String()),
+      totalDays: json[AppConstants.keyTotalDays] ?? 0,
+      presentDays: json[AppConstants.keyPresentDays] ?? 0,
+      absentDays: json[AppConstants.keyAbsentDays] ?? 0,
+      lateDays: json[AppConstants.keyLateDays] ?? 0,
+      attendancePercentage: (json[AppConstants.keyAttendancePercentage] ?? 0.0).toDouble(),
+      attendanceRecords: (json[AppConstants.keyAttendanceRecords] as List<dynamic>?)
           ?.map((record) => AttendanceRecord.fromJson(record))
           .toList() ?? [],
     );
@@ -42,16 +44,16 @@ class AttendanceHistory {
 
   Map<String, dynamic> toJson() {
     return {
-      'studentId': studentId,
-      'studentName': studentName,
-      'fromDate': fromDate.toIso8601String(),
-      'toDate': toDate.toIso8601String(),
-      'totalDays': totalDays,
-      'presentDays': presentDays,
-      'absentDays': absentDays,
-      'lateDays': lateDays,
-      'attendancePercentage': attendancePercentage,
-      'attendanceRecords': attendanceRecords.map((record) => record.toJson()).toList(),
+      AppConstants.keyStudentId: studentId,
+      AppConstants.keyStudentName: studentName,
+      AppConstants.keyFromDate: fromDate.toIso8601String(),
+      AppConstants.keyToDate: toDate.toIso8601String(),
+      AppConstants.keyTotalDays: totalDays,
+      AppConstants.keyPresentDays: presentDays,
+      AppConstants.keyAbsentDays: absentDays,
+      AppConstants.keyLateDays: lateDays,
+      AppConstants.keyAttendancePercentage: attendancePercentage,
+      AppConstants.keyAttendanceRecords: attendanceRecords.map((record) => record.toJson()).toList(),
     };
   }
 }
@@ -79,27 +81,27 @@ class AttendanceRecord {
 
   factory AttendanceRecord.fromJson(Map<String, dynamic> json) {
     return AttendanceRecord(
-      date: DateTime.parse(json['date'] ?? DateTime.now().toIso8601String()),
-      dayOfWeek: json['dayOfWeek'] ?? '',
-      isPresent: json['isPresent'] ?? false,
-      isAbsent: json['isAbsent'] ?? false,
-      isLate: json['isLate'] ?? false,
-      arrivalTime: json['arrivalTime'],
-      departureTime: json['departureTime'],
-      remarks: json['remarks'],
+      date: DateTime.parse(json[AppConstants.keyDate] ?? DateTime.now().toIso8601String()),
+      dayOfWeek: json[AppConstants.keyDayOfWeek] ?? '',
+      isPresent: json[AppConstants.keyIsPresent] ?? false,
+      isAbsent: json[AppConstants.keyIsAbsent] ?? false,
+      isLate: json[AppConstants.keyIsLate] ?? false,
+      arrivalTime: json[AppConstants.keyArrivalTime],
+      departureTime: json[AppConstants.keyDepartureTime],
+      remarks: json[AppConstants.keyRemarks],
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'date': date.toIso8601String(),
-      'dayOfWeek': dayOfWeek,
-      'isPresent': isPresent,
-      'isAbsent': isAbsent,
-      'isLate': isLate,
-      'arrivalTime': arrivalTime,
-      'departureTime': departureTime,
-      'remarks': remarks,
+      AppConstants.keyDate: date.toIso8601String(),
+      AppConstants.keyDayOfWeek: dayOfWeek,
+      AppConstants.keyIsPresent: isPresent,
+      AppConstants.keyIsAbsent: isAbsent,
+      AppConstants.keyIsLate: isLate,
+      AppConstants.keyArrivalTime: arrivalTime,
+      AppConstants.keyDepartureTime: departureTime,
+      AppConstants.keyRemarks: remarks,
     };
   }
 }

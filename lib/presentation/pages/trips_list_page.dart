@@ -1,9 +1,11 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../data/models/trip_response.dart';
 import '../../services/trip_service.dart';
 import 'create_trip_page.dart';
+import '../../utils/constants.dart';
 
 class TripsListPage extends StatefulWidget {
   const TripsListPage({super.key});
@@ -27,9 +29,13 @@ class _TripsListPageState extends State<TripsListPage> {
     setState(() => _loading = true);
 
     final prefs = await SharedPreferences.getInstance();
-    final schoolId = prefs.getInt("schoolId") ?? 1;
+    final schoolId = prefs.getInt(AppConstants.keySchoolId) ?? 1;
+
+    debugPrint('🔹 TripsListPage: Loading trips for schoolId: $schoolId');
 
     final result = await _tripService.getTripsBySchool(schoolId);
+
+    debugPrint('🔹 TripsListPage: Received ${result.length} trips');
 
     setState(() {
       trips = result;
@@ -51,11 +57,11 @@ class _TripsListPageState extends State<TripsListPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Trips")),
+      appBar: AppBar(title: const Text(AppConstants.labelTrips)),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : trips.isEmpty
-              ? const Center(child: Text("No trips found."))
+              ? const Center(child: Text(AppConstants.emptyStateNoTrips))
               : RefreshIndicator(
                   onRefresh: _loadTrips,
                   child: ListView.builder(
@@ -65,8 +71,8 @@ class _TripsListPageState extends State<TripsListPage> {
                       return Card(
                         child: ListTile(
                           title: Text(trip.tripName),
-                          subtitle: Text("Vehicle: ${trip.vehicleNumber}"),
-                          trailing: Text("No: ${trip.tripNumber}"),
+                          subtitle: Text('${AppConstants.labelVehiclePrefix}${trip.vehicleNumber}'),
+                          trailing: Text('${AppConstants.labelTripNumber}: ${trip.tripNumber}'),
                         ),
                       );
                     },

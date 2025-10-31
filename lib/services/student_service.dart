@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../data/models/student_request.dart';
+import '../utils/constants.dart';
 import 'auth_service.dart';
 import '../config/app_config.dart';
 
@@ -14,18 +16,18 @@ class StudentService {
       final token = await _auth.getToken();
       final resp = await http.get(
         Uri.parse("$base/count/$schoolId"),
-        headers: {"Authorization": "Bearer $token"},
+        headers: {AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token"},
       );
       
       if (resp.statusCode == 200) {
         final data = jsonDecode(resp.body);
-        return (data["data"] ?? 0) as int;
+        return (data[AppConstants.keyData] ?? 0) as int;
       } else {
-        print("Error getting student count: ${resp.statusCode} - ${resp.body}");
+        debugPrint("${AppConstants.errorGettingStudentCount}: ${resp.statusCode} - ${resp.body}");
         return 0;
       }
     } catch (e) {
-      print("Exception getting student count: $e");
+      debugPrint("${AppConstants.errorExceptionGettingStudentCount}: $e");
       return 0;
     }
   }
@@ -34,8 +36,8 @@ class StudentService {
     final token = await _auth.getToken();
     final url = Uri.parse("$base/create");
     final headers = {
-      "Content-Type": "application/json",
-      if (token != null) "Authorization": "Bearer $token",
+      AppConstants.headerContentType: AppConstants.headerApplicationJson,
+      if (token != null) AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token",
     };
 
     final resp = await http.post(url, headers: headers, body: jsonEncode(req.toJson()));
@@ -44,7 +46,7 @@ class StudentService {
       return jsonDecode(body) as Map<String, dynamic>;
     } else {
       // return error with server response for debugging
-      throw Exception("Create student failed: ${resp.statusCode} ${resp.body}");
+      throw Exception("${AppConstants.errorCreateStudentFailed}: ${resp.statusCode} ${resp.body}");
     }
   }
 
@@ -53,14 +55,14 @@ class StudentService {
     final token = await _auth.getToken();
     final url = Uri.parse("$base/school/$schoolId");
     final headers = {
-      if (token != null) "Authorization": "Bearer $token",
+      if (token != null) AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token",
     };
 
     final resp = await http.get(url, headers: headers);
     if (resp.statusCode == 200) {
       return jsonDecode(resp.body) as Map<String, dynamic>;
     }
-    return {"success": false, "message": "Failed to fetch students"};
+    return {AppConstants.keySuccess: false, AppConstants.keyMessage: AppConstants.errorFailedToFetchStudents};
   }
 
   /// Optionally: get student by id, update, delete etc. (not implemented here

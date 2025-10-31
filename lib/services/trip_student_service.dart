@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import '../utils/constants.dart';
 import 'auth_service.dart';
 import '../config/app_config.dart';
 
@@ -18,23 +20,23 @@ class TripStudentService {
     
     final url = Uri.parse("$base/api/trip-students/assign");
     final headers = {
-      "Content-Type": "application/json",
-      if (token != null) "Authorization": "Bearer $token",
+      AppConstants.headerContentType: AppConstants.headerApplicationJson,
+      if (token != null) AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token",
     };
 
     final body = {
-      "tripId": tripId,
-      "studentId": studentId,
-      "pickupOrder": pickupOrder,
-      "createdBy": createdBy,
+      AppConstants.keyTripId: tripId,
+      AppConstants.keyStudentId: studentId,
+      AppConstants.keyPickupOrder: pickupOrder,
+      AppConstants.keyCreatedBy: createdBy,
     };
 
-    print("🔍 TripStudentService: assignStudentToTrip URL: $url");
-    print("🔍 TripStudentService: assignStudentToTrip body: $body");
+    debugPrint("🔍 TripStudentService: assignStudentToTrip URL: $url");
+    debugPrint("🔍 TripStudentService: assignStudentToTrip body: $body");
 
     final resp = await http.post(url, headers: headers, body: jsonEncode(body));
-    print("🔍 TripStudentService: assignStudentToTrip response status: ${resp.statusCode}");
-    print("🔍 TripStudentService: assignStudentToTrip response body: ${resp.body}");
+    debugPrint("🔍 TripStudentService: assignStudentToTrip response status: ${resp.statusCode}");
+    debugPrint("🔍 TripStudentService: assignStudentToTrip response body: ${resp.body}");
 
     return _handleResponse(resp);
   }
@@ -51,22 +53,22 @@ class TripStudentService {
     
     final url = Uri.parse("$base/api/trip-students/$tripStudentId");
     final headers = {
-      "Content-Type": "application/json",
-      if (token != null) "Authorization": "Bearer $token",
+      AppConstants.headerContentType: AppConstants.headerApplicationJson,
+      if (token != null) AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token",
     };
 
     final body = <String, dynamic>{};
-    if (tripId != null) body["tripId"] = tripId;
-    if (studentId != null) body["studentId"] = studentId;
-    if (pickupOrder != null) body["pickupOrder"] = pickupOrder;
-    if (updatedBy != null) body["updatedBy"] = updatedBy;
+    if (tripId != null) body[AppConstants.keyTripId] = tripId;
+    if (studentId != null) body[AppConstants.keyStudentId] = studentId;
+    if (pickupOrder != null) body[AppConstants.keyPickupOrder] = pickupOrder;
+    if (updatedBy != null) body[AppConstants.keyUpdatedBy] = updatedBy;
 
-    print("🔍 TripStudentService: updateTripStudent URL: $url");
-    print("🔍 TripStudentService: updateTripStudent body: $body");
+    debugPrint("🔍 TripStudentService: updateTripStudent URL: $url");
+    debugPrint("🔍 TripStudentService: updateTripStudent body: $body");
 
     final resp = await http.put(url, headers: headers, body: jsonEncode(body));
-    print("🔍 TripStudentService: updateTripStudent response status: ${resp.statusCode}");
-    print("🔍 TripStudentService: updateTripStudent response body: ${resp.body}");
+    debugPrint("🔍 TripStudentService: updateTripStudent response status: ${resp.statusCode}");
+    debugPrint("🔍 TripStudentService: updateTripStudent response body: ${resp.body}");
 
     return _handleResponse(resp);
   }
@@ -77,15 +79,15 @@ class TripStudentService {
     
     final url = Uri.parse("$base/api/trip-students/$tripStudentId");
     final headers = {
-      "Content-Type": "application/json",
-      if (token != null) "Authorization": "Bearer $token",
+      AppConstants.headerContentType: AppConstants.headerApplicationJson,
+      if (token != null) AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token",
     };
 
-    print("🔍 TripStudentService: removeStudentFromTrip URL: $url");
+    debugPrint("🔍 TripStudentService: removeStudentFromTrip URL: $url");
 
     final resp = await http.delete(url, headers: headers);
-    print("🔍 TripStudentService: removeStudentFromTrip response status: ${resp.statusCode}");
-    print("🔍 TripStudentService: removeStudentFromTrip response body: ${resp.body}");
+    debugPrint("🔍 TripStudentService: removeStudentFromTrip response status: ${resp.statusCode}");
+    debugPrint("🔍 TripStudentService: removeStudentFromTrip response body: ${resp.body}");
 
     return _handleResponse(resp);
   }
@@ -96,15 +98,15 @@ class TripStudentService {
     
     final url = Uri.parse("$base/api/trip-students/trip/$tripId");
     final headers = {
-      "Content-Type": "application/json",
-      if (token != null) "Authorization": "Bearer $token",
+      AppConstants.headerContentType: AppConstants.headerApplicationJson,
+      if (token != null) AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token",
     };
 
-    print("🔍 TripStudentService: getStudentsByTrip URL: $url");
+    debugPrint("🔍 TripStudentService: getStudentsByTrip URL: $url");
 
     final resp = await http.get(url, headers: headers);
-    print("🔍 TripStudentService: getStudentsByTrip response status: ${resp.statusCode}");
-    print("🔍 TripStudentService: getStudentsByTrip response body: ${resp.body}");
+    debugPrint("🔍 TripStudentService: getStudentsByTrip response status: ${resp.statusCode}");
+    debugPrint("🔍 TripStudentService: getStudentsByTrip response body: ${resp.body}");
 
     return _handleResponse(resp);
   }
@@ -116,15 +118,15 @@ class TripStudentService {
     // This endpoint might need to be created in the backend
     final url = Uri.parse("$base/api/trip-students/school/$schoolId");
     final headers = {
-      "Content-Type": "application/json",
-      if (token != null) "Authorization": "Bearer $token",
+      AppConstants.headerContentType: AppConstants.headerApplicationJson,
+      if (token != null) AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token",
     };
 
-    print("🔍 TripStudentService: getAllAssignmentsBySchool URL: $url");
+    debugPrint("🔍 TripStudentService: getAllAssignmentsBySchool URL: $url");
 
     final resp = await http.get(url, headers: headers);
-    print("🔍 TripStudentService: getAllAssignmentsBySchool response status: ${resp.statusCode}");
-    print("🔍 TripStudentService: getAllAssignmentsBySchool response body: ${resp.body}");
+    debugPrint("🔍 TripStudentService: getAllAssignmentsBySchool response status: ${resp.statusCode}");
+    debugPrint("🔍 TripStudentService: getAllAssignmentsBySchool response body: ${resp.body}");
 
     return _handleResponse(resp);
   }
@@ -134,7 +136,7 @@ class TripStudentService {
     if (response.statusCode == 200 || response.statusCode == 201) {
       return jsonDecode(response.body) as Map<String, dynamic>;
     } else {
-      throw Exception("Request failed: ${response.statusCode} ${response.body}");
+      throw Exception("${AppConstants.errorRequestFailed}: ${response.statusCode} ${response.body}");
     }
   }
 }

@@ -1,4 +1,6 @@
 // lib/data/models/driver_request.dart
+import '../../utils/constants.dart';
+
 class DriverRequest {
   final int userId; 
   final String driverName;
@@ -19,12 +21,12 @@ class DriverRequest {
   });
 
   Map<String, dynamic> toJson() => {
-        "userId": userId,
-        "driverName": driverName,
-        "driverContactNumber": driverContactNumber,
-        "driverAddress": driverAddress,
-        "driverPhoto": driverPhotoBase64,
-        "email": email,
-        "createdBy": createdBy,
+        AppConstants.keyUserId: userId,
+        AppConstants.keyDriverName: driverName,
+        AppConstants.keyDriverContactNumber: driverContactNumber,
+        AppConstants.keyDriverAddress: driverAddress,
+        AppConstants.keyDriverPhoto: driverPhotoBase64,
+        AppConstants.keyEmail: email,
+        AppConstants.keyCreatedBy: createdBy,
       };
 }

@@ -1,11 +1,12 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../utils/constants.dart';
 import 'auth_service.dart';
 import '../config/app_config.dart';
 import '../data/models/role.dart';
 
 class RoleService {
-  String get base => AppConfig.baseUrl + '/api/roles';
+  String get base => AppConfig.baseUrl + AppConstants.endpointRoles;
   final AuthService _auth = AuthService();
 
   // Get all roles
@@ -13,21 +14,21 @@ class RoleService {
     final token = await _auth.getToken();
     final url = Uri.parse(base);
     final headers = {
-      if (token != null) "Authorization": "Bearer $token",
+      if (token != null) AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token",
     };
     
     final resp = await http.get(url, headers: headers);
     
     if (resp.statusCode == 200) {
       final responseData = jsonDecode(resp.body) as Map<String, dynamic>;
-      if (responseData['success'] == true && responseData['data'] != null) {
-        final List<dynamic> rolesJson = responseData['data'];
+      if (responseData[AppConstants.keySuccess] == true && responseData[AppConstants.keyData] != null) {
+        final List<dynamic> rolesJson = responseData[AppConstants.keyData];
         return rolesJson.map((roleJson) => Role.fromJson(roleJson)).toList();
       } else {
-        throw Exception("Failed to get roles: ${responseData['message']}");
+        throw Exception("${AppConstants.errorFailedToGetRoles}: ${responseData[AppConstants.keyMessage]}");
       }
     } else {
-      throw Exception("Roles request failed: ${resp.statusCode} ${resp.body}");
+      throw Exception("${AppConstants.errorRolesRequestFailed}: ${resp.statusCode} ${resp.body}");
     }
   }
 
@@ -35,7 +36,7 @@ class RoleService {
   Future<List<Role>> getStaffRoles() async {
     final allRoles = await getAllRoles();
     return allRoles.where((role) => 
-      role.roleName == 'GATE_STAFF' || role.roleName == 'DRIVER'
+      role.roleName == AppConstants.roleGateStaff || role.roleName == AppConstants.roleDriver
     ).toList();
   }
 
@@ -44,20 +45,20 @@ class RoleService {
     final token = await _auth.getToken();
     final url = Uri.parse("$base/$roleId");
     final headers = {
-      if (token != null) "Authorization": "Bearer $token",
+      if (token != null) AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token",
     };
     
     final resp = await http.get(url, headers: headers);
     
     if (resp.statusCode == 200) {
       final responseData = jsonDecode(resp.body) as Map<String, dynamic>;
-      if (responseData['success'] == true && responseData['data'] != null) {
-        return Role.fromJson(responseData['data']);
+      if (responseData[AppConstants.keySuccess] == true && responseData[AppConstants.keyData] != null) {
+        return Role.fromJson(responseData[AppConstants.keyData]);
       } else {
-        throw Exception("Failed to get role: ${responseData['message']}");
+        throw Exception("${AppConstants.errorFailedToGetRole}: ${responseData[AppConstants.keyMessage]}");
       }
     } else {
-      throw Exception("Role request failed: ${resp.statusCode} ${resp.body}");
+      throw Exception("${AppConstants.errorRoleRequestFailed}: ${resp.statusCode} ${resp.body}");
     }
   }
 }

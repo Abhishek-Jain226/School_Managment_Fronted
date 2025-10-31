@@ -1,8 +1,8 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/parent_service.dart';
 import '../../data/models/attendance_history.dart';
+import '../../utils/constants.dart';
 
 class AttendanceHistoryPage extends StatefulWidget {
   const AttendanceHistoryPage({super.key});
@@ -18,7 +18,9 @@ class _AttendanceHistoryPageState extends State<AttendanceHistoryPage> {
   bool _isLoading = true;
   AttendanceHistory? _attendanceHistory;
   String _error = '';
-  DateTime _fromDate = DateTime.now().subtract(const Duration(days: 30));
+  DateTime _fromDate = DateTime.now().subtract(
+    const Duration(days: AppConstants.attendanceDefaultDaysBack),
+  );
   DateTime _toDate = DateTime.now();
 
   @override
@@ -30,14 +32,14 @@ class _AttendanceHistoryPageState extends State<AttendanceHistoryPage> {
   Future<void> _loadUserId() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      _userId = prefs.getInt('userId');
+      _userId = prefs.getInt(AppConstants.keyUserId);
     });
     
     if (_userId != null) {
       _loadAttendanceHistory();
     } else {
       setState(() {
-        _error = 'User ID not found. Please login again.';
+        _error = AppConstants.msgUserIdNotFound;
         _isLoading = false;
       });
     }
@@ -63,9 +65,9 @@ class _AttendanceHistoryPageState extends State<AttendanceHistoryPage> {
         _error = '';
       });
     } catch (e) {
-      print('🔍 Error loading attendance history: $e');
+      debugPrint('🔍 ${AppConstants.msgErrorLoadingAttendanceHistory}$e');
       setState(() {
-        _error = 'Error loading attendance history: $e';
+        _error = '${AppConstants.msgErrorLoadingAttendanceHistory}$e';
       });
     } finally {
       setState(() => _isLoading = false);
@@ -75,7 +77,7 @@ class _AttendanceHistoryPageState extends State<AttendanceHistoryPage> {
   Future<void> _selectDateRange() async {
     final DateTimeRange? picked = await showDateRangePicker(
       context: context,
-      firstDate: DateTime(2020),
+      firstDate: DateTime(AppConstants.attendanceDatePickerFirstYear),
       lastDate: DateTime.now(),
       initialDateRange: DateTimeRange(start: _fromDate, end: _toDate),
     );
@@ -95,21 +97,21 @@ class _AttendanceHistoryPageState extends State<AttendanceHistoryPage> {
       appBar: AppBar(
         title: const Row(
           children: [
-            Icon(Icons.history, size: 28),
-            SizedBox(width: 8),
-            Text("Attendance History"),
+            Icon(Icons.history, size: AppSizes.attendanceIconSize),
+            SizedBox(width: AppSizes.attendanceSpacingSM),
+            Text(AppConstants.labelAttendanceHistory),
           ],
         ),
         actions: [
           IconButton(
             icon: const Icon(Icons.date_range),
             onPressed: _selectDateRange,
-            tooltip: 'Select Date Range',
+            tooltip: AppConstants.tooltipSelectDateRange,
           ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadAttendanceHistory,
-            tooltip: 'Refresh',
+            tooltip: AppConstants.tooltipRefresh,
           ),
         ],
       ),
@@ -120,19 +122,27 @@ class _AttendanceHistoryPageState extends State<AttendanceHistoryPage> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(_error, style: const TextStyle(color: Colors.red, fontSize: 16)),
-                      const SizedBox(height: 10),
+                      Text(
+                        _error,
+                        style: const TextStyle(
+                          color: AppColors.attendanceErrorColor,
+                          fontSize: AppSizes.attendanceErrorFontSize,
+                        ),
+                      ),
+                      const SizedBox(height: AppSizes.attendanceSpacingXXS),
                       ElevatedButton(
                         onPressed: _loadAttendanceHistory,
-                        child: const Text('Retry'),
+                        child: const Text(AppConstants.labelRetry),
                       ),
                     ],
                   ),
                 )
               : _attendanceHistory == null
-                  ? const Center(child: Text('No attendance data found'))
+                  ? const Center(
+                      child: Text(AppConstants.msgNoAttendanceData),
+                    )
                   : SingleChildScrollView(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(AppSizes.attendanceSpacingMD),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -141,119 +151,133 @@ class _AttendanceHistoryPageState extends State<AttendanceHistoryPage> {
                             children: [
                               Expanded(
                                 child: _buildStatCard(
-                                  "Total Days",
+                                  AppConstants.labelTotalDays,
                                   _attendanceHistory!.totalDays.toString(),
-                                  Colors.blue,
+                                  AppColors.attendancePrimaryColor,
                                   Icons.calendar_today,
                                 ),
                               ),
-                              const SizedBox(width: 8),
+                              const SizedBox(width: AppSizes.attendanceSpacingSM),
                               Expanded(
                                 child: _buildStatCard(
-                                  "Present",
+                                  AppConstants.labelPresent,
                                   _attendanceHistory!.presentDays.toString(),
-                                  Colors.green,
+                                  AppColors.attendancePresentColor,
                                   Icons.check_circle,
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: AppSizes.attendanceSpacingSM),
                           Row(
                             children: [
                               Expanded(
                                 child: _buildStatCard(
-                                  "Absent",
+                                  AppConstants.labelAbsent,
                                   _attendanceHistory!.absentDays.toString(),
-                                  Colors.red,
+                                  AppColors.attendanceAbsentColor,
                                   Icons.cancel,
                                 ),
                               ),
-                              const SizedBox(width: 8),
+                              const SizedBox(width: AppSizes.attendanceSpacingSM),
                               Expanded(
                                 child: _buildStatCard(
-                                  "Late",
+                                  AppConstants.labelLate,
                                   _attendanceHistory!.lateDays.toString(),
-                                  Colors.orange,
+                                  AppColors.attendanceLateColor,
                                   Icons.schedule,
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: AppSizes.attendanceSpacingMD),
                           
                           // Attendance Percentage
                           Card(
-                            elevation: 3,
+                            elevation: AppSizes.attendancePercentageCardElevation,
                             child: Padding(
-                              padding: const EdgeInsets.all(16),
+                              padding: const EdgeInsets.all(
+                                AppSizes.attendancePercentageCardPadding,
+                              ),
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   const Text(
-                                    "Attendance Percentage",
-                                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                    AppConstants.labelAttendancePercentage,
+                                    style: TextStyle(
+                                      fontSize: AppSizes.attendancePercentageTitleFontSize,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                   Text(
                                     "${_attendanceHistory!.attendancePercentage.toStringAsFixed(1)}%",
                                     style: TextStyle(
-                                      fontSize: 24,
+                                      fontSize: AppSizes.attendancePercentageValueFontSize,
                                       fontWeight: FontWeight.bold,
-                                      color: _getAttendanceColor(_attendanceHistory!.attendancePercentage),
+                                      color: _getAttendanceColor(
+                                        _attendanceHistory!.attendancePercentage,
+                                      ),
                                     ),
                                   ),
                                 ],
                               ),
                             ),
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: AppSizes.attendanceSpacingMD),
                           
                           // Date Range Info
                           Card(
-                            elevation: 2,
+                            elevation: AppSizes.attendanceDateRangeCardElevation,
                             child: Padding(
-                              padding: const EdgeInsets.all(12),
+                              padding: const EdgeInsets.all(
+                                AppSizes.attendanceDateRangeCardPadding,
+                              ),
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
-                                    "From: ${_formatDate(_fromDate)}",
+                                    "${AppConstants.labelFrom} ${_formatDate(_fromDate)}",
                                     style: const TextStyle(fontWeight: FontWeight.w500),
                                   ),
                                   Text(
-                                    "To: ${_formatDate(_toDate)}",
+                                    "${AppConstants.labelTo} ${_formatDate(_toDate)}",
                                     style: const TextStyle(fontWeight: FontWeight.w500),
                                   ),
                                 ],
                               ),
                             ),
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: AppSizes.attendanceSpacingMD),
                           
                           // Attendance Records
                           const Text(
-                            "Daily Records",
-                            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                            AppConstants.labelDailyRecords,
+                            style: TextStyle(
+                              fontSize: AppSizes.attendanceDailyRecordsTitleFontSize,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: AppSizes.attendanceSpacingSM),
                           
                           if (_attendanceHistory!.attendanceRecords.isEmpty)
                             const Card(
                               child: Padding(
-                                padding: EdgeInsets.all(16),
-                                child: Text('No attendance records found for the selected period'),
+                                padding: EdgeInsets.all(AppSizes.attendanceSpacingMD),
+                                child: Text(AppConstants.msgNoAttendanceRecords),
                               ),
                             )
                           else
                             ..._attendanceHistory!.attendanceRecords.map((record) => 
                               Card(
-                                margin: const EdgeInsets.only(bottom: 8),
+                                margin: const EdgeInsets.only(
+                                  bottom: AppSizes.attendanceRecordCardMargin,
+                                ),
                                 child: ListTile(
                                   leading: CircleAvatar(
                                     backgroundColor: _getStatusColor(record),
                                     child: Icon(
                                       _getStatusIcon(record),
-                                      color: Colors.white,
+                                      color: AppColors.attendanceTextWhite,
                                     ),
                                   ),
                                   title: Text(_formatDate(record.date)),
@@ -262,11 +286,11 @@ class _AttendanceHistoryPageState extends State<AttendanceHistoryPage> {
                                     children: [
                                       Text("${record.dayOfWeek} - ${_getStatusText(record)}"),
                                       if (record.arrivalTime != null)
-                                        Text("Arrival: ${record.arrivalTime}"),
+                                        Text("${AppConstants.labelArrival} ${record.arrivalTime}"),
                                       if (record.departureTime != null)
-                                        Text("Departure: ${record.departureTime}"),
+                                        Text("${AppConstants.labelDeparture} ${record.departureTime}"),
                                       if (record.remarks != null && record.remarks!.isNotEmpty)
-                                        Text("Remarks: ${record.remarks}"),
+                                        Text("${AppConstants.labelRemarks} ${record.remarks}"),
                                     ],
                                   ),
                                 ),
@@ -280,20 +304,31 @@ class _AttendanceHistoryPageState extends State<AttendanceHistoryPage> {
 
   Widget _buildStatCard(String title, String value, Color color, IconData icon) {
     return Card(
-      elevation: 3,
+      elevation: AppSizes.attendanceCardElevation,
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(AppSizes.attendanceStatCardPadding),
         child: Column(
           children: [
-            Icon(icon, color: color, size: 24),
-            const SizedBox(height: 4),
+            Icon(
+              icon,
+              color: color,
+              size: AppSizes.attendanceStatIconSize,
+            ),
+            const SizedBox(height: AppSizes.attendanceSpacingXS),
             Text(
               value,
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color),
+              style: TextStyle(
+                fontSize: AppSizes.attendanceStatValueFontSize,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
             ),
             Text(
               title,
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
+              style: const TextStyle(
+                fontSize: AppSizes.attendanceStatTitleFontSize,
+                color: AppColors.attendanceUnknownColor,
+              ),
             ),
           ],
         ),
@@ -302,16 +337,20 @@ class _AttendanceHistoryPageState extends State<AttendanceHistoryPage> {
   }
 
   Color _getAttendanceColor(double percentage) {
-    if (percentage >= 90) return Colors.green;
-    if (percentage >= 75) return Colors.orange;
-    return Colors.red;
+    if (percentage >= AppConstants.attendanceExcellentThreshold) {
+      return AppColors.attendanceExcellentColor;
+    }
+    if (percentage >= AppConstants.attendanceGoodThreshold) {
+      return AppColors.attendanceGoodColor;
+    }
+    return AppColors.attendancePoorColor;
   }
 
   Color _getStatusColor(AttendanceRecord record) {
-    if (record.isPresent) return Colors.green;
-    if (record.isAbsent) return Colors.red;
-    if (record.isLate) return Colors.orange;
-    return Colors.grey;
+    if (record.isPresent) return AppColors.attendancePresentColor;
+    if (record.isAbsent) return AppColors.attendanceAbsentColor;
+    if (record.isLate) return AppColors.attendanceLateColor;
+    return AppColors.attendanceUnknownColor;
   }
 
   IconData _getStatusIcon(AttendanceRecord record) {
@@ -322,10 +361,10 @@ class _AttendanceHistoryPageState extends State<AttendanceHistoryPage> {
   }
 
   String _getStatusText(AttendanceRecord record) {
-    if (record.isPresent) return 'Present';
-    if (record.isAbsent) return 'Absent';
-    if (record.isLate) return 'Late';
-    return 'Unknown';
+    if (record.isPresent) return AppConstants.labelPresent;
+    if (record.isAbsent) return AppConstants.labelAbsent;
+    if (record.isLate) return AppConstants.labelLate;
+    return AppConstants.labelUnknown;
   }
 
   String _formatDate(DateTime date) {

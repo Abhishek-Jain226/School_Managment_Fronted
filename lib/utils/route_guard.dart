@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../app_routes.dart';
 import '../services/auth_service.dart';
 
@@ -10,11 +9,13 @@ class RouteGuard {
     
     if (!isLoggedIn) {
       // User is not logged in, redirect to login
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        AppRoutes.login,
-        (route) => false,
-      );
+      if (context.mounted) {
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          AppRoutes.login,
+          (route) => false,
+        );
+      }
       return false;
     }
     
@@ -30,15 +31,18 @@ class RouteGuard {
     final userRole = await getCurrentUserRole();
     
     switch (routeName) {
-      case AppRoutes.dashboard:
+      case AppRoutes.blocSchoolAdminDashboard:
         return userRole == 'SCHOOL_ADMIN';
-      case AppRoutes.vehicleOwnerDashboard:
+      case AppRoutes.blocVehicleOwnerDashboard:
         return userRole == 'VEHICLE_OWNER';
-      case AppRoutes.parentDashboard:
+      case AppRoutes.blocParentDashboard:
         return userRole == 'PARENT';
-      case AppRoutes.driverDashboard:
+      case AppRoutes.blocDriverDashboard:
         return userRole == 'DRIVER';
+      case AppRoutes.blocAppAdminDashboard:
+        return userRole == 'APP_ADMIN';
       case AppRoutes.gateStaffDashboard:
+      case AppRoutes.blocGateStaffDashboard:
         return userRole == 'GATE_STAFF';
       default:
         return true; // Allow access to other routes

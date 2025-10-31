@@ -1,6 +1,7 @@
 // lib/presentation/pages/class_management_page.dart
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../utils/constants.dart';
 import '../../data/models/class_master.dart';
 import '../../services/master_data_service.dart';
 
@@ -32,16 +33,18 @@ class _ClassManagementPageState extends State<ClassManagementPage> {
 
   Future<void> _loadSchoolId() async {
     final prefs = await SharedPreferences.getInstance();
-    _schoolId = prefs.getInt('schoolId');
+    _schoolId = prefs.getInt(AppConstants.keySchoolId);
     if (_schoolId != null) {
       _loadClasses();
     } else {
-      setState(() {
-        _loading = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('School ID not found. Please login again.')),
-      );
+      if (mounted) {
+        setState(() {
+          _loading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text(AppConstants.msgSchoolIdNotFoundLogin)),
+        );
+      }
     }
   }
 
@@ -66,10 +69,10 @@ class _ClassManagementPageState extends State<ClassManagementPage> {
               .toList();
         });
       } else {
-        _showErrorSnackBar(response['message'] ?? 'Failed to load classes');
+        _showErrorSnackBar(response['message'] ?? AppConstants.msgFailedToLoadClasses);
       }
     } catch (e) {
-      _showErrorSnackBar('Error loading classes: $e');
+      _showErrorSnackBar('${AppConstants.msgErrorLoadingClasses}$e');
     } finally {
       setState(() => _loading = false);
     }
@@ -80,7 +83,7 @@ class _ClassManagementPageState extends State<ClassManagementPage> {
 
     try {
       final prefs = await SharedPreferences.getInstance();
-      final createdBy = prefs.getString('userName') ?? 'Admin';
+      final createdBy = prefs.getString(AppConstants.keyUserName) ?? 'Admin';
 
       final classMaster = ClassMaster(
         classId: _isEditing ? _editingClassId : null,
@@ -101,14 +104,14 @@ class _ClassManagementPageState extends State<ClassManagementPage> {
       }
 
       if (response['success'] == true) {
-        _showSuccessSnackBar(_isEditing ? 'Class updated successfully' : 'Class created successfully');
+        _showSuccessSnackBar(_isEditing ? AppConstants.msgClassUpdatedSuccessfully : AppConstants.msgClassCreatedSuccessfully);
         _resetForm();
         _loadClasses();
       } else {
-        _showErrorSnackBar(response['message'] ?? 'Operation failed');
+        _showErrorSnackBar(response['message'] ?? AppConstants.msgOperationFailed);
       }
     } catch (e) {
-      _showErrorSnackBar('Error: $e');
+      _showErrorSnackBar('${AppConstants.labelError}: $e');
     }
   }
 
@@ -116,16 +119,16 @@ class _ClassManagementPageState extends State<ClassManagementPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Class'),
-        content: Text('Are you sure you want to delete "${classMaster.className}"?'),
+        title: const Text(AppConstants.labelDeleteClass),
+        content: Text('${AppConstants.msgDeleteConfirmation}${classMaster.className}"?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: const Text(AppConstants.labelCancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            child: Text(AppConstants.labelDelete, style: const TextStyle(color: AppColors.classMgmtErrorColor)),
           ),
         ],
       ),
@@ -135,13 +138,13 @@ class _ClassManagementPageState extends State<ClassManagementPage> {
       try {
         final response = await _service.deleteClass(classMaster.classId!);
         if (response['success'] == true) {
-          _showSuccessSnackBar('Class deleted successfully');
+          _showSuccessSnackBar(AppConstants.msgClassDeletedSuccessfully);
           _loadClasses();
         } else {
-          _showErrorSnackBar(response['message'] ?? 'Failed to delete class');
+          _showErrorSnackBar(response['message'] ?? AppConstants.msgFailedToDeleteClass);
         }
       } catch (e) {
-        _showErrorSnackBar('Error deleting class: $e');
+        _showErrorSnackBar('${AppConstants.msgErrorDeletingClass}$e');
       }
     }
   }
@@ -150,13 +153,13 @@ class _ClassManagementPageState extends State<ClassManagementPage> {
     try {
       final response = await _service.toggleClassStatus(classMaster.classId!);
       if (response['success'] == true) {
-        _showSuccessSnackBar('Class status updated successfully');
+        _showSuccessSnackBar(AppConstants.msgClassStatusUpdated);
         _loadClasses();
       } else {
-        _showErrorSnackBar(response['message'] ?? 'Failed to update status');
+        _showErrorSnackBar(response['message'] ?? AppConstants.msgFailedToUpdateStatus);
       }
     } catch (e) {
-      _showErrorSnackBar('Error updating status: $e');
+      _showErrorSnackBar('${AppConstants.msgErrorUpdatingStatus}$e');
     }
   }
 
@@ -182,13 +185,13 @@ class _ClassManagementPageState extends State<ClassManagementPage> {
 
   void _showSuccessSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.green),
+      SnackBar(content: Text(message), backgroundColor: AppColors.classMgmtSuccessColor),
     );
   }
 
   void _showErrorSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.red),
+      SnackBar(content: Text(message), backgroundColor: AppColors.classMgmtErrorColor),
     );
   }
 
@@ -196,7 +199,7 @@ class _ClassManagementPageState extends State<ClassManagementPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Class Management'),
+        title: const Text(AppConstants.labelClassManagement),
         actions: [
           IconButton(
             onPressed: _loadClasses,
@@ -210,19 +213,19 @@ class _ClassManagementPageState extends State<ClassManagementPage> {
               children: [
                 // Form Section
                 Card(
-                  margin: const EdgeInsets.all(16),
+                  margin: const EdgeInsets.all(AppSizes.classMgmtPadding),
                   child: Padding(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(AppSizes.classMgmtPadding),
                     child: Form(
                       key: _formKey,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            _isEditing ? 'Edit Class' : 'Add New Class',
+                            _isEditing ? AppConstants.labelEditClass : AppConstants.labelAddNewClass,
                             style: Theme.of(context).textTheme.titleLarge,
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: AppSizes.classMgmtSpacingMD),
                           Row(
                             children: [
                               Expanded(
@@ -230,35 +233,35 @@ class _ClassManagementPageState extends State<ClassManagementPage> {
                                 child: TextFormField(
                                   controller: _classNameController,
                                   decoration: const InputDecoration(
-                                    labelText: 'Class Name *',
-                                    hintText: 'e.g., Nursery, KG, 1, 2',
+                                    labelText: AppConstants.labelClassName,
+                                    hintText: AppConstants.hintClassName,
                                   ),
                                   validator: (value) {
                                     if (value == null || value.trim().isEmpty) {
-                                      return 'Class name is required';
+                                      return AppConstants.validationClassNameRequired;
                                     }
                                     if (value.trim().length > 50) {
-                                      return 'Class name cannot exceed 50 characters';
+                                      return AppConstants.validationClassNameMaxLength;
                                     }
                                     return null;
                                   },
                                 ),
                               ),
-                              const SizedBox(width: 16),
+                              const SizedBox(width: AppSizes.classMgmtSpacingMD),
                               Expanded(
                                 child: TextFormField(
                                   controller: _classOrderController,
                                   decoration: const InputDecoration(
-                                    labelText: 'Order *',
-                                    hintText: '1, 2, 3',
+                                    labelText: AppConstants.labelOrder,
+                                    hintText: AppConstants.hintClassOrder,
                                   ),
                                   keyboardType: TextInputType.number,
                                   validator: (value) {
                                     if (value == null || value.trim().isEmpty) {
-                                      return 'Order is required';
+                                      return AppConstants.validationOrderRequired;
                                     }
                                     if (int.tryParse(value.trim()) == null) {
-                                      return 'Enter valid number';
+                                      return AppConstants.validationEnterValidNumber;
                                     }
                                     return null;
                                   },
@@ -266,27 +269,27 @@ class _ClassManagementPageState extends State<ClassManagementPage> {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: AppSizes.classMgmtSpacingMD),
                           TextFormField(
                             controller: _descriptionController,
                             decoration: const InputDecoration(
-                              labelText: 'Description (Optional)',
-                              hintText: 'Additional details about the class',
+                              labelText: AppConstants.labelDescriptionOptional,
+                              hintText: AppConstants.hintClassDescription,
                             ),
                             maxLines: 2,
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: AppSizes.classMgmtSpacingMD),
                           Row(
                             children: [
                               ElevatedButton(
                                 onPressed: _submitForm,
-                                child: Text(_isEditing ? 'Update Class' : 'Add Class'),
+                                child: Text(_isEditing ? AppConstants.labelUpdateClass : AppConstants.labelAddClass),
                               ),
-                              const SizedBox(width: 16),
+                              const SizedBox(width: AppSizes.classMgmtSpacingMD),
                               if (_isEditing)
                                 TextButton(
                                   onPressed: _resetForm,
-                                  child: const Text('Cancel'),
+                                  child: const Text(AppConstants.labelCancel),
                                 ),
                             ],
                           ),
@@ -300,50 +303,50 @@ class _ClassManagementPageState extends State<ClassManagementPage> {
                   child: _classes.isEmpty
                       ? const Center(
                           child: Text(
-                            'No classes found.\nAdd your first class above.',
+                            AppConstants.msgNoClassesFound,
                             textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 16, color: Colors.grey),
+                            style: TextStyle(fontSize: AppSizes.classMgmtEmptyTextSize, color: AppColors.classMgmtGreyColor),
                           ),
                         )
                       : ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          padding: const EdgeInsets.symmetric(horizontal: AppSizes.classMgmtPadding),
                           itemCount: _classes.length,
                           itemBuilder: (context, index) {
                             final classMaster = _classes[index];
                             return Card(
-                              margin: const EdgeInsets.only(bottom: 8),
+                              margin: const EdgeInsets.only(bottom: AppSizes.classMgmtCardMargin),
                               child: ListTile(
                                 title: Text(
                                   classMaster.className,
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
-                                    color: classMaster.isActive ? null : Colors.grey,
+                                    color: classMaster.isActive ? null : AppColors.classMgmtGreyColor,
                                   ),
                                 ),
                                 subtitle: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text('Order: ${classMaster.classOrder}'),
+                                    Text('${AppConstants.labelOrder}: ${classMaster.classOrder}'),
                                     if (classMaster.description != null)
                                       Text(classMaster.description!),
                                     Row(
                                       children: [
                                         Container(
                                           padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 2,
+                                            horizontal: AppSizes.classMgmtStatusPaddingH,
+                                            vertical: AppSizes.classMgmtStatusPaddingV,
                                           ),
                                           decoration: BoxDecoration(
                                             color: classMaster.isActive
-                                                ? Colors.green
-                                                : Colors.red,
-                                            borderRadius: BorderRadius.circular(12),
+                                                ? AppColors.classMgmtSuccessColor
+                                                : AppColors.classMgmtErrorColor,
+                                            borderRadius: BorderRadius.circular(AppSizes.classMgmtStatusRadius),
                                           ),
                                           child: Text(
-                                            classMaster.isActive ? 'Active' : 'Inactive',
+                                            classMaster.isActive ? AppConstants.labelActive : AppConstants.labelInactive,
                                             style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 12,
+                                              color: AppColors.classMgmtTextWhite,
+                                              fontSize: AppSizes.classMgmtStatusFontSize,
                                             ),
                                           ),
                                         ),
@@ -371,8 +374,8 @@ class _ClassManagementPageState extends State<ClassManagementPage> {
                                       child: Row(
                                         children: [
                                           Icon(Icons.edit),
-                                          SizedBox(width: 8),
-                                          Text('Edit'),
+                                          SizedBox(width: AppSizes.classMgmtSpacingSM),
+                                          Text(AppConstants.labelEdit),
                                         ],
                                       ),
                                     ),
@@ -383,20 +386,20 @@ class _ClassManagementPageState extends State<ClassManagementPage> {
                                           Icon(classMaster.isActive
                                               ? Icons.visibility_off
                                               : Icons.visibility),
-                                          const SizedBox(width: 8),
+                                          const SizedBox(width: AppSizes.classMgmtSpacingSM),
                                           Text(classMaster.isActive
-                                              ? 'Deactivate'
-                                              : 'Activate'),
+                                              ? AppConstants.labelDeactivate
+                                              : AppConstants.labelActivate),
                                         ],
                                       ),
                                     ),
-                                    const PopupMenuItem(
+                                    PopupMenuItem(
                                       value: 'delete',
                                       child: Row(
-                                        children: [
-                                          Icon(Icons.delete, color: Colors.red),
-                                          SizedBox(width: 8),
-                                          Text('Delete', style: TextStyle(color: Colors.red)),
+                                        children: const [
+                                          Icon(Icons.delete, color: AppColors.classMgmtErrorColor),
+                                          SizedBox(width: AppSizes.classMgmtSpacingSM),
+                                          Text(AppConstants.labelDelete, style: TextStyle(color: AppColors.classMgmtErrorColor)),
                                         ],
                                       ),
                                     ),

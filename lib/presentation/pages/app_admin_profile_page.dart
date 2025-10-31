@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../utils/constants.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../services/app_admin_service.dart';
 
 class AppAdminProfilePage extends StatefulWidget {
   const AppAdminProfilePage({super.key});
@@ -18,8 +18,6 @@ class _AppAdminProfilePageState extends State<AppAdminProfilePage> {
   bool _isLoading = true;
   bool _isEditing = false;
   bool _isSaving = false;
-  
-  Map<String, dynamic>? _adminData;
 
   @override
   void initState() {
@@ -33,13 +31,19 @@ class _AppAdminProfilePageState extends State<AppAdminProfilePage> {
     try {
       final prefs = await SharedPreferences.getInstance();
       setState(() {
-        _nameController.text = prefs.getString('userName') ?? 'App Admin';
-        _emailController.text = prefs.getString('email') ?? 'appadmin@kidstracker.com';
-        _mobileController.text = prefs.getString('contactNumber') ?? '9999999999';
+        _nameController.text = prefs.getString(AppConstants.keyUserName) ?? 
+            AppConstants.defaultAppAdminName;
+        _emailController.text = prefs.getString(AppConstants.keyEmail) ?? 
+            AppConstants.defaultAppAdminEmail;
+        _mobileController.text = prefs.getString(AppConstants.keyContactNumber) ?? 
+            AppConstants.defaultAppAdminMobile;
         _isLoading = false;
       });
     } catch (e) {
-      _showSnackBar('Error loading profile data: $e', Colors.red);
+      _showSnackBar(
+        '${AppConstants.msgErrorLoadingProfile}$e',
+        AppColors.profileErrorColor,
+      );
       setState(() => _isLoading = false);
     }
   }
@@ -53,15 +57,30 @@ class _AppAdminProfilePageState extends State<AppAdminProfilePage> {
       final prefs = await SharedPreferences.getInstance();
       
       // Update local storage
-      await prefs.setString('userName', _nameController.text.trim());
-      await prefs.setString('email', _emailController.text.trim());
-      await prefs.setString('contactNumber', _mobileController.text.trim());
+      await prefs.setString(
+        AppConstants.keyUserName,
+        _nameController.text.trim(),
+      );
+      await prefs.setString(
+        AppConstants.keyEmail,
+        _emailController.text.trim(),
+      );
+      await prefs.setString(
+        AppConstants.keyContactNumber,
+        _mobileController.text.trim(),
+      );
       
       setState(() => _isEditing = false);
-      _showSnackBar('Profile updated successfully!', Colors.green);
+      _showSnackBar(
+        AppConstants.msgProfileUpdatedSuccessfully,
+        AppColors.profileSuccessColor,
+      );
       
     } catch (e) {
-      _showSnackBar('Error updating profile: $e', Colors.red);
+      _showSnackBar(
+        '${AppConstants.msgErrorUpdatingProfile}$e',
+        AppColors.profileErrorColor,
+      );
     } finally {
       setState(() => _isSaving = false);
     }
@@ -80,8 +99,8 @@ class _AppAdminProfilePageState extends State<AppAdminProfilePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('App Admin Profile'),
-        backgroundColor: Colors.deepPurple,
+        title: const Text(AppConstants.labelAppAdminProfile),
+        backgroundColor: AppColors.profileAppBarColor,
         actions: [
           if (!_isEditing)
             IconButton(
@@ -93,7 +112,7 @@ class _AppAdminProfilePageState extends State<AppAdminProfilePage> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.all(AppSizes.profilePadding),
               child: Form(
                 key: _formKey,
                 child: Column(
@@ -101,55 +120,62 @@ class _AppAdminProfilePageState extends State<AppAdminProfilePage> {
                   children: [
                     // Profile Header Card
                     Card(
-                      elevation: 4,
+                      elevation: AppSizes.profileCardElevation,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(15),
+                        borderRadius: BorderRadius.circular(
+                          AppSizes.profileCardRadius,
+                        ),
                       ),
                       child: Container(
                         width: double.infinity,
-                        padding: const EdgeInsets.all(20),
+                        padding: const EdgeInsets.all(AppSizes.profileCardPadding),
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
-                            colors: [Colors.deepPurple.shade700, Colors.deepPurple.shade400],
+                            colors: [
+                              AppColors.profileAppBarColor.shade700,
+                              AppColors.profileAppBarColor.shade400,
+                            ],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),
-                          borderRadius: BorderRadius.circular(15),
+                          borderRadius: BorderRadius.circular(
+                            AppSizes.profileCardRadius,
+                          ),
                         ),
                         child: Column(
                           children: [
                             CircleAvatar(
-                              radius: 50,
-                              backgroundColor: Colors.white,
+                              radius: AppSizes.profileAvatarRadius,
+                              backgroundColor: AppColors.profileAvatarBackgroundColor,
                               child: Icon(
                                 Icons.admin_panel_settings,
-                                size: 50,
-                                color: Colors.deepPurple.shade700,
+                                size: AppSizes.profileAvatarIconSize,
+                                color: AppColors.profileAppBarColor.shade700,
                               ),
                             ),
-                            const SizedBox(height: 16),
+                            const SizedBox(height: AppSizes.profileSpacingMD),
                             Text(
                               _nameController.text,
                               style: const TextStyle(
-                                fontSize: 24,
+                                fontSize: AppSizes.profileNameFontSize,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.white,
+                                color: AppColors.profileTextWhite,
                               ),
                             ),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: AppSizes.profileSpacingSM),
                             Text(
-                              'App Administrator',
+                              AppConstants.labelAppAdministrator,
                               style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.deepPurple.shade100,
+                                fontSize: AppSizes.profileRoleFontSize,
+                                color: AppColors.profileAppBarColor.shade100,
                               ),
                             ),
-                            const SizedBox(height: 4),
+                            const SizedBox(height: AppSizes.profileSpacingXS),
                             Text(
                               _emailController.text,
                               style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.deepPurple.shade100,
+                                fontSize: AppSizes.profileEmailFontSize,
+                                color: AppColors.profileAppBarColor.shade100,
                               ),
                             ),
                           ],
@@ -157,53 +183,60 @@ class _AppAdminProfilePageState extends State<AppAdminProfilePage> {
                       ),
                     ),
                     
-                    const SizedBox(height: 24),
+                    const SizedBox(height: AppSizes.profileSpacingLG),
                     
                     // Profile Details Card
                     Card(
-                      elevation: 2,
+                      elevation: AppSizes.profileDetailsCardElevation,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(
+                          AppSizes.profileDetailsCardRadius,
+                        ),
                       ),
                       child: Padding(
-                        padding: const EdgeInsets.all(20),
+                        padding: const EdgeInsets.all(AppSizes.profileCardPadding),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
+                            const Row(
                               children: [
-                                const Icon(Icons.person, color: Colors.deepPurple),
-                                const SizedBox(width: 8),
-                                const Text(
-                                  'Profile Information',
+                                Icon(
+                                  Icons.person,
+                                  color: AppColors.profileAppBarColor,
+                                ),
+                                SizedBox(width: AppSizes.profileSpacingSM),
+                                Text(
+                                  AppConstants.labelProfileInformation,
                                   style: TextStyle(
-                                    fontSize: 18,
+                                    fontSize: AppSizes.profileHeaderFontSize,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 20),
+                            const SizedBox(height: AppSizes.profileSpacingXL),
                             
                             // Name Field
                             TextFormField(
                               controller: _nameController,
                               enabled: _isEditing,
                               decoration: InputDecoration(
-                                labelText: 'Full Name',
+                                labelText: AppConstants.labelFullName,
                                 prefixIcon: const Icon(Icons.person_outline),
                                 border: const OutlineInputBorder(),
                                 filled: !_isEditing,
-                                fillColor: _isEditing ? null : Colors.grey.shade100,
+                                fillColor: _isEditing 
+                                    ? null 
+                                    : AppColors.profileAppBarColor.shade100,
                               ),
                               validator: (value) {
                                 if (value == null || value.trim().isEmpty) {
-                                  return 'Please enter your name';
+                                  return AppConstants.validationEnterName;
                                 }
                                 return null;
                               },
                             ),
-                            const SizedBox(height: 16),
+                            const SizedBox(height: AppSizes.profileSpacingMD),
                             
                             // Email Field
                             TextFormField(
@@ -211,23 +244,25 @@ class _AppAdminProfilePageState extends State<AppAdminProfilePage> {
                               enabled: _isEditing,
                               keyboardType: TextInputType.emailAddress,
                               decoration: InputDecoration(
-                                labelText: 'Email Address',
+                                labelText: AppConstants.labelEmailAddress,
                                 prefixIcon: const Icon(Icons.email_outlined),
                                 border: const OutlineInputBorder(),
                                 filled: !_isEditing,
-                                fillColor: _isEditing ? null : Colors.grey.shade100,
+                                fillColor: _isEditing 
+                                    ? null 
+                                    : AppColors.profileAppBarColor.shade100,
                               ),
                               validator: (value) {
                                 if (value == null || value.trim().isEmpty) {
-                                  return 'Please enter your email';
+                                  return AppConstants.validationEnterEmail;
                                 }
-                                if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
-                                  return 'Please enter a valid email';
+                                if (!RegExp(AppConstants.regexEmail).hasMatch(value)) {
+                                  return AppConstants.validationEnterValidEmail;
                                 }
                                 return null;
                               },
                             ),
-                            const SizedBox(height: 16),
+                            const SizedBox(height: AppSizes.profileSpacingMD),
                             
                             // Mobile Field
                             TextFormField(
@@ -235,18 +270,20 @@ class _AppAdminProfilePageState extends State<AppAdminProfilePage> {
                               enabled: _isEditing,
                               keyboardType: TextInputType.phone,
                               decoration: InputDecoration(
-                                labelText: 'Mobile Number',
+                                labelText: AppConstants.labelMobileNumber,
                                 prefixIcon: const Icon(Icons.phone_outlined),
                                 border: const OutlineInputBorder(),
                                 filled: !_isEditing,
-                                fillColor: _isEditing ? null : Colors.grey.shade100,
+                                fillColor: _isEditing 
+                                    ? null 
+                                    : AppColors.profileAppBarColor.shade100,
                               ),
                               validator: (value) {
                                 if (value == null || value.trim().isEmpty) {
-                                  return 'Please enter your mobile number';
+                                  return AppConstants.validationEnterMobile;
                                 }
-                                if (!RegExp(r'^[0-9]{10}$').hasMatch(value)) {
-                                  return 'Please enter a valid 10-digit mobile number';
+                                if (!RegExp(AppConstants.regexPhone10Digit).hasMatch(value)) {
+                                  return AppConstants.validationEnterValid10DigitMobile;
                                 }
                                 return null;
                               },
@@ -256,45 +293,66 @@ class _AppAdminProfilePageState extends State<AppAdminProfilePage> {
                       ),
                     ),
                     
-                    const SizedBox(height: 24),
+                    const SizedBox(height: AppSizes.profileSpacingLG),
                     
                     // Account Information Card
                     Card(
-                      elevation: 2,
+                      elevation: AppSizes.profileDetailsCardElevation,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(
+                          AppSizes.profileDetailsCardRadius,
+                        ),
                       ),
                       child: Padding(
-                        padding: const EdgeInsets.all(20),
+                        padding: const EdgeInsets.all(AppSizes.profileCardPadding),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
+                            const Row(
                               children: [
-                                const Icon(Icons.info_outline, color: Colors.deepPurple),
-                                const SizedBox(width: 8),
-                                const Text(
-                                  'Account Information',
+                                Icon(
+                                  Icons.info_outline,
+                                  color: AppColors.profileAppBarColor,
+                                ),
+                                SizedBox(width: AppSizes.profileSpacingSM),
+                                Text(
+                                  AppConstants.labelAccountInformation,
                                   style: TextStyle(
-                                    fontSize: 18,
+                                    fontSize: AppSizes.profileHeaderFontSize,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 20),
+                            const SizedBox(height: AppSizes.profileSpacingXL),
                             
-                            _buildInfoRow('User ID', 'APP_ADMIN_001'),
-                            _buildInfoRow('Role', 'App Administrator'),
-                            _buildInfoRow('Account Status', 'Active', Colors.green),
-                            _buildInfoRow('Last Login', 'Just now'),
-                            _buildInfoRow('Account Created', 'System Generated'),
+                            _buildInfoRow(
+                              AppConstants.labelUserId,
+                              AppConstants.defaultAppAdminUserId,
+                            ),
+                            _buildInfoRow(
+                              AppConstants.labelRole,
+                              AppConstants.labelAppAdministrator,
+                            ),
+                            _buildInfoRow(
+                              AppConstants.labelAccountStatus,
+                              AppConstants.defaultAccountStatusActive,
+                              AppColors.profileSuccessColor,
+                            ),
+                            _buildInfoRow(
+                              AppConstants.labelLastLogin,
+                              AppConstants.defaultLastLoginJustNow,
+                            ),
+                            _buildInfoRow(
+                              AppConstants.labelAccountCreated,
+                              AppConstants.defaultAccountCreatedSystem,
+                            ),
                           ],
                         ),
                       ),
                     ),
                     
-                    const SizedBox(height: 24),
+                    const SizedBox(height: AppSizes.profileSpacingLG),
                     
                     // Action Buttons
                     if (_isEditing) ...[
@@ -307,39 +365,45 @@ class _AppAdminProfilePageState extends State<AppAdminProfilePage> {
                                 _loadAdminData(); // Reset to original values
                               },
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.grey,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                backgroundColor: AppColors.profileCancelButtonColor,
+                                foregroundColor: AppColors.profileTextWhite,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: AppSizes.profileButtonPaddingVertical,
+                                ),
                               ),
-                              child: const Text('Cancel'),
+                              child: const Text(AppConstants.labelCancel),
                             ),
                           ),
-                          const SizedBox(width: 16),
+                          const SizedBox(width: AppSizes.profileSpacingMD),
                           Expanded(
                             child: ElevatedButton(
                               onPressed: _isSaving ? null : _saveProfile,
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.deepPurple,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                backgroundColor: AppColors.profileAppBarColor,
+                                foregroundColor: AppColors.profileTextWhite,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: AppSizes.profileButtonPaddingVertical,
+                                ),
                               ),
                               child: _isSaving
                                   ? const SizedBox(
-                                      width: 20,
-                                      height: 20,
+                                      width: AppSizes.profileSavingIndicatorSize,
+                                      height: AppSizes.profileSavingIndicatorSize,
                                       child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                        strokeWidth: AppSizes.profileSavingIndicatorStroke,
+                                        valueColor: AlwaysStoppedAnimation<Color>(
+                                          AppColors.profileTextWhite,
+                                        ),
                                       ),
                                     )
-                                  : const Text('Save Changes'),
+                                  : const Text(AppConstants.labelSaveChanges),
                             ),
                           ),
                         ],
                       ),
                     ],
                     
-                    const SizedBox(height: 24),
+                    const SizedBox(height: AppSizes.profileSpacingLG),
                   ],
                 ),
               ),
@@ -349,17 +413,19 @@ class _AppAdminProfilePageState extends State<AppAdminProfilePage> {
 
   Widget _buildInfoRow(String label, String value, [Color? valueColor]) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(
+        bottom: AppSizes.profileInfoRowBottomPadding,
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 120,
+            width: AppSizes.profileInfoLabelWidth,
             child: Text(
               label,
               style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[600],
+                fontSize: AppSizes.profileInfoLabelFontSize,
+                color: AppColors.profileAppBarColor.shade600,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -368,9 +434,9 @@ class _AppAdminProfilePageState extends State<AppAdminProfilePage> {
             child: Text(
               value,
               style: TextStyle(
-                fontSize: 14,
+                fontSize: AppSizes.profileInfoLabelFontSize,
                 fontWeight: FontWeight.w500,
-                color: valueColor ?? Colors.black87,
+                color: valueColor ?? AppColors.profileTextBlack87,
               ),
             ),
           ),

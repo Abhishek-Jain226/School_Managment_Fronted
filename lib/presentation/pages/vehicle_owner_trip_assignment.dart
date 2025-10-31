@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/vehicle_owner_service.dart';
 import '../../services/trip_service.dart';
-import '../../data/models/trip_response.dart';
+import '../../utils/constants.dart';
 
 class VehicleOwnerTripAssignmentPage extends StatefulWidget {
   const VehicleOwnerTripAssignmentPage({super.key});
@@ -13,7 +13,6 @@ class VehicleOwnerTripAssignmentPage extends StatefulWidget {
 
 class _VehicleOwnerTripAssignmentPageState extends State<VehicleOwnerTripAssignmentPage> {
   final VehicleOwnerService _vehicleOwnerService = VehicleOwnerService();
-  final TripService _tripService = TripService();
   
   // Data variables
   List<Map<String, dynamic>> _trips = [];
@@ -37,13 +36,13 @@ class _VehicleOwnerTripAssignmentPageState extends State<VehicleOwnerTripAssignm
       });
 
       final prefs = await SharedPreferences.getInstance();
-      _currentSchoolId = prefs.getInt("currentSchoolId");
-      final ownerId = prefs.getInt("ownerId");
-      final ownerName = prefs.getString("ownerName");
+      _currentSchoolId = prefs.getInt(AppConstants.keyCurrentSchoolId);
+      final ownerId = prefs.getInt(AppConstants.keyOwnerId);
+      final ownerName = prefs.getString(AppConstants.keyOwnerName);
 
       if (_currentSchoolId == null || ownerId == null) {
         setState(() {
-          _errorMessage = "School or Owner information not found";
+          _errorMessage = AppConstants.msgSchoolOrOwnerInfoNotFound;
           _isLoading = false;
         });
         return;
@@ -51,8 +50,8 @@ class _VehicleOwnerTripAssignmentPageState extends State<VehicleOwnerTripAssignm
 
       // Set owner data
       _ownerData = {
-        "ownerId": ownerId,
-        "ownerName": ownerName ?? "Vehicle Owner",
+        AppConstants.keyOwnerId: ownerId,
+        AppConstants.keyOwnerName: ownerName ?? AppConstants.labelVehicleOwner,
       };
 
       // Load trips and available vehicles in parallel
@@ -62,9 +61,9 @@ class _VehicleOwnerTripAssignmentPageState extends State<VehicleOwnerTripAssignm
       ]);
 
     } catch (e) {
-      print("Error loading data: $e");
+      debugPrint("Error loading data: $e");
       setState(() {
-        _errorMessage = "Error loading data: $e";
+        _errorMessage = '${AppConstants.msgErrorLoadingData}$e';
       });
     } finally {
       setState(() {
@@ -75,48 +74,48 @@ class _VehicleOwnerTripAssignmentPageState extends State<VehicleOwnerTripAssignm
 
   Future<void> _loadTrips(int ownerId) async {
     try {
-      print("🔍 Loading trips for owner: $ownerId");
+      debugPrint("🔍 Loading trips for owner: $ownerId");
       final response = await _vehicleOwnerService.getTripsByOwner(ownerId);
       
-      if (response["success"] == true) {
+      if (response[AppConstants.keySuccess] == true) {
         setState(() {
-          _trips = List<Map<String, dynamic>>.from(response["data"] ?? []);
+          _trips = List<Map<String, dynamic>>.from(response[AppConstants.keyData] ?? []);
         });
-        print("🔍 Loaded ${_trips.length} trips");
+        debugPrint("🔍 Loaded ${_trips.length} trips");
       } else {
-        print("🔍 Failed to load trips: ${response["message"]}");
+        debugPrint("🔍 Failed to load trips: ${response[AppConstants.keyMessage]}");
         setState(() {
-          _errorMessage = response["message"] ?? "Failed to load trips";
+          _errorMessage = response[AppConstants.keyMessage] ?? AppConstants.msgFailedToLoadTrips;
         });
       }
     } catch (e) {
-      print("🔍 Error loading trips: $e");
+      debugPrint("🔍 Error loading trips: $e");
       setState(() {
-        _errorMessage = "Error loading trips: $e";
+        _errorMessage = '${AppConstants.msgErrorLoadingTrips}$e';
       });
     }
   }
 
   Future<void> _loadAvailableVehicles(int ownerId, int schoolId) async {
     try {
-      print("🔍 Loading available vehicles for owner: $ownerId, school: $schoolId");
+      debugPrint("🔍 Loading available vehicles for owner: $ownerId, school: $schoolId");
       final response = await _vehicleOwnerService.getAvailableVehiclesForTrip(ownerId, schoolId);
       
-      if (response["success"] == true) {
+      if (response[AppConstants.keySuccess] == true) {
         setState(() {
-          _availableVehicles = List<Map<String, dynamic>>.from(response["data"] ?? []);
+          _availableVehicles = List<Map<String, dynamic>>.from(response[AppConstants.keyData] ?? []);
         });
-        print("🔍 Loaded ${_availableVehicles.length} available vehicles");
+        debugPrint("🔍 Loaded ${_availableVehicles.length} available vehicles");
       } else {
-        print("🔍 Failed to load vehicles: ${response["message"]}");
+        debugPrint("🔍 Failed to load vehicles: ${response[AppConstants.keyMessage]}");
         setState(() {
-          _errorMessage = response["message"] ?? "Failed to load vehicles";
+          _errorMessage = response[AppConstants.keyMessage] ?? AppConstants.msgFailedToLoadVehicles;
         });
       }
     } catch (e) {
-      print("🔍 Error loading vehicles: $e");
+      debugPrint("🔍 Error loading vehicles: $e");
       setState(() {
-        _errorMessage = "Error loading vehicles: $e";
+        _errorMessage = '${AppConstants.msgErrorLoadingVehicles}: $e';
       });
     }
   }
@@ -124,30 +123,30 @@ class _VehicleOwnerTripAssignmentPageState extends State<VehicleOwnerTripAssignm
   Future<void> _assignTripToVehicle(Map<String, dynamic> trip, Map<String, dynamic> vehicle) async {
     try {
       if (_ownerData == null) {
-        _showErrorSnackBar("Owner information not available");
+        _showErrorSnackBar(AppConstants.msgOwnerDataNotAvailable);
         return;
       }
 
-      final ownerId = _ownerData!["ownerId"] as int;
-      final tripId = trip["tripId"] as int;
-      final vehicleId = vehicle["vehicleId"] as int;
-      final updatedBy = _ownerData!["ownerName"] as String;
+      final ownerId = _ownerData![AppConstants.keyOwnerId] as int;
+      final tripId = trip[AppConstants.keyTripId] as int;
+      final vehicleId = vehicle[AppConstants.keyVehicleId] as int;
+      final updatedBy = _ownerData![AppConstants.keyOwnerName] as String;
 
-      print("🔍 Assigning trip $tripId to vehicle $vehicleId by $updatedBy");
+      debugPrint("🔍 Assigning trip $tripId to vehicle $vehicleId by $updatedBy");
 
       final response = await _vehicleOwnerService.assignTripToVehicle(
         ownerId, tripId, vehicleId, updatedBy
       );
 
-      if (response["success"] == true) {
-        _showSuccessSnackBar("Trip assigned to vehicle successfully!");
+      if (response[AppConstants.keySuccess] == true) {
+        _showSuccessSnackBar(AppConstants.msgTripAssignedToVehicleSuccess);
         await _loadData(); // Refresh data
       } else {
-        _showErrorSnackBar(response["message"] ?? "Failed to assign trip");
+        _showErrorSnackBar(response[AppConstants.keyMessage] ?? AppConstants.msgFailedToAssignTrip);
       }
     } catch (e) {
-      print("🔍 Error assigning trip: $e");
-      _showErrorSnackBar("Error assigning trip: $e");
+      debugPrint("🔍 Error assigning trip: $e");
+      _showErrorSnackBar('${AppConstants.msgErrorAssigningTrip}: $e');
     }
   }
 
@@ -156,51 +155,54 @@ class _VehicleOwnerTripAssignmentPageState extends State<VehicleOwnerTripAssignm
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: const Text("Assign Trip to Vehicle"),
+          title: const Text(AppConstants.labelAssignTripToVehicle),
           content: SizedBox(
             width: double.maxFinite,
-            height: 400, // Fixed height to prevent overflow
+            height: 400,
             child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                 // Trip Information
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(AppSizes.paddingSM),
                   decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.blue.shade200),
+                    color: AppColors.primaryLight,
+                    borderRadius: BorderRadius.circular(AppSizes.radiusSM),
+                    border: Border.all(color: AppColors.primaryLight),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        "Trip: ${trip["tripName"] ?? 'Unknown'}",
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        '${AppConstants.labelTripPrefix}${trip[AppConstants.keyTripName] ?? AppConstants.labelUnknown}',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: AppSizes.textLG),
                       ),
-                      const SizedBox(height: 4),
-                      Text("Route: ${trip["routeName"] ?? 'Unknown'}"),
-                      Text("Type: ${trip["tripTypeDisplay"] ?? 'Unknown'}"),
-                      if (trip["vehicle"] != null)
-                        Text("Current Vehicle: ${trip["vehicle"]["vehicleNumber"] ?? 'Unknown'}"),
+                      const SizedBox(height: AppSizes.marginXS),
+                      Text('${AppConstants.labelRoutePrefix}${trip[AppConstants.keyRouteName] ?? AppConstants.labelUnknown}')
+                      ,
+                      Text('${AppConstants.labelTypePrefix}${trip[AppConstants.keyTripTypeDisplay] ?? AppConstants.labelUnknown}')
+                      ,
+                      if (trip[AppConstants.keyVehicle] != null)
+                        Text('${AppConstants.labelCurrentVehiclePrefix}${trip[AppConstants.keyVehicle][AppConstants.keyVehicleNumber] ?? AppConstants.labelUnknown}')
+                      ,
                     ],
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSizes.marginMD),
                 
                 // Vehicle Selection
                 DropdownButtonFormField<Map<String, dynamic>>(
                   decoration: const InputDecoration(
-                    labelText: "Select Vehicle",
+                    labelText: AppConstants.labelSelectVehicle,
                     border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.directions_bus),
                   ),
                   items: _availableVehicles.map((vehicle) {
-                    final vehicleNumber = vehicle["vehicleNumber"] ?? 'Unknown';
-                    final vehicleType = vehicle["vehicleType"] ?? 'Unknown';
-                    final driverName = vehicle["assignedDriverName"] ?? 'No Driver';
-                    final hasDriver = vehicle["hasAssignedDriver"] == true;
+                    final vehicleNumber = vehicle[AppConstants.keyVehicleNumber] ?? AppConstants.labelUnknown;
+                    final vehicleType = vehicle[AppConstants.keyVehicleType] ?? AppConstants.labelUnknown;
+                    final driverName = vehicle[AppConstants.keyAssignedDriverName] ?? AppConstants.labelNoDriver;
+                    final hasDriver = vehicle[AppConstants.keyHasAssignedDriver] == true;
                     
                     return DropdownMenuItem(
                       value: vehicle,
@@ -212,16 +214,13 @@ class _VehicleOwnerTripAssignmentPageState extends State<VehicleOwnerTripAssignm
                             children: [
                               Icon(
                                 hasDriver ? Icons.person : Icons.person_off,
-                                size: 16,
-                                color: hasDriver ? Colors.green : Colors.orange,
+                                size: AppSizes.iconXS,
+                                color: hasDriver ? AppColors.successColor : AppColors.warningColor,
                               ),
-                              const SizedBox(width: 4),
+                              const SizedBox(width: AppSizes.marginXS),
                               Text(
                                 driverName,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: hasDriver ? Colors.green[700] : Colors.orange[700],
-                                ),
+                                style: TextStyle(fontSize: AppSizes.textXS, color: hasDriver ? AppColors.successColor : AppColors.warningColor),
                               ),
                             ],
                           ),
@@ -243,7 +242,7 @@ class _VehicleOwnerTripAssignmentPageState extends State<VehicleOwnerTripAssignm
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text("Cancel"),
+              child: const Text(AppConstants.actionCancel),
             ),
           ],
         ),
@@ -255,7 +254,7 @@ class _VehicleOwnerTripAssignmentPageState extends State<VehicleOwnerTripAssignm
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: Colors.green,
+        backgroundColor: AppColors.successColor,
         duration: const Duration(seconds: 3),
       ),
     );
@@ -265,7 +264,7 @@ class _VehicleOwnerTripAssignmentPageState extends State<VehicleOwnerTripAssignm
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: Colors.red,
+        backgroundColor: AppColors.errorColor,
         duration: const Duration(seconds: 3),
       ),
     );
@@ -275,9 +274,9 @@ class _VehicleOwnerTripAssignmentPageState extends State<VehicleOwnerTripAssignm
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Trip Assignment"),
-        backgroundColor: Colors.blue.shade600,
-        foregroundColor: Colors.white,
+        title: const Text(AppConstants.labelTripAssignment),
+        backgroundColor: AppColors.primaryDark,
+        foregroundColor: AppColors.textWhite,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -292,17 +291,17 @@ class _VehicleOwnerTripAssignmentPageState extends State<VehicleOwnerTripAssignm
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.error, size: 64, color: Colors.red.shade300),
-                      const SizedBox(height: 16),
+                      Icon(Icons.error, size: AppSizes.iconXL, color: AppColors.errorColor),
+                      const SizedBox(height: AppSizes.marginMD),
                       Text(
                         _errorMessage!,
-                        style: TextStyle(fontSize: 16, color: Colors.red.shade700),
+                        style: const TextStyle(fontSize: AppSizes.textMD, color: AppColors.errorColor),
                         textAlign: TextAlign.center,
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: AppSizes.marginMD),
                       ElevatedButton(
                         onPressed: _loadData,
-                        child: const Text("Retry"),
+                        child: const Text(AppConstants.labelRetry),
                       ),
                     ],
                   ),
@@ -312,16 +311,16 @@ class _VehicleOwnerTripAssignmentPageState extends State<VehicleOwnerTripAssignm
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.assignment, size: 64, color: Colors.grey.shade400),
-                          const SizedBox(height: 16),
+                          Icon(Icons.assignment, size: AppSizes.iconXL, color: AppColors.grey200),
+                          const SizedBox(height: AppSizes.marginMD),
                           Text(
-                            "No trips found",
-                            style: TextStyle(fontSize: 18, color: Colors.grey.shade600),
+                            AppConstants.emptyStateNoTrips,
+                            style: const TextStyle(fontSize: AppSizes.textXL, color: AppColors.textSecondary),
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: AppSizes.marginSM),
                           Text(
-                            "Trips will appear here once they are created",
-                            style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
+                            AppConstants.emptyStateTripsAppearOnceCreated,
+                            style: const TextStyle(fontSize: AppSizes.textSM, color: AppColors.textSecondary),
                             textAlign: TextAlign.center,
                           ),
                         ],
@@ -331,24 +330,24 @@ class _VehicleOwnerTripAssignmentPageState extends State<VehicleOwnerTripAssignm
                       children: [
                         // Summary Cards
                         Container(
-                          padding: const EdgeInsets.all(16),
+                          padding: const EdgeInsets.all(AppSizes.paddingMD),
                           child: Row(
                             children: [
                               Expanded(
                                 child: _buildSummaryCard(
-                                  "Total Trips",
+                                  AppConstants.labelTotalTrips,
                                   _trips.length.toString(),
                                   Icons.assignment,
-                                  Colors.blue,
+                                  AppColors.primaryColor,
                                 ),
                               ),
-                              const SizedBox(width: 12),
+                              const SizedBox(width: AppSizes.marginSM),
                               Expanded(
                                 child: _buildSummaryCard(
-                                  "Available Vehicles",
+                                  AppConstants.labelAvailableVehicles,
                                   _availableVehicles.length.toString(),
                                   Icons.directions_bus,
-                                  Colors.green,
+                                  AppColors.successColor,
                                 ),
                               ),
                             ],
@@ -358,7 +357,7 @@ class _VehicleOwnerTripAssignmentPageState extends State<VehicleOwnerTripAssignm
                         // Trips List
                         Expanded(
                           child: ListView.builder(
-                            padding: const EdgeInsets.all(16),
+                            padding: const EdgeInsets.all(AppSizes.paddingMD),
                             itemCount: _trips.length,
                             itemBuilder: (context, index) {
                               final trip = _trips[index];
@@ -373,20 +372,20 @@ class _VehicleOwnerTripAssignmentPageState extends State<VehicleOwnerTripAssignm
 
   Widget _buildSummaryCard(String title, String value, IconData icon, Color color) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSizes.paddingMD),
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSizes.radiusMD),
         border: Border.all(color: color.withOpacity(0.3)),
       ),
       child: Column(
         children: [
-          Icon(icon, color: color, size: 32),
-          const SizedBox(height: 8),
+          Icon(icon, color: color, size: AppSizes.iconLG),
+          const SizedBox(height: AppSizes.marginSM),
           Text(
             value,
             style: TextStyle(
-              fontSize: 24,
+              fontSize: AppSizes.textXXL,
               fontWeight: FontWeight.bold,
               color: color,
             ),
@@ -394,7 +393,7 @@ class _VehicleOwnerTripAssignmentPageState extends State<VehicleOwnerTripAssignm
           Text(
             title,
             style: TextStyle(
-              fontSize: 12,
+              fontSize: AppSizes.textSM,
               color: color,
             ),
             textAlign: TextAlign.center,
@@ -405,12 +404,12 @@ class _VehicleOwnerTripAssignmentPageState extends State<VehicleOwnerTripAssignm
   }
 
   Widget _buildTripCard(Map<String, dynamic> trip) {
-    final tripName = trip["tripName"] ?? 'Unknown Trip';
-    final routeName = trip["routeName"] ?? 'Unknown Route';
-    final tripType = trip["tripTypeDisplay"] ?? 'Unknown Type';
-    final tripStatus = trip["tripStatus"] ?? 'Not Started';
-    final vehicle = trip["vehicle"];
-    final driver = trip["driver"];
+    final tripName = trip[AppConstants.keyTripName] ?? AppConstants.labelUnknownTrip;
+    final routeName = trip[AppConstants.keyRouteName] ?? AppConstants.labelUnknownRoute;
+    final tripType = trip[AppConstants.keyTripTypeDisplay] ?? AppConstants.labelUnknownType;
+    final tripStatus = trip[AppConstants.keyTripStatus] ?? AppConstants.labelTripNotStarted;
+    final vehicle = trip[AppConstants.keyVehicle];
+    final driver = trip[AppConstants.keyDriver];
     
     Color statusColor = Colors.grey;
     switch (tripStatus.toLowerCase()) {
@@ -418,21 +417,21 @@ class _VehicleOwnerTripAssignmentPageState extends State<VehicleOwnerTripAssignm
         statusColor = Colors.grey;
         break;
       case 'in_progress':
-        statusColor = Colors.blue;
+        statusColor = AppColors.infoColor;
         break;
       case 'completed':
-        statusColor = Colors.green;
+        statusColor = AppColors.successColor;
         break;
       case 'cancelled':
-        statusColor = Colors.red;
+        statusColor = AppColors.errorColor;
         break;
     }
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: AppSizes.marginSM),
       elevation: 2,
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSizes.paddingMD),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -445,39 +444,33 @@ class _VehicleOwnerTripAssignmentPageState extends State<VehicleOwnerTripAssignm
                       Text(
                         tripName,
                         style: const TextStyle(
-                          fontSize: 18,
+                          fontSize: AppSizes.textXL,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: AppSizes.marginXS),
                       Text(
-                        "Route: $routeName",
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey.shade600,
-                        ),
+                        '${AppConstants.labelRoutePrefix}$routeName',
+                        style: const TextStyle(fontSize: AppSizes.textMD, color: AppColors.textSecondary),
                       ),
                       Text(
-                        "Type: $tripType",
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey.shade600,
-                        ),
+                        '${AppConstants.labelTypePrefix}$tripType',
+                        style: const TextStyle(fontSize: AppSizes.textMD, color: AppColors.textSecondary),
                       ),
                     ],
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingSM, vertical: AppSizes.paddingXS),
                   decoration: BoxDecoration(
                     color: statusColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(AppSizes.radiusSM),
                     border: Border.all(color: statusColor.withOpacity(0.3)),
                   ),
                   child: Text(
                     tripStatus.replaceAll('_', ' ').toUpperCase(),
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: AppSizes.textXS,
                       fontWeight: FontWeight.bold,
                       color: statusColor,
                     ),
@@ -486,37 +479,37 @@ class _VehicleOwnerTripAssignmentPageState extends State<VehicleOwnerTripAssignm
               ],
             ),
             
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSizes.marginSM),
             
             // Vehicle and Driver Info
             if (vehicle != null || driver != null)
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(AppSizes.paddingSM),
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
-                  borderRadius: BorderRadius.circular(8),
+                  color: AppColors.grey200,
+                  borderRadius: BorderRadius.circular(AppSizes.radiusSM),
                 ),
                 child: Column(
                   children: [
                     if (vehicle != null)
                       Row(
                         children: [
-                          Icon(Icons.directions_bus, size: 16, color: Colors.blue.shade600),
-                          const SizedBox(width: 8),
-                          Text("Vehicle: ${vehicle["vehicleNumber"] ?? 'Unknown'}"),
+                          Icon(Icons.directions_bus, size: AppSizes.iconXS, color: AppColors.primaryDark),
+                          const SizedBox(width: AppSizes.marginSM),
+                          Text('${AppConstants.labelVehiclePrefix}${vehicle[AppConstants.keyVehicleNumber] ?? AppConstants.labelUnknown}')
                         ],
                       ),
                     if (driver != null) ...[
-                      const SizedBox(height: 4),
+                      const SizedBox(height: AppSizes.marginXS),
                       Row(
                         children: [
                           Icon(
-                            driver["isActivated"] == true ? Icons.person : Icons.person_off,
-                            size: 16,
-                            color: driver["isActivated"] == true ? Colors.green.shade600 : Colors.orange.shade600,
+                            driver[AppConstants.keyIsActivated] == true ? Icons.person : Icons.person_off,
+                            size: AppSizes.iconXS,
+                            color: driver[AppConstants.keyIsActivated] == true ? AppColors.successColor : AppColors.warningColor,
                           ),
-                          const SizedBox(width: 8),
-                          Text("Driver: ${driver["driverName"] ?? 'Unknown'}"),
+                          const SizedBox(width: AppSizes.marginSM),
+                          Text('${AppConstants.labelDriverPrefix}${driver[AppConstants.keyDriverName] ?? AppConstants.labelUnknown}')
                         ],
                       ),
                     ],
@@ -524,7 +517,7 @@ class _VehicleOwnerTripAssignmentPageState extends State<VehicleOwnerTripAssignm
                 ),
               ),
             
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSizes.marginSM),
             
             // Action Button
             SizedBox(
@@ -532,11 +525,11 @@ class _VehicleOwnerTripAssignmentPageState extends State<VehicleOwnerTripAssignm
               child: ElevatedButton.icon(
                 onPressed: () => _showAssignTripDialog(trip),
                 icon: const Icon(Icons.assignment),
-                label: const Text("Assign to Vehicle"),
+                label: const Text(AppConstants.actionAssignToVehicle),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue.shade600,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  backgroundColor: AppColors.primaryDark,
+                  foregroundColor: AppColors.textWhite,
+                  padding: const EdgeInsets.symmetric(vertical: AppSizes.paddingSM),
                 ),
               ),
             ),

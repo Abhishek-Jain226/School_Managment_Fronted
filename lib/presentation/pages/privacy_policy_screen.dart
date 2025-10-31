@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../utils/constants.dart';
 
 class PrivacyPolicyScreen extends StatelessWidget {
   const PrivacyPolicyScreen({super.key});
@@ -6,20 +7,13 @@ class PrivacyPolicyScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Privacy Policy & Terms")),
+      appBar: AppBar(title: const Text(AppConstants.labelPrivacyPolicyTerms)),
       body: const Padding(
-        padding: EdgeInsets.all(16),
+        padding: EdgeInsets.all(AppSizes.privacyPolicyPadding),
         child: SingleChildScrollView(
           child: Text(
-            """
-Privacy Policy & Terms & Conditions
-
-1. We respect your privacy and protect your data.
-2. Your credentials will be securely stored and never shared without consent.
-3. By registering and activating your account, you agree to these terms.
-4. Replace this text with your real privacy policy from your organization.
-            """,
-            style: TextStyle(fontSize: 16),
+            AppConstants.privacyPolicyContent,
+            style: TextStyle(fontSize: AppSizes.privacyPolicyFontSize),
           ),
         ),
       ),

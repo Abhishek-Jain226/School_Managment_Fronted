@@ -1,3 +1,5 @@
+import '../../utils/constants.dart';
+
 class ParentNotification {
   final int notificationId;
   final String title;
@@ -27,33 +29,33 @@ class ParentNotification {
 
   factory ParentNotification.fromJson(Map<String, dynamic> json) {
     return ParentNotification(
-      notificationId: json['notificationId'] ?? 0,
-      title: json['title'] ?? '',
-      message: json['message'] ?? '',
-      notificationType: json['notificationType'] ?? '',
-      eventType: json['eventType'] ?? '',
-      studentName: json['studentName'] ?? '',
-      vehicleNumber: json['vehicleNumber'] ?? 'N/A',
-      tripName: json['tripName'] ?? 'N/A',
-      notificationTime: DateTime.parse(json['notificationTime'] ?? DateTime.now().toIso8601String()),
-      isRead: json['isRead'] ?? false,
-      priority: json['priority'] ?? 'Normal',
+      notificationId: json[AppConstants.keyNotificationId] ?? 0,
+      title: json[AppConstants.keyTitle] ?? '',
+      message: json[AppConstants.keyMessage] ?? '',
+      notificationType: json[AppConstants.keyNotificationType] ?? '',
+      eventType: json[AppConstants.keyEventType] ?? '',
+      studentName: json[AppConstants.keyStudentName] ?? '',
+      vehicleNumber: json[AppConstants.keyVehicleNumber] ?? 'N/A',
+      tripName: json[AppConstants.keyTripName] ?? 'N/A',
+      notificationTime: DateTime.parse(json[AppConstants.keyNotificationTime] ?? DateTime.now().toIso8601String()),
+      isRead: json[AppConstants.keyIsRead] ?? false,
+      priority: json[AppConstants.keyPriority] ?? 'Normal',
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'notificationId': notificationId,
-      'title': title,
-      'message': message,
-      'notificationType': notificationType,
-      'eventType': eventType,
-      'studentName': studentName,
-      'vehicleNumber': vehicleNumber,
-      'tripName': tripName,
-      'notificationTime': notificationTime.toIso8601String(),
-      'isRead': isRead,
-      'priority': priority,
+      AppConstants.keyNotificationId: notificationId,
+      AppConstants.keyTitle: title,
+      AppConstants.keyMessage: message,
+      AppConstants.keyNotificationType: notificationType,
+      AppConstants.keyEventType: eventType,
+      AppConstants.keyStudentName: studentName,
+      AppConstants.keyVehicleNumber: vehicleNumber,
+      AppConstants.keyTripName: tripName,
+      AppConstants.keyNotificationTime: notificationTime.toIso8601String(),
+      AppConstants.keyIsRead: isRead,
+      AppConstants.keyPriority: priority,
     };
   }
 }

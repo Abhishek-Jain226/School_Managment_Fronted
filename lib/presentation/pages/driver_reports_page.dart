@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../utils/constants.dart';
 import '../../data/models/driver_reports.dart';
 
 class DriverReportsPage extends StatefulWidget {
@@ -17,7 +18,7 @@ class _DriverReportsPageState extends State<DriverReportsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Driver Reports'),
+        title: const Text(AppConstants.labelDriverReports),
         actions: [
           PopupMenuButton<String>(
             onSelected: (String value) {
@@ -28,44 +29,44 @@ class _DriverReportsPageState extends State<DriverReportsPage> {
             itemBuilder: (BuildContext context) => [
               const PopupMenuItem<String>(
                 value: 'today',
-                child: Text('Today'),
+                child: Text(AppConstants.labelToday),
               ),
               const PopupMenuItem<String>(
                 value: 'week',
-                child: Text('This Week'),
+                child: Text(AppConstants.labelThisWeek),
               ),
               const PopupMenuItem<String>(
                 value: 'month',
-                child: Text('This Month'),
+                child: Text(AppConstants.labelThisMonth),
               ),
             ],
           ),
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSizes.driverReportsPadding),
         child: Column(
           children: [
             // Period Selector
             _buildPeriodSelector(),
-            const SizedBox(height: 20),
+            const SizedBox(height: AppSizes.driverReportsSpacingLG),
 
             // Overall Statistics
             _buildOverallStatsCard(),
-            const SizedBox(height: 20),
+            const SizedBox(height: AppSizes.driverReportsSpacingLG),
 
             // Selected Period Statistics
             _buildPeriodStatsCard(),
-            const SizedBox(height: 20),
+            const SizedBox(height: AppSizes.driverReportsSpacingLG),
 
             // Performance Metrics
             _buildPerformanceCard(),
-            const SizedBox(height: 20),
+            const SizedBox(height: AppSizes.driverReportsSpacingLG),
 
             // Recent Activity
             if (widget.reports.recentTrips.isNotEmpty) ...[
               _buildRecentTripsCard(),
-              const SizedBox(height: 20),
+              const SizedBox(height: AppSizes.driverReportsSpacingLG),
             ],
 
             // Attendance Records
@@ -80,24 +81,26 @@ class _DriverReportsPageState extends State<DriverReportsPage> {
 
   Widget _buildPeriodSelector() {
     return Card(
-      elevation: 3,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: AppSizes.driverReportsCardElevation,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppSizes.driverReportsCardRadius),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSizes.driverReportsSelectorPadding),
         child: Row(
           children: [
-            const Icon(Icons.calendar_today, color: Colors.blue),
-            const SizedBox(width: 12),
+            const Icon(Icons.calendar_today, color: AppColors.driverReportsBlueColor, size: AppSizes.driverReportsSelectorIconSize),
+            const SizedBox(width: AppSizes.driverReportsSpacingSM),
             const Text(
-              'Viewing: ',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+              AppConstants.labelViewing,
+              style: TextStyle(fontSize: AppSizes.driverReportsPeriodFontSize, fontWeight: FontWeight.w500),
             ),
             Text(
               _getPeriodDisplayName(),
               style: const TextStyle(
-                fontSize: 16,
+                fontSize: AppSizes.driverReportsPeriodFontSize,
                 fontWeight: FontWeight.bold,
-                color: Colors.blue,
+                color: AppColors.driverReportsBlueColor,
               ),
             ),
             const Spacer(),
@@ -117,67 +120,69 @@ class _DriverReportsPageState extends State<DriverReportsPage> {
   String _getPeriodDisplayName() {
     switch (_selectedPeriod) {
       case 'today':
-        return 'Today';
+        return AppConstants.labelToday;
       case 'week':
-        return 'This Week';
+        return AppConstants.labelThisWeek;
       case 'month':
-        return 'This Month';
+        return AppConstants.labelThisMonth;
       default:
-        return 'Today';
+        return AppConstants.labelToday;
     }
   }
 
   Widget _buildOverallStatsCard() {
     return Card(
-      elevation: 3,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: AppSizes.driverReportsCardElevation,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppSizes.driverReportsCardRadius),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(AppSizes.driverReportsCardPadding),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Overall Statistics',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              AppConstants.labelOverallStatistics,
+              style: TextStyle(fontSize: AppSizes.driverReportsTitleFontSize, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSizes.driverReportsSpacingMD),
             Row(
               children: [
                 Expanded(
                   child: _buildStatItem(
-                    'Total Trips',
+                    AppConstants.labelTotalTrips,
                     widget.reports.totalTripsCompleted.toString(),
                     Icons.route,
-                    Colors.blue,
+                    AppColors.driverReportsBlueColor,
                   ),
                 ),
                 Expanded(
                   child: _buildStatItem(
-                    'Students Transported',
+                    AppConstants.labelStudentsTransported,
                     widget.reports.totalStudentsTransported.toString(),
                     Icons.people,
-                    Colors.green,
+                    AppColors.driverReportsGreenColor,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSizes.driverReportsSpacingMD),
             Row(
               children: [
                 Expanded(
                   child: _buildStatItem(
-                    'Distance Covered',
-                    '${widget.reports.totalDistanceCovered} km',
+                    AppConstants.labelDistanceCovered,
+                    '${widget.reports.totalDistanceCovered}${AppConstants.labelKm}',
                     Icons.straighten,
-                    Colors.orange,
+                    AppColors.driverReportsOrangeColor,
                   ),
                 ),
                 Expanded(
                   child: _buildStatItem(
-                    'Average Rating',
+                    AppConstants.labelAverageRating,
                     widget.reports.averageRating.toStringAsFixed(1),
                     Icons.star,
-                    Colors.amber,
+                    AppColors.driverReportsAmberColor,
                   ),
                 ),
               ],
@@ -192,55 +197,57 @@ class _DriverReportsPageState extends State<DriverReportsPage> {
     final stats = _getPeriodStats();
     
     return Card(
-      elevation: 3,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: AppSizes.driverReportsCardElevation,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppSizes.driverReportsCardRadius),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(AppSizes.driverReportsCardPadding),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '${_getPeriodDisplayName()} Statistics',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              '${_getPeriodDisplayName()}${AppConstants.labelStatistics}',
+              style: const TextStyle(fontSize: AppSizes.driverReportsTitleFontSize, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSizes.driverReportsSpacingMD),
             Row(
               children: [
                 Expanded(
                   child: _buildStatItem(
-                    'Trips',
+                    AppConstants.labelTrips,
                     stats['trips'].toString(),
                     Icons.route,
-                    Colors.blue,
+                    AppColors.driverReportsBlueColor,
                   ),
                 ),
                 Expanded(
                   child: _buildStatItem(
-                    'Students',
+                    AppConstants.labelStudents,
                     stats['students'].toString(),
                     Icons.people,
-                    Colors.green,
+                    AppColors.driverReportsGreenColor,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSizes.driverReportsSpacingMD),
             Row(
               children: [
                 Expanded(
                   child: _buildStatItem(
-                    'Pickups',
+                    AppConstants.labelPickups,
                     stats['pickups'].toString(),
                     Icons.person_add,
-                    Colors.orange,
+                    AppColors.driverReportsOrangeColor,
                   ),
                 ),
                 Expanded(
                   child: _buildStatItem(
-                    'Drops',
+                    AppConstants.labelDrops,
                     stats['drops'].toString(),
                     Icons.person_remove,
-                    Colors.purple,
+                    AppColors.driverReportsPurpleColor,
                   ),
                 ),
               ],
@@ -286,29 +293,29 @@ class _DriverReportsPageState extends State<DriverReportsPage> {
 
   Widget _buildStatItem(String label, String value, IconData icon, Color color) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSizes.driverReportsStatPadding),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color, width: 1),
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(AppSizes.driverReportsStatRadius),
+        border: Border.all(color: color, width: AppSizes.driverReportsStatBorder),
       ),
       child: Column(
         children: [
-          Icon(icon, color: color, size: 24),
-          const SizedBox(height: 8),
+          Icon(icon, color: color, size: AppSizes.driverReportsStatIconSize),
+          const SizedBox(height: AppSizes.driverReportsSpacingXS),
           Text(
             value,
             style: TextStyle(
-              fontSize: 20,
+              fontSize: AppSizes.driverReportsStatValueFontSize,
               fontWeight: FontWeight.bold,
               color: color,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: AppSizes.driverReportsSpacingXS / 2),
           Text(
             label,
             style: TextStyle(
-              fontSize: 12,
+              fontSize: AppSizes.driverReportsStatLabelFontSize,
               color: color,
             ),
             textAlign: TextAlign.center,
@@ -320,43 +327,45 @@ class _DriverReportsPageState extends State<DriverReportsPage> {
 
   Widget _buildPerformanceCard() {
     return Card(
-      elevation: 3,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: AppSizes.driverReportsCardElevation,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppSizes.driverReportsCardRadius),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(AppSizes.driverReportsCardPadding),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Performance Metrics',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              AppConstants.labelPerformanceMetrics,
+              style: TextStyle(fontSize: AppSizes.driverReportsTitleFontSize, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSizes.driverReportsSpacingMD),
             
             // Completion Rate
             _buildPerformanceItem(
-              'Trip Completion Rate',
+              AppConstants.labelTripCompletionRate,
               _calculateCompletionRate(),
               Icons.check_circle,
-              Colors.green,
+              AppColors.driverReportsGreenColor,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSizes.driverReportsSpacingSM),
             
             // Punctuality
             _buildPerformanceItem(
-              'Punctuality Score',
+              AppConstants.labelPunctualityScore,
               '${widget.reports.averageRating.toStringAsFixed(1)}/5.0',
               Icons.schedule,
-              Colors.blue,
+              AppColors.driverReportsBlueColor,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSizes.driverReportsSpacingSM),
             
             // Safety Record
             _buildPerformanceItem(
-              'Safety Record',
+              AppConstants.labelSafetyRecord,
               '100%',
               Icons.security,
-              Colors.green,
+              AppColors.driverReportsGreenColor,
             ),
           ],
         ),
@@ -367,18 +376,18 @@ class _DriverReportsPageState extends State<DriverReportsPage> {
   Widget _buildPerformanceItem(String label, String value, IconData icon, Color color) {
     return Row(
       children: [
-        Icon(icon, color: color, size: 20),
-        const SizedBox(width: 12),
+        Icon(icon, color: color, size: AppSizes.driverReportsPerformanceIconSize),
+        const SizedBox(width: AppSizes.driverReportsSpacingSM),
         Expanded(
           child: Text(
             label,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+            style: const TextStyle(fontSize: AppSizes.driverReportsPerformanceFontSize, fontWeight: FontWeight.w500),
           ),
         ),
         Text(
           value,
           style: TextStyle(
-            fontSize: 14,
+            fontSize: AppSizes.driverReportsPerformanceFontSize,
             fontWeight: FontWeight.bold,
             color: color,
           ),
@@ -399,18 +408,20 @@ class _DriverReportsPageState extends State<DriverReportsPage> {
 
   Widget _buildRecentTripsCard() {
     return Card(
-      elevation: 3,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: AppSizes.driverReportsCardElevation,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppSizes.driverReportsCardRadius),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(AppSizes.driverReportsCardPadding),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Recent Trips',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              AppConstants.labelRecentTrips,
+              style: TextStyle(fontSize: AppSizes.driverReportsTitleFontSize, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSizes.driverReportsSpacingMD),
             ...widget.reports.recentTrips.take(5).map((trip) => 
               _buildRecentTripItem(trip)
             ).toList(),
@@ -422,25 +433,25 @@ class _DriverReportsPageState extends State<DriverReportsPage> {
 
   Widget _buildRecentTripItem(RecentTrip trip) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: AppSizes.driverReportsRecentTripMargin),
+      padding: const EdgeInsets.all(AppSizes.driverReportsRecentTripPadding),
       decoration: BoxDecoration(
-        color: Colors.grey[50],
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey[300]!),
+        color: AppColors.driverReportsBackgroundColor,
+        borderRadius: BorderRadius.circular(AppSizes.driverReportsRecentTripRadius),
+        border: Border.all(color: AppColors.driverReportsBorderColor),
       ),
       child: Row(
         children: [
           CircleAvatar(
-            radius: 20,
+            radius: AppSizes.driverReportsRecentTripAvatarRadius,
             backgroundColor: _getStatusColor(trip.status),
             child: Icon(
               _getStatusIcon(trip.status),
-              color: Colors.white,
-              size: 16,
+              color: AppColors.driverReportsWhiteColor,
+              size: AppSizes.driverReportsRecentTripIconSize,
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: AppSizes.driverReportsSpacingSM),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -450,32 +461,35 @@ class _DriverReportsPageState extends State<DriverReportsPage> {
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
                 Text(
-                  '${trip.tripType} • ${trip.studentsCount} students',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
+                  '${trip.tripType}${AppConstants.labelStudentsBullet}',
+                  style: const TextStyle(
+                    fontSize: AppSizes.driverReportsStatLabelFontSize,
+                    color: AppColors.driverReportsGreyColor,
                   ),
                 ),
                 Text(
                   '${trip.startTime} - ${trip.endTime}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
+                  style: const TextStyle(
+                    fontSize: AppSizes.driverReportsStatLabelFontSize,
+                    color: AppColors.driverReportsGreyColor,
                   ),
                 ),
               ],
             ),
           ),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSizes.driverReportsRecentTripBadgePaddingH,
+              vertical: AppSizes.driverReportsRecentTripBadgePaddingV,
+            ),
             decoration: BoxDecoration(
-              color: _getStatusColor(trip.status).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
+              color: _getStatusColor(trip.status).withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(AppSizes.driverReportsRecentTripBadgeRadius),
             ),
             child: Text(
               trip.status,
               style: TextStyle(
-                fontSize: 10,
+                fontSize: AppSizes.driverReportsRecentTripFontSizeSM,
                 fontWeight: FontWeight.bold,
                 color: _getStatusColor(trip.status),
               ),
@@ -488,18 +502,20 @@ class _DriverReportsPageState extends State<DriverReportsPage> {
 
   Widget _buildAttendanceCard() {
     return Card(
-      elevation: 3,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: AppSizes.driverReportsCardElevation,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppSizes.driverReportsCardRadius),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(AppSizes.driverReportsCardPadding),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Attendance Records',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              AppConstants.labelAttendanceRecords,
+              style: TextStyle(fontSize: AppSizes.driverReportsTitleFontSize, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSizes.driverReportsSpacingMD),
             ...widget.reports.attendanceRecords.take(7).map((record) => 
               _buildAttendanceItem(record)
             ).toList(),
@@ -511,24 +527,24 @@ class _DriverReportsPageState extends State<DriverReportsPage> {
 
   Widget _buildAttendanceItem(AttendanceRecord record) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: AppSizes.driverReportsAttendanceMargin),
+      padding: const EdgeInsets.all(AppSizes.driverReportsAttendancePadding),
       decoration: BoxDecoration(
-        color: Colors.grey[50],
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey[300]!),
+        color: AppColors.driverReportsBackgroundColor,
+        borderRadius: BorderRadius.circular(AppSizes.driverReportsAttendanceRadius),
+        border: Border.all(color: AppColors.driverReportsBorderColor),
       ),
       child: Row(
         children: [
           Container(
-            width: 8,
-            height: 8,
+            width: AppSizes.driverReportsAttendanceDotSize,
+            height: AppSizes.driverReportsAttendanceDotSize,
             decoration: BoxDecoration(
               color: _getAttendanceStatusColor(record.status),
               shape: BoxShape.circle,
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: AppSizes.driverReportsSpacingSM),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -538,25 +554,28 @@ class _DriverReportsPageState extends State<DriverReportsPage> {
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
                 Text(
-                  '${record.completedTrips}/${record.totalTrips} trips • ${record.studentsPickedUp} pickups • ${record.studentsDropped} drops',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
+                  '${record.completedTrips}/${record.totalTrips}${AppConstants.labelTripsSlash}${record.studentsPickedUp}${AppConstants.labelPickupsText}${record.studentsDropped}${AppConstants.labelDropsText}',
+                  style: const TextStyle(
+                    fontSize: AppSizes.driverReportsStatLabelFontSize,
+                    color: AppColors.driverReportsGreyColor,
                   ),
                 ),
               ],
             ),
           ),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSizes.driverReportsRecentTripBadgePaddingH,
+              vertical: AppSizes.driverReportsRecentTripBadgePaddingV,
+            ),
             decoration: BoxDecoration(
-              color: _getAttendanceStatusColor(record.status).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
+              color: _getAttendanceStatusColor(record.status).withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(AppSizes.driverReportsRecentTripBadgeRadius),
             ),
             child: Text(
               record.status,
               style: TextStyle(
-                fontSize: 10,
+                fontSize: AppSizes.driverReportsRecentTripFontSizeSM,
                 fontWeight: FontWeight.bold,
                 color: _getAttendanceStatusColor(record.status),
               ),
@@ -570,13 +589,13 @@ class _DriverReportsPageState extends State<DriverReportsPage> {
   Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
       case 'completed':
-        return Colors.green;
+        return AppColors.driverReportsGreenColor;
       case 'in_progress':
-        return Colors.blue;
+        return AppColors.driverReportsBlueColor;
       case 'cancelled':
-        return Colors.red;
+        return AppColors.driverReportsRedColor;
       default:
-        return Colors.grey;
+        return AppColors.driverReportsGreyColor;
     }
   }
 
@@ -596,13 +615,13 @@ class _DriverReportsPageState extends State<DriverReportsPage> {
   Color _getAttendanceStatusColor(String status) {
     switch (status.toLowerCase()) {
       case 'present':
-        return Colors.green;
+        return AppColors.driverReportsGreenColor;
       case 'absent':
-        return Colors.red;
+        return AppColors.driverReportsRedColor;
       case 'late':
-        return Colors.orange;
+        return AppColors.driverReportsOrangeColor;
       default:
-        return Colors.grey;
+        return AppColors.driverReportsGreyColor;
     }
   }
 

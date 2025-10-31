@@ -1,7 +1,8 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:excel/excel.dart';
+import 'package:flutter/foundation.dart';
 import '../data/models/bulk_student_import_request.dart';
+import '../utils/constants.dart';
 
 class ExcelParserService {
   
@@ -12,7 +13,7 @@ class ExcelParserService {
       final excel = Excel.decodeBytes(bytes);
       
       if (excel.tables.isEmpty) {
-        throw Exception("No sheets found in Excel file");
+        throw Exception(AppConstants.errorNoSheetsFound);
       }
       
       final sheet = excel.tables[excel.tables.keys.first]!;
@@ -29,14 +30,14 @@ class ExcelParserService {
             students.add(student);
           }
         } catch (e) {
-          print("Error parsing row ${i + 1}: $e");
+          debugPrint("${AppConstants.errorParsingRow} ${i + 1}: $e");
           // Continue with other rows
         }
       }
       
       return students;
     } catch (e) {
-      throw Exception("Error parsing Excel file: $e");
+      throw Exception("${AppConstants.errorParsingExcel}: $e");
     }
   }
   
@@ -48,7 +49,7 @@ class ExcelParserService {
       
       // ✅ Enhanced column validation
       if (row.length < 7) {
-        throw Exception("Row $rowNumber has insufficient columns. Expected at least 7 columns (up to Email)");
+        throw Exception("Row $rowNumber ${AppConstants.errorInsufficientColumns}");
       }
       
       final firstName = _getStringValue(row, 0);
@@ -65,20 +66,20 @@ class ExcelParserService {
       
       // Validate required fields
       if (firstName == null || firstName.isEmpty) {
-        throw Exception("First name is required at row $rowNumber");
+        throw Exception("${AppConstants.errorFirstNameRequired} ${AppConstants.errorAtRow} $rowNumber");
       }
       if (lastName == null || lastName.isEmpty) {
-        throw Exception("Last name is required at row $rowNumber");
+        throw Exception("${AppConstants.errorLastNameRequired} ${AppConstants.errorAtRow} $rowNumber");
       }
       if (fatherName == null || fatherName.isEmpty) {
-        throw Exception("Father name is required at row $rowNumber");
+        throw Exception("${AppConstants.errorFatherNameRequired} ${AppConstants.errorAtRow} $rowNumber");
       }
       if (primaryContact == null || primaryContact.isEmpty) {
-        throw Exception("Primary contact is required at row $rowNumber");
+        throw Exception("${AppConstants.errorPrimaryContactRequired} ${AppConstants.errorAtRow} $rowNumber");
       }
       // ✅ MANDATORY EMAIL VALIDATION
       if (email == null || email.isEmpty) {
-        throw Exception("Parent email is required at row $rowNumber for account activation");
+        throw Exception("${AppConstants.errorEmailRequired} ${AppConstants.errorAtRow} $rowNumber ${AppConstants.errorEmailRequiredActivation}");
       }
       
       return StudentRequest(
@@ -93,10 +94,10 @@ class ExcelParserService {
         gender: gender,
         classId: _parseClassId(className),
         sectionId: _parseSectionId(sectionName),
-        createdBy: "BulkImport",
+        createdBy: AppConstants.keyBulkImport,
       );
     } catch (e) {
-      print("Error parsing row $rowNumber: $e");
+      debugPrint("${AppConstants.errorParsingRow} $rowNumber: $e");
       return null;
     }
   }
@@ -181,7 +182,7 @@ class ExcelParserService {
     
     final encodedData = excel.encode();
     if (encodedData == null) {
-      throw Exception("Failed to encode Excel file");
+      throw Exception(AppConstants.errorFailedToEncodeExcel);
     }
     return Uint8List.fromList(encodedData);
   }

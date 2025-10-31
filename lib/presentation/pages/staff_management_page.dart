@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../app_routes.dart';
 import '../../services/school_service.dart';
+import '../../utils/constants.dart';
+
 
 class StaffManagementPage extends StatefulWidget {
   const StaffManagementPage({super.key});
@@ -38,7 +40,7 @@ class _StaffManagementPageState extends State<StaffManagementPage> {
       adminName = prefs.getString("userName");
       
       if (schoolId == null) {
-        _showErrorSnackBar("School ID not found. Please login again.");
+        _showErrorSnackBar(AppConstants.msgSchoolIdNotFound);
         return;
       }
       
@@ -66,11 +68,11 @@ class _StaffManagementPageState extends State<StaffManagementPage> {
         print('=== END DEBUG ===');
       } else {
         setState(() => _loading = false);
-        _showErrorSnackBar(response['message'] ?? "Failed to load staff data");
+        _showErrorSnackBar(response['message'] ?? AppConstants.msgFailedToLoadStaffData);
       }
     } catch (e) {
       setState(() => _loading = false);
-      _showErrorSnackBar("Error loading staff data: $e");
+      _showErrorSnackBar(AppConstants.msgErrorLoadingStaffData + e.toString());
     }
   }
 
@@ -78,7 +80,7 @@ class _StaffManagementPageState extends State<StaffManagementPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: Colors.red,
+        backgroundColor: AppColors.errorColor,
         duration: const Duration(seconds: 4),
       ),
     );
@@ -95,7 +97,7 @@ class _StaffManagementPageState extends State<StaffManagementPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Staff Management'),
+        title: const Text(AppConstants.labelStaffManagement),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -109,28 +111,28 @@ class _StaffManagementPageState extends State<StaffManagementPage> {
               children: [
                 // Quick Actions Card
                 Card(
-                  margin: const EdgeInsets.all(16),
+                  margin: const EdgeInsets.all(AppSizes.marginMD),
                   child: Padding(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(AppSizes.paddingMD),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          'Quick Actions',
+                          AppConstants.labelQuickActions,
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: AppSizes.spaceSM),
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton.icon(
                             onPressed: _navigateToAddStaff,
                             icon: const Icon(Icons.person_add_alt_1),
-                            label: const Text('Add Staff'),
+                            label: const Text(AppConstants.labelAddStaff),
                             style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              padding: const EdgeInsets.symmetric(vertical: AppSizes.paddingSM),
                             ),
                           ),
                         ),
@@ -141,22 +143,22 @@ class _StaffManagementPageState extends State<StaffManagementPage> {
                 
                 // Statistics Card
                 Card(
-                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                  margin: const EdgeInsets.symmetric(horizontal: AppSizes.marginMD),
                   child: Padding(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(AppSizes.paddingMD),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
-                        _buildStatItem('Total Staff', totalStaff.toString(), Icons.people),
-                        _buildStatItem('Active Staff', activeStaff.toString(), Icons.check_circle),
-                        _buildStatItem('Teachers', teachers.toString(), Icons.school),
-                        _buildStatItem('Gate Staff', gateStaff.toString(), Icons.security),
+                        _buildStatItem(AppConstants.labelTotalStaff, totalStaff.toString(), Icons.people),
+                        _buildStatItem(AppConstants.labelActiveStaff, activeStaff.toString(), Icons.check_circle),
+                        _buildStatItem(AppConstants.labelTeachers, teachers.toString(), Icons.school),
+                        _buildStatItem(AppConstants.labelGateStaff, gateStaff.toString(), Icons.security),
                       ],
                     ),
                   ),
                 ),
                 
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSizes.spaceMD),
                 
                 // Staff List
                 Expanded(
@@ -165,33 +167,33 @@ class _StaffManagementPageState extends State<StaffManagementPage> {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.people, size: 64, color: Colors.grey),
-                              SizedBox(height: 16),
+                              Icon(Icons.people, size: 64, color: AppColors.textSecondary),
+                              SizedBox(height: AppSizes.spaceMD),
                               Text(
-                                'No staff members found',
-                                style: TextStyle(fontSize: 18, color: Colors.grey),
+                                AppConstants.msgNoStaffMembers,
+                                style: TextStyle(fontSize: 18, color: AppColors.textSecondary),
                               ),
-                              SizedBox(height: 8),
+                              SizedBox(height: AppSizes.spaceSM),
                               Text(
-                                'Add your first staff member to get started',
-                                style: TextStyle(color: Colors.grey),
+                                AppConstants.msgAddFirstStaff,
+                                style: TextStyle(color: AppColors.textSecondary),
                               ),
                             ],
                           ),
                         )
                       : ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          padding: const EdgeInsets.symmetric(horizontal: AppSizes.marginMD),
                           itemCount: staffMembers.length,
                           itemBuilder: (context, index) {
                             final staff = staffMembers[index];
                             return Card(
-                              margin: const EdgeInsets.only(bottom: 8),
+                              margin: const EdgeInsets.only(bottom: AppSizes.marginSM),
                               child: ListTile(
                                 leading: CircleAvatar(
-                                  backgroundColor: staff['isActive'] == true ? Colors.green : Colors.grey,
+                                  backgroundColor: staff['isActive'] == true ? AppColors.successColor : AppColors.textSecondary,
                                   child: Icon(
                                     _getRoleIcon(staff['role']),
-                                    color: Colors.white,
+                                    color: AppColors.textWhite,
                                   ),
                                 ),
                                 title: Text(
@@ -201,21 +203,21 @@ class _StaffManagementPageState extends State<StaffManagementPage> {
                                 subtitle: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text('Role: ${staff['role']}'),
-                                    Text('Email: ${staff['email']}'),
-                                    Text('Contact: ${staff['contactNo']}'),
+                                    Text(AppConstants.labelRoleWithColon + '${staff['role']}'),
+                                    Text(AppConstants.labelEmailWithColon + '${staff['email']}'),
+                                    Text(AppConstants.labelContactWithColon + '${staff['contactNo']}'),
                                     Row(
                                       children: [
                                         Icon(
                                           staff['isActive'] == true ? Icons.check_circle : Icons.cancel,
                                           size: 16,
-                                          color: staff['isActive'] == true ? Colors.green : Colors.red,
+                                          color: staff['isActive'] == true ? AppColors.successColor : AppColors.errorColor,
                                         ),
-                                        const SizedBox(width: 4),
+                                        const SizedBox(width: AppSizes.spaceSM),
                                         Text(
-                                          staff['isActive'] == true ? 'Active' : 'Inactive',
+                                          staff['isActive'] == true ? AppConstants.labelActive : AppConstants.labelInactive,
                                           style: TextStyle(
-                                            color: staff['isActive'] == true ? Colors.green : Colors.red,
+                                            color: staff['isActive'] == true ? AppColors.successColor : AppColors.errorColor,
                                             fontSize: 12,
                                           ),
                                         ),
@@ -231,7 +233,7 @@ class _StaffManagementPageState extends State<StaffManagementPage> {
                                         break;
                                       case 'edit':
                                         // TODO: Navigate to edit staff
-                                        _showErrorSnackBar('Edit functionality not implemented yet');
+                                        _showErrorSnackBar(AppConstants.msgEditFunctionalityNotImplemented);
                                         break;
                                       case 'toggle':
                                         _toggleStaffStatus(staff);
@@ -247,8 +249,8 @@ class _StaffManagementPageState extends State<StaffManagementPage> {
                                       child: Row(
                                         children: [
                                           Icon(Icons.visibility),
-                                          SizedBox(width: 8),
-                                          Text('View Details'),
+                                          SizedBox(width: AppSizes.spaceSM),
+                                          Text(AppConstants.labelViewDetails),
                                         ],
                                       ),
                                     ),
@@ -257,8 +259,8 @@ class _StaffManagementPageState extends State<StaffManagementPage> {
                                       child: Row(
                                         children: [
                                           Icon(Icons.edit),
-                                          SizedBox(width: 8),
-                                          Text('Edit'),
+                                          SizedBox(width: AppSizes.spaceSM),
+                                          Text(AppConstants.actionEdit),
                                         ],
                                       ),
                                     ),
@@ -267,8 +269,8 @@ class _StaffManagementPageState extends State<StaffManagementPage> {
                                       child: Row(
                                         children: [
                                           Icon(staff['isActive'] == true ? Icons.pause : Icons.play_arrow),
-                                          const SizedBox(width: 8),
-                                          Text(staff['isActive'] == true ? 'Deactivate' : 'Activate'),
+                                          const SizedBox(width: AppSizes.spaceSM),
+                                          Text(staff['isActive'] == true ? AppConstants.actionDeactivate : AppConstants.actionActivate),
                                         ],
                                       ),
                                     ),
@@ -276,9 +278,9 @@ class _StaffManagementPageState extends State<StaffManagementPage> {
                                       value: 'delete',
                                       child: Row(
                                         children: [
-                                          Icon(Icons.delete, color: Colors.red),
-                                          SizedBox(width: 8),
-                                          Text('Delete', style: TextStyle(color: Colors.red)),
+                                          Icon(Icons.delete, color: AppColors.errorColor),
+                                          SizedBox(width: AppSizes.spaceSM),
+                                          Text(AppConstants.actionDelete, style: TextStyle(color: AppColors.errorColor)),
                                         ],
                                       ),
                                     ),
@@ -297,21 +299,15 @@ class _StaffManagementPageState extends State<StaffManagementPage> {
   Widget _buildStatItem(String label, String value, IconData icon) {
     return Column(
       children: [
-        Icon(icon, color: Colors.blue, size: 24),
-        const SizedBox(height: 4),
+        Icon(icon, color: AppColors.primaryColor, size: AppSizes.iconMD),
+        const SizedBox(height: AppSizes.spaceSM),
         Text(
           value,
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         Text(
           label,
-          style: const TextStyle(
-            fontSize: 12,
-            color: Colors.grey,
-          ),
+          style: const TextStyle(color: AppColors.textSecondary),
         ),
       ],
     );
@@ -349,12 +345,12 @@ class _StaffManagementPageState extends State<StaffManagementPage> {
         builder: (context, setState) => AlertDialog(
           title: Row(
             children: [
-              Icon(Icons.person, color: Colors.blue),
-              const SizedBox(width: 8),
+              Icon(Icons.person, color: AppColors.primaryColor),
+              const SizedBox(width: AppSizes.spaceSM),
               Expanded(
                 child: Text(
-                  isEditing ? 'Edit Staff Details' : 'Staff Details',
-                  style: const TextStyle(fontSize: 18),
+                  isEditing ? AppConstants.labelEditStaffDetails : AppConstants.labelStaffDetails,
+                  style: const TextStyle(fontSize: AppSizes.textXL),
                 ),
               ),
               IconButton(
@@ -365,9 +361,9 @@ class _StaffManagementPageState extends State<StaffManagementPage> {
                 },
                 icon: Icon(
                   isEditing ? Icons.visibility : Icons.edit,
-                  color: Colors.blue,
+                  color: AppColors.primaryColor,
                 ),
-                tooltip: isEditing ? 'View Mode' : 'Edit Mode',
+                tooltip: isEditing ? AppConstants.tooltipViewMode : AppConstants.tooltipEditMode,
               ),
             ],
           ),
@@ -381,79 +377,79 @@ class _StaffManagementPageState extends State<StaffManagementPage> {
                   controller: nameController,
                   enabled: isEditing,
                   decoration: InputDecoration(
-                    labelText: 'Name',
+                    labelText: AppConstants.labelName,
                     prefixIcon: const Icon(Icons.person),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(AppSizes.radiusSM),
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSizes.spaceMD),
                 
                 // Email Field
                 TextFormField(
                   controller: emailController,
                   enabled: isEditing,
                   decoration: InputDecoration(
-                    labelText: 'Email',
+                    labelText: AppConstants.labelEmail,
                     prefixIcon: const Icon(Icons.email),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(AppSizes.radiusSM),
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSizes.spaceMD),
                 
                 // Contact Field
                 TextFormField(
                   controller: contactController,
                   enabled: isEditing,
                   decoration: InputDecoration(
-                    labelText: 'Contact Number',
+                    labelText: AppConstants.labelContactNumber,
                     prefixIcon: const Icon(Icons.phone),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(AppSizes.radiusSM),
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSizes.spaceMD),
                 
                 // Role Field
                 TextFormField(
                   controller: roleController,
                   enabled: isEditing,
                   decoration: InputDecoration(
-                    labelText: 'Role',
+                    labelText: AppConstants.labelRole,
                     prefixIcon: Icon(_getRoleIcon(roleController.text)),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(AppSizes.radiusSM),
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSizes.spaceMD),
                 
                 // Join Date Field
                 TextFormField(
                   controller: joinDateController,
                   enabled: isEditing,
                   decoration: InputDecoration(
-                    labelText: 'Join Date',
+                    labelText: AppConstants.labelJoinDate,
                     prefixIcon: const Icon(Icons.calendar_today),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(AppSizes.radiusSM),
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSizes.spaceMD),
                 
                 // Status Toggle (only in edit mode)
                 if (isEditing) ...[
                   Row(
                     children: [
-                      const Icon(Icons.toggle_on, color: Colors.blue),
-                      const SizedBox(width: 8),
-                      const Text('Status:'),
-                      const SizedBox(width: 8),
+                      const Icon(Icons.toggle_on, color: AppColors.primaryColor),
+                      const SizedBox(width: AppSizes.spaceSM),
+                      const Text(AppConstants.labelStatus),
+                      const SizedBox(width: AppSizes.spaceSM),
                       Switch(
                         value: isActive,
                         onChanged: (value) {
@@ -461,13 +457,13 @@ class _StaffManagementPageState extends State<StaffManagementPage> {
                             isActive = value;
                           });
                         },
-                        activeColor: Colors.green,
-                        inactiveThumbColor: Colors.red,
+                        activeColor: AppColors.successColor,
+                        inactiveThumbColor: AppColors.errorColor,
                       ),
                       Text(
-                        isActive ? 'Active' : 'Inactive',
+                        isActive ? AppConstants.labelActive : AppConstants.labelInactive,
                         style: TextStyle(
-                          color: isActive ? Colors.green : Colors.red,
+                          color: isActive ? AppColors.successColor : AppColors.errorColor,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -479,13 +475,13 @@ class _StaffManagementPageState extends State<StaffManagementPage> {
                     children: [
                       Icon(
                         isActive ? Icons.check_circle : Icons.cancel,
-                        color: isActive ? Colors.green : Colors.red,
+                        color: isActive ? AppColors.successColor : AppColors.errorColor,
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: AppSizes.spaceSM),
                       Text(
-                        'Status: ${isActive ? 'Active' : 'Inactive'}',
+                        AppConstants.labelStatus + ': ${isActive ? AppConstants.labelActive : AppConstants.labelInactive}',
                         style: TextStyle(
-                          color: isActive ? Colors.green : Colors.red,
+                          color: isActive ? AppColors.successColor : AppColors.errorColor,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -498,7 +494,7 @@ class _StaffManagementPageState extends State<StaffManagementPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Cancel'),
+              child: const Text(AppConstants.actionCancel),
             ),
             if (isEditing) ...[
               ElevatedButton(
@@ -515,10 +511,10 @@ class _StaffManagementPageState extends State<StaffManagementPage> {
                   );
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
+                  backgroundColor: AppColors.primaryColor,
+                  foregroundColor: AppColors.textWhite,
                 ),
-                child: const Text('Save Changes'),
+                child: const Text(AppConstants.labelSaveChanges),
               ),
             ],
           ],
@@ -546,8 +542,8 @@ class _StaffManagementPageState extends State<StaffManagementPage> {
           content: Row(
             children: [
               CircularProgressIndicator(),
-              SizedBox(width: 16),
-              Text('Updating staff details...'),
+              SizedBox(width: AppSizes.spaceMD),
+              Text(AppConstants.msgUpdatingStaffDetails),
             ],
           ),
         ),
@@ -594,17 +590,17 @@ class _StaffManagementPageState extends State<StaffManagementPage> {
         // Show success message
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${name} details updated successfully'),
-            backgroundColor: Colors.green,
+            content: Text('${name} ${AppConstants.msgDetailsUpdated}'),
+            backgroundColor: AppColors.successColor,
           ),
         );
       } else {
-        _showErrorSnackBar(response['message'] ?? 'Failed to update staff details');
+        _showErrorSnackBar(response['message'] ?? AppConstants.msgFailedToUpdateStaffDetails);
       }
     } catch (e) {
       // Close loading dialog if it's still open
       Navigator.of(dialogContext).pop();
-      _showErrorSnackBar('Error updating staff details: $e');
+      _showErrorSnackBar(AppConstants.msgErrorUpdatingStaffDetails + e.toString());
     }
   }
 
@@ -630,15 +626,15 @@ class _StaffManagementPageState extends State<StaffManagementPage> {
         
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${staff['name']} ${newStatus ? 'activated' : 'deactivated'} successfully'),
-            backgroundColor: Colors.green,
+            content: Text('${staff['name']} ${newStatus ? AppConstants.msgActivated : AppConstants.msgDeactivated}'),
+            backgroundColor: AppColors.successColor,
           ),
         );
       } else {
-        _showErrorSnackBar(response['message'] ?? 'Failed to update staff status');
+        _showErrorSnackBar(response['message'] ?? AppConstants.msgFailedToUpdateStaffStatus);
       }
     } catch (e) {
-      _showErrorSnackBar('Error updating staff status: $e');
+      _showErrorSnackBar(AppConstants.msgErrorUpdatingStaffStatus + e.toString());
     }
   }
 
@@ -646,20 +642,20 @@ class _StaffManagementPageState extends State<StaffManagementPage> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete Staff Member'),
-        content: Text('Are you sure you want to delete ${staff['name']}?'),
+        title: const Text(AppConstants.labelDeleteStaffMember),
+        content: Text('${AppConstants.labelAreYouSure} ${staff['name']}?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel'),
+            child: const Text(AppConstants.actionCancel),
           ),
           ElevatedButton(
             onPressed: () async {
               Navigator.of(ctx).pop();
               await _deleteStaff(staff);
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Delete', style: TextStyle(color: Colors.white)),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.errorColor),
+            child: const Text(AppConstants.actionDelete, style: TextStyle(color: AppColors.textWhite)),
           ),
         ],
       ),
@@ -690,15 +686,15 @@ class _StaffManagementPageState extends State<StaffManagementPage> {
         
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${staff['name']} deleted successfully'),
-            backgroundColor: Colors.green,
+            content: Text('${staff['name']} ${AppConstants.msgDeleted}'),
+            backgroundColor: AppColors.successColor,
           ),
         );
       } else {
-        _showErrorSnackBar(response['message'] ?? 'Failed to delete staff');
+        _showErrorSnackBar(response['message'] ?? AppConstants.errorFailedToDeleteStaff);
       }
     } catch (e) {
-      _showErrorSnackBar('Error deleting staff: $e');
+      _showErrorSnackBar(AppConstants.msgErrorDeletingStaff + e.toString());
     }
   }
 
@@ -706,7 +702,7 @@ class _StaffManagementPageState extends State<StaffManagementPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: Colors.green,
+        backgroundColor: AppColors.successColor,
         duration: const Duration(seconds: 3),
       ),
     );

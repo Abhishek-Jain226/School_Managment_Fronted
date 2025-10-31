@@ -3,6 +3,8 @@ import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../data/models/trip.dart';
 import '../../services/driver_service.dart';
+import '../../utils/constants.dart';
+
 
 class SimplifiedStudentManagementPage extends StatefulWidget {
   final Trip trip;
@@ -43,8 +45,8 @@ class _SimplifiedStudentManagementPageState extends State<SimplifiedStudentManag
       if (!hasPermission) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Location permission is required to start trip'),
-            backgroundColor: Colors.red,
+            content: Text(AppConstants.msgLocationPermissionRequiredToStartTrip),
+            backgroundColor: AppColors.errorColor,
           ),
         );
         return;
@@ -64,16 +66,16 @@ class _SimplifiedStudentManagementPageState extends State<SimplifiedStudentManag
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Trip started! Location tracking enabled for ${widget.trip.tripName}'),
-          backgroundColor: Colors.green,
+          content: Text(AppConstants.msgTripStartedFor + widget.trip.tripName),
+          backgroundColor: AppColors.successColor,
         ),
       );
 
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to start trip: $e'),
-          backgroundColor: Colors.red,
+          content: Text('${AppConstants.msgFailedToStartTrip} $e'),
+          backgroundColor: AppColors.errorColor,
         ),
       );
     }
@@ -83,7 +85,7 @@ class _SimplifiedStudentManagementPageState extends State<SimplifiedStudentManag
     // Check current permission status
     var status = await Permission.location.status;
     
-    print('🔍 Current location permission status: $status');
+    debugPrint('🔍 Current location permission status: $status');
     
     // If permission is already granted, return true
     if (status == PermissionStatus.granted) {
@@ -99,7 +101,7 @@ class _SimplifiedStudentManagementPageState extends State<SimplifiedStudentManag
     // If permission is denied or restricted, request it
     if (status == PermissionStatus.denied || status == PermissionStatus.restricted) {
       status = await Permission.location.request();
-      print('🔍 Location permission request result: $status');
+      debugPrint('🔍 Location permission request result: $status');
       
       if (status == PermissionStatus.granted) {
         return true;
@@ -119,21 +121,19 @@ class _SimplifiedStudentManagementPageState extends State<SimplifiedStudentManag
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Location Permission Required'),
-        content: const Text(
-          'This app needs location permission to track your trip and share your location with parents. Please grant location permission in the app settings.',
-        ),
+        title: const Text(AppConstants.labelLocationPermissionRequired),
+        content: const Text(AppConstants.msgLocationPermissionRequired),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: const Text(AppConstants.actionCancel),
           ),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
               openAppSettings();
             },
-            child: const Text('Open Settings'),
+            child: const Text(AppConstants.labelOpenSettings),
           ),
         ],
       ),
@@ -144,21 +144,19 @@ class _SimplifiedStudentManagementPageState extends State<SimplifiedStudentManag
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Location Services Disabled'),
-        content: const Text(
-          'Location services are disabled. Please enable them in your device settings to start trip tracking.',
-        ),
+        title: const Text(AppConstants.labelLocationSettings),
+        content: const Text(AppConstants.msgEnableLocationServices),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: const Text(AppConstants.actionCancel),
           ),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
               Geolocator.openLocationSettings();
             },
-            child: const Text('Open Settings'),
+            child: const Text(AppConstants.labelOpenSettings),
           ),
         ],
       ),
@@ -169,7 +167,7 @@ class _SimplifiedStudentManagementPageState extends State<SimplifiedStudentManag
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Students - ${widget.trip.tripName}'),
+        title: Text(AppConstants.labelStudents + ' - ${widget.trip.tripName}'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -189,12 +187,12 @@ class _SimplifiedStudentManagementPageState extends State<SimplifiedStudentManag
             child: widget.trip.students.isEmpty
                 ? const Center(
                     child: Text(
-                      'No students assigned to this trip',
+                      AppConstants.msgNoStudentsAssigned,
                       style: TextStyle(fontSize: 16),
                     ),
                   )
                 : ListView.builder(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(AppSizes.paddingMD),
                     itemCount: widget.trip.students.length,
                     itemBuilder: (context, index) {
                       return _buildStudentCard(widget.trip.students[index]);
@@ -211,8 +209,8 @@ class _SimplifiedStudentManagementPageState extends State<SimplifiedStudentManag
     
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      color: isMorningTrip ? Colors.orange[50] : Colors.blue[50],
+      padding: const EdgeInsets.all(AppSizes.paddingMD),
+      color: isMorningTrip ? AppColors.morningTripBg : AppColors.afternoonTripBg,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -220,10 +218,10 @@ class _SimplifiedStudentManagementPageState extends State<SimplifiedStudentManag
             children: [
               Icon(
                 isMorningTrip ? Icons.wb_sunny : Icons.wb_twilight,
-                color: isMorningTrip ? Colors.orange : Colors.blue,
-                size: 24,
+                color: isMorningTrip ? AppColors.morningTripIcon : AppColors.afternoonTripIcon,
+                size: AppSizes.iconMD,
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: AppSizes.marginSM),
               Text(
                 widget.trip.tripName,
                 style: const TextStyle(
@@ -233,15 +231,15 @@ class _SimplifiedStudentManagementPageState extends State<SimplifiedStudentManag
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSizes.marginSM),
           Text(
             '${widget.trip.tripType} - ${widget.trip.scheduledTime ?? 'No time set'}',
             style: TextStyle(
               fontSize: 14,
-              color: Colors.grey[600],
+              color: AppColors.textSecondary,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSizes.marginSM),
           Row(
             children: [
               Expanded(
@@ -249,7 +247,7 @@ class _SimplifiedStudentManagementPageState extends State<SimplifiedStudentManag
                   'Total',
                   '${widget.trip.totalStudents}',
                   Icons.group,
-                  Colors.blue,
+                  AppColors.primaryColor,
                 ),
               ),
               Expanded(
@@ -257,7 +255,7 @@ class _SimplifiedStudentManagementPageState extends State<SimplifiedStudentManag
                   'Picked',
                   '${widget.trip.studentsPickedUp}',
                   Icons.person_add,
-                  Colors.green,
+                  AppColors.successColor,
                 ),
               ),
               Expanded(
@@ -265,7 +263,7 @@ class _SimplifiedStudentManagementPageState extends State<SimplifiedStudentManag
                   'Dropped',
                   '${widget.trip.studentsDropped}',
                   Icons.person_remove,
-                  Colors.orange,
+                  AppColors.warningColor,
                 ),
               ),
               Expanded(
@@ -273,34 +271,34 @@ class _SimplifiedStudentManagementPageState extends State<SimplifiedStudentManag
                   'Absent',
                   '${widget.trip.studentsAbsent}',
                   Icons.person_off,
-                  Colors.red,
+                  AppColors.errorColor,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSizes.marginSM),
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(AppSizes.paddingSM),
             decoration: BoxDecoration(
-              color: isMorningTrip ? Colors.orange[100] : Colors.blue[100],
-              borderRadius: BorderRadius.circular(8),
+              color: isMorningTrip ? AppColors.morningTripInfoBg : AppColors.afternoonTripInfoBg,
+              borderRadius: BorderRadius.circular(AppSizes.radiusSM),
             ),
             child: Row(
               children: [
                 Icon(
                   Icons.info,
-                  color: isMorningTrip ? Colors.orange[700] : Colors.blue[700],
-                  size: 16,
+                  color: isMorningTrip ? AppColors.morningTripInfoIcon : AppColors.afternoonTripInfoIcon,
+                  size: AppSizes.iconSM,
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: AppSizes.marginSM),
                 Expanded(
                   child: Text(
                     isMorningTrip 
-                      ? 'Morning Trip: Pickup from Home → Drop to School'
-                      : 'Afternoon Trip: Pickup from School → Drop to Home',
+                      ? AppConstants.msgMorningTripInfo
+                      : AppConstants.msgAfternoonTripInfo,
                     style: TextStyle(
                       fontSize: 12,
-                      color: isMorningTrip ? Colors.orange[700] : Colors.blue[700],
+                      color: isMorningTrip ? AppColors.morningTripInfoIcon : AppColors.afternoonTripInfoIcon,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -340,22 +338,22 @@ class _SimplifiedStudentManagementPageState extends State<SimplifiedStudentManag
     final isMorningTrip = _isMorningTrip();
 
     return Card(
-      margin: const EdgeInsets.symmetric(vertical: 8),
+      margin: const EdgeInsets.symmetric(vertical: AppSizes.marginSM),
       elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSizes.radiusMD)),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSizes.paddingMD),
         child: Column(
           children: [
             // Student Info
             Row(
               children: [
                 CircleAvatar(
-                  radius: 24,
+                  radius: AppSizes.iconXL / 2,
                   backgroundColor: statusColor.withOpacity(0.1),
-                  child: Icon(statusIcon, color: statusColor, size: 24),
+                  child: Icon(statusIcon, color: statusColor, size: AppSizes.iconMD),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: AppSizes.marginMD),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -372,20 +370,20 @@ class _SimplifiedStudentManagementPageState extends State<SimplifiedStudentManag
                         '${student.className} - ${student.sectionName}',
                         style: TextStyle(
                           fontSize: 14,
-                          color: Colors.grey[600],
+                          color: AppColors.textSecondary,
                         ),
                       ),
                       const SizedBox(height: 4),
                       Row(
                         children: [
-                          Icon(Icons.location_on, size: 14, color: Colors.grey[600]),
-                          const SizedBox(width: 4),
+                          Icon(Icons.location_on, size: AppSizes.iconXS, color: AppColors.textSecondary),
+                          const SizedBox(width: AppSizes.marginXS),
                           Expanded(
                             child: Text(
                               'Pickup: ${student.pickupLocation}',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: Colors.grey[600],
+                                color: AppColors.textSecondary,
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -394,14 +392,14 @@ class _SimplifiedStudentManagementPageState extends State<SimplifiedStudentManag
                       ),
                       Row(
                         children: [
-                          Icon(Icons.location_off, size: 14, color: Colors.grey[600]),
-                          const SizedBox(width: 4),
+                          Icon(Icons.location_off, size: AppSizes.iconXS, color: AppColors.textSecondary),
+                          const SizedBox(width: AppSizes.marginXS),
                           Expanded(
                             child: Text(
                               'Drop: ${student.dropLocation}',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: Colors.grey[600],
+                                color: AppColors.textSecondary,
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -414,10 +412,10 @@ class _SimplifiedStudentManagementPageState extends State<SimplifiedStudentManag
                 Column(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingSM, vertical: AppSizes.paddingXS),
                       decoration: BoxDecoration(
                         color: statusColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(AppSizes.radiusSM),
                         border: Border.all(color: statusColor, width: 1),
                       ),
                       child: Text(
@@ -431,7 +429,7 @@ class _SimplifiedStudentManagementPageState extends State<SimplifiedStudentManag
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Order: ${student.pickupOrder}',
+                      AppConstants.labelOrderPrefix + '${student.pickupOrder}',
                       style: const TextStyle(fontSize: 10),
                     ),
                   ],
@@ -439,7 +437,7 @@ class _SimplifiedStudentManagementPageState extends State<SimplifiedStudentManag
               ],
             ),
             
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSizes.marginMD),
             
             // Action Buttons
             _buildActionButtons(student, isMorningTrip),
@@ -453,28 +451,28 @@ class _SimplifiedStudentManagementPageState extends State<SimplifiedStudentManag
     // If trip is not active, show disabled buttons with message
     if (!_isTripActive) {
       return Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSizes.paddingMD),
         decoration: BoxDecoration(
-          color: Colors.grey[100],
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.grey[300]!),
+          color: AppColors.backgroundColor,
+          borderRadius: BorderRadius.circular(AppSizes.radiusSM),
+          border: Border.all(color: AppColors.textSecondary.withOpacity(0.3)),
         ),
         child: Column(
           children: [
-            Icon(Icons.location_off, color: Colors.grey[600], size: 32),
-            const SizedBox(height: 8),
+            Icon(Icons.location_off, color: AppColors.textSecondary, size: AppSizes.iconLG),
+            const SizedBox(height: AppSizes.marginSM),
             Text(
-              'Trip not started yet',
+              AppConstants.msgTripNotStartedYet,
               style: TextStyle(
-                color: Colors.grey[600],
+                color: AppColors.textSecondary,
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: AppSizes.marginXS),
             Text(
-              'Location permissions are being requested...',
+              AppConstants.msgLocationPermissionsRequesting,
               style: TextStyle(
-                color: Colors.grey[600],
+                color: AppColors.textSecondary,
                 fontSize: 12,
               ),
               textAlign: TextAlign.center,
@@ -490,16 +488,16 @@ class _SimplifiedStudentManagementPageState extends State<SimplifiedStudentManag
         Expanded(
           child: ElevatedButton.icon(
             onPressed: () => _send5MinuteAlert(student),
-            icon: const Icon(Icons.notifications, size: 16),
-            label: const Text('Send Alert'),
+            icon: const Icon(Icons.notifications, size: AppSizes.iconSM),
+            label: const Text(AppConstants.labelSendAlert),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.orange,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 8),
+              backgroundColor: AppColors.warningColor,
+              foregroundColor: AppColors.textWhite,
+              padding: const EdgeInsets.symmetric(vertical: AppSizes.paddingXS),
             ),
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: AppSizes.marginSM),
         
         // Context-sensitive action buttons
         if (isMorningTrip) ...[
@@ -509,27 +507,27 @@ class _SimplifiedStudentManagementPageState extends State<SimplifiedStudentManag
               onPressed: student.attendanceStatus == 'PENDING' 
                 ? () => _markPickupFromHome(student)
                 : null,
-              icon: const Icon(Icons.home, size: 16),
-              label: const Text('Pickup'),
+              icon: const Icon(Icons.home, size: AppSizes.iconSM),
+              label: const Text(AppConstants.labelPickup),
               style: ElevatedButton.styleFrom(
-                backgroundColor: student.attendanceStatus == 'PENDING' ? Colors.green : Colors.grey,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 8),
+                backgroundColor: student.attendanceStatus == 'PENDING' ? AppColors.successColor : AppColors.textSecondary,
+                foregroundColor: AppColors.textWhite,
+                padding: const EdgeInsets.symmetric(vertical: AppSizes.paddingXS),
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: AppSizes.marginSM),
           Expanded(
             child: ElevatedButton.icon(
               onPressed: student.attendanceStatus == 'PICKED_UP' 
                 ? () => _markDropToSchool(student)
                 : null,
-              icon: const Icon(Icons.school, size: 16),
-              label: const Text('Drop'),
+              icon: const Icon(Icons.school, size: AppSizes.iconSM),
+              label: const Text(AppConstants.labelDrop),
               style: ElevatedButton.styleFrom(
-                backgroundColor: student.attendanceStatus == 'PICKED_UP' ? Colors.blue : Colors.grey,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 8),
+                backgroundColor: student.attendanceStatus == 'PICKED_UP' ? AppColors.primaryColor : AppColors.textSecondary,
+                foregroundColor: AppColors.textWhite,
+                padding: const EdgeInsets.symmetric(vertical: AppSizes.paddingXS),
               ),
             ),
           ),
@@ -540,27 +538,27 @@ class _SimplifiedStudentManagementPageState extends State<SimplifiedStudentManag
               onPressed: student.attendanceStatus == 'PENDING' 
                 ? () => _markPickupFromSchool(student)
                 : null,
-              icon: const Icon(Icons.school, size: 16),
-              label: const Text('Pickup'),
+              icon: const Icon(Icons.school, size: AppSizes.iconSM),
+              label: const Text(AppConstants.labelPickup),
               style: ElevatedButton.styleFrom(
-                backgroundColor: student.attendanceStatus == 'PENDING' ? Colors.green : Colors.grey,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 8),
+                backgroundColor: student.attendanceStatus == 'PENDING' ? AppColors.successColor : AppColors.textSecondary,
+                foregroundColor: AppColors.textWhite,
+                padding: const EdgeInsets.symmetric(vertical: AppSizes.paddingXS),
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: AppSizes.marginSM),
           Expanded(
             child: ElevatedButton.icon(
               onPressed: student.attendanceStatus == 'PICKED_UP' 
                 ? () => _markDropToHome(student)
                 : null,
-              icon: const Icon(Icons.home, size: 16),
-              label: const Text('Drop'),
+              icon: const Icon(Icons.home, size: AppSizes.iconSM),
+              label: const Text(AppConstants.labelDrop),
               style: ElevatedButton.styleFrom(
-                backgroundColor: student.attendanceStatus == 'PICKED_UP' ? Colors.blue : Colors.grey,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 8),
+                backgroundColor: student.attendanceStatus == 'PICKED_UP' ? AppColors.primaryColor : AppColors.textSecondary,
+                foregroundColor: AppColors.textWhite,
+                padding: const EdgeInsets.symmetric(vertical: AppSizes.paddingXS),
               ),
             ),
           ),
@@ -576,15 +574,15 @@ class _SimplifiedStudentManagementPageState extends State<SimplifiedStudentManag
   Color _getStatusColor(String status) {
     switch (status) {
       case 'PENDING':
-        return Colors.orange;
+        return AppColors.warningColor;
       case 'PICKED_UP':
-        return Colors.blue;
+        return AppColors.primaryColor;
       case 'DROPPED':
-        return Colors.green;
+        return AppColors.successColor;
       case 'ABSENT':
-        return Colors.red;
+        return AppColors.errorColor;
       default:
-        return Colors.grey;
+        return AppColors.textSecondary;
     }
   }
 
@@ -611,26 +609,26 @@ class _SimplifiedStudentManagementPageState extends State<SimplifiedStudentManag
 
       final response = await _driverService.send5MinuteAlert(widget.driverId, widget.trip.tripId);
       
-      if (response['success'] == true) {
+      if (response[AppConstants.keySuccess] == true) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('5-minute alert sent to ${student.studentName}\'s parents'),
-            backgroundColor: Colors.green,
+            backgroundColor: AppColors.successColor,
           ),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(response['message'] ?? 'Failed to send alert'),
-            backgroundColor: Colors.red,
+            content: Text(response[AppConstants.keyMessage] ?? AppConstants.msgFailedToSendAlertGeneric),
+            backgroundColor: AppColors.errorColor,
           ),
         );
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error sending alert: $e'),
-          backgroundColor: Colors.red,
+          content: Text('${AppConstants.msgErrorSendingAlert} $e'),
+          backgroundColor: AppColors.errorColor,
         ),
       );
     } finally {
@@ -680,11 +678,11 @@ class _SimplifiedStudentManagementPageState extends State<SimplifiedStudentManag
           throw Exception('Invalid action: $action');
       }
       
-      if (response['success'] == true) {
+      if (response[AppConstants.keySuccess] == true) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('$successMessage for ${student.studentName}'),
-            backgroundColor: Colors.green,
+            backgroundColor: AppColors.successColor,
           ),
         );
         
@@ -709,26 +707,23 @@ class _SimplifiedStudentManagementPageState extends State<SimplifiedStudentManag
             final updatedStudents = List<TripStudent>.from(widget.trip.students);
             updatedStudents[studentIndex] = updatedStudent;
             
-            // Update the trip with new students list
-            final updatedTrip = widget.trip.copyWith(students: updatedStudents);
-            
-            // Note: Since Trip is also immutable, we would need to refresh from backend
+            // Note: Trip is immutable, would need to refresh from backend
             // For now, just trigger a rebuild to show the success message
           }
         });
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(response['message'] ?? 'Failed to mark action'),
-            backgroundColor: Colors.red,
+            content: Text(response[AppConstants.keyMessage] ?? AppConstants.msgFailedToSendAlertGeneric),
+            backgroundColor: AppColors.errorColor,
           ),
         );
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error marking action: $e'),
-          backgroundColor: Colors.red,
+          content: Text('${AppConstants.msgErrorMarkingAction} $e'),
+          backgroundColor: AppColors.errorColor,
         ),
       );
     } finally {

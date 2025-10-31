@@ -1,4 +1,6 @@
 // models/trip_response.dart
+import '../../utils/constants.dart';
+
 class TripResponse {
   final int tripId;
   final int schoolId;
@@ -22,14 +24,14 @@ class TripResponse {
 
   factory TripResponse.fromJson(Map<String, dynamic> json) {
     return TripResponse(
-      tripId: json["tripId"],
-      schoolId: json["schoolId"],
-      schoolName: json["schoolName"],
-      vehicleId: json["vehicleId"],
-      vehicleNumber: json["vehicleNumber"],
-      tripName: json["tripName"],
-      tripNumber: json["tripNumber"],
-      isActive: json["isActive"],
+      tripId: json[AppConstants.keyTripId],
+      schoolId: json[AppConstants.keySchoolId],
+      schoolName: json[AppConstants.keySchoolName],
+      vehicleId: json[AppConstants.keyVehicleId],
+      vehicleNumber: json[AppConstants.keyVehicleNumber],
+      tripName: json[AppConstants.keyTripName],
+      tripNumber: json[AppConstants.keyTripNumber],
+      isActive: json[AppConstants.keyIsActive],
     );
   }
 }

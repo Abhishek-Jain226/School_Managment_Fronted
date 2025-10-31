@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/vehicle_owner_service.dart';
-import '../../services/vehicle_service.dart';
 import '../../app_routes.dart';
+import '../../utils/constants.dart';
 
 class VehicleOwnerVehicleManagementPage extends StatefulWidget {
   const VehicleOwnerVehicleManagementPage({super.key});
@@ -13,7 +13,6 @@ class VehicleOwnerVehicleManagementPage extends StatefulWidget {
 
 class _VehicleOwnerVehicleManagementPageState extends State<VehicleOwnerVehicleManagementPage> {
   final VehicleOwnerService _vehicleOwnerService = VehicleOwnerService();
-  final VehicleService _vehicleService = VehicleService();
   
   List<Map<String, dynamic>> _vehicles = [];
   bool _isLoading = true;
@@ -30,27 +29,27 @@ class _VehicleOwnerVehicleManagementPageState extends State<VehicleOwnerVehicleM
     
     try {
       final prefs = await SharedPreferences.getInstance();
-      final userId = prefs.getInt("userId");
+      final userId = prefs.getInt(AppConstants.keyUserId);
       
       if (userId != null) {
         // Load owner data
         final ownerResponse = await _vehicleOwnerService.getOwnerByUserId(userId);
-        if (ownerResponse['success'] == true) {
-          _ownerData = ownerResponse['data'];
-          final ownerId = _ownerData!['ownerId'];
+        if (ownerResponse[AppConstants.keySuccess] == true) {
+          _ownerData = ownerResponse[AppConstants.keyData];
+          final ownerId = _ownerData![AppConstants.keyOwnerId];
           
           // Load vehicles
           final vehiclesResponse = await _vehicleOwnerService.getVehiclesByOwner(ownerId);
-          if (vehiclesResponse['success'] == true) {
+          if (vehiclesResponse[AppConstants.keySuccess] == true) {
             setState(() {
-              _vehicles = List<Map<String, dynamic>>.from(vehiclesResponse['data']['vehicles'] ?? []);
+              _vehicles = List<Map<String, dynamic>>.from(vehiclesResponse[AppConstants.keyData][AppConstants.keyVehicles] ?? []);
             });
           }
         }
       }
     } catch (e) {
-      print("Error loading data: $e");
-      _showError("Error loading vehicles: $e");
+      debugPrint("Error loading data: $e");
+      _showError('${AppConstants.msgErrorLoadingVehicles}: $e');
     } finally {
       setState(() => _isLoading = false);
     }
@@ -61,7 +60,7 @@ class _VehicleOwnerVehicleManagementPageState extends State<VehicleOwnerVehicleM
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(message),
-          backgroundColor: Colors.red,
+          backgroundColor: AppColors.errorColor,
         ),
       );
     }
@@ -72,7 +71,7 @@ class _VehicleOwnerVehicleManagementPageState extends State<VehicleOwnerVehicleM
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(message),
-          backgroundColor: Colors.green,
+          backgroundColor: AppColors.successColor,
         ),
       );
     }
@@ -82,17 +81,17 @@ class _VehicleOwnerVehicleManagementPageState extends State<VehicleOwnerVehicleM
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text("Delete Vehicle"),
-        content: Text("Are you sure you want to delete vehicle $vehicleNumber?"),
+        title: const Text(AppConstants.titleDeleteVehicle),
+        content: Text('${AppConstants.msgConfirmDeleteVehicle} $vehicleNumber?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text("Cancel"),
+            child: const Text(AppConstants.actionCancel),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.errorColor),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text("Delete"),
+            child: const Text(AppConstants.actionDelete),
           ),
         ],
       ),
@@ -101,10 +100,10 @@ class _VehicleOwnerVehicleManagementPageState extends State<VehicleOwnerVehicleM
     if (confirmed == true) {
       try {
         // TODO: Implement delete vehicle API call
-        _showSuccess("Vehicle deleted successfully");
+        _showSuccess(AppConstants.msgVehicleDeletedSuccess);
         _loadData(); // Refresh the list
       } catch (e) {
-        _showError("Error deleting vehicle: $e");
+        _showError('${AppConstants.msgErrorDeletingVehicle}: $e');
       }
     }
   }
@@ -113,7 +112,7 @@ class _VehicleOwnerVehicleManagementPageState extends State<VehicleOwnerVehicleM
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Vehicle Management"),
+        title: const Text(AppConstants.labelVehicleManagement),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -127,34 +126,31 @@ class _VehicleOwnerVehicleManagementPageState extends State<VehicleOwnerVehicleM
               children: [
                 // Summary Card
                 Card(
-                  margin: const EdgeInsets.all(16),
+                  margin: const EdgeInsets.all(AppSizes.marginMD),
                   child: Padding(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(AppSizes.paddingMD),
                     child: Row(
                       children: [
                         Icon(
                           Icons.directions_bus,
-                          size: 48,
-                          color: Colors.blue.shade600,
+                          size: AppSizes.iconXL,
+                          color: AppColors.primaryDark,
                         ),
-                        const SizedBox(width: 16),
+                        const SizedBox(width: AppSizes.marginMD),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                "Total Vehicles",
+                                AppConstants.labelTotalVehicles,
                                 style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey.shade600,
+                                  fontSize: AppSizes.textSM,
+                                  color: AppColors.textSecondary,
                                 ),
                               ),
                               Text(
                                 _vehicles.length.toString(),
-                                style: const TextStyle(
-                                  fontSize: 32,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                                style: const TextStyle(fontSize: AppSizes.textXXL, fontWeight: FontWeight.bold),
                               ),
                             ],
                           ),
@@ -165,7 +161,7 @@ class _VehicleOwnerVehicleManagementPageState extends State<VehicleOwnerVehicleM
                                 .then((_) => _loadData());
                           },
                           icon: const Icon(Icons.add),
-                          label: const Text("Add Vehicle"),
+                          label: const Text(AppConstants.labelAddVehicle),
                         ),
                       ],
                     ),
@@ -181,82 +177,79 @@ class _VehicleOwnerVehicleManagementPageState extends State<VehicleOwnerVehicleM
                             children: [
                               Icon(
                                 Icons.directions_bus_outlined,
-                                size: 64,
-                                color: Colors.grey.shade400,
+                                size: AppSizes.iconXL,
+                                color: AppColors.grey200,
                               ),
-                              const SizedBox(height: 16),
+                              const SizedBox(height: AppSizes.marginMD),
                               Text(
-                                "No vehicles registered yet",
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  color: Colors.grey.shade600,
-                                ),
+                                AppConstants.emptyStateNoVehiclesSub,
+                                style: const TextStyle(fontSize: AppSizes.textXL, color: AppColors.textSecondary),
                               ),
-                              const SizedBox(height: 8),
+                              const SizedBox(height: AppSizes.marginSM),
                               Text(
-                                "Add your first vehicle to get started",
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey.shade500,
-                                ),
+                                AppConstants.emptyStateAddFirstVehicle,
+                                style: const TextStyle(fontSize: AppSizes.textSM, color: AppColors.textSecondary),
                               ),
-                              const SizedBox(height: 24),
+                              const SizedBox(height: AppSizes.marginLG),
                               ElevatedButton.icon(
                                 onPressed: () {
                                   Navigator.pushNamed(context, AppRoutes.registerVehicle)
                                       .then((_) => _loadData());
                                 },
                                 icon: const Icon(Icons.add),
-                                label: const Text("Register Vehicle"),
+                                label: const Text(AppConstants.labelRegisterVehicle),
                               ),
                             ],
                           ),
                         )
                       : ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingMD),
                           itemCount: _vehicles.length,
                           itemBuilder: (context, index) {
                             final vehicle = _vehicles[index];
                             return Card(
-                              margin: const EdgeInsets.only(bottom: 12),
+                              margin: const EdgeInsets.only(bottom: AppSizes.marginSM),
                               child: ListTile(
                                 leading: CircleAvatar(
-                                  backgroundColor: (vehicle['isActive'] == true) 
-                                      ? Colors.green 
-                                      : Colors.grey,
+                                  backgroundColor: (vehicle[AppConstants.keyIsActive] == true) 
+                                      ? AppColors.successColor 
+                                      : AppColors.textSecondary,
                                   child: Icon(
                                     Icons.directions_bus,
-                                    color: Colors.white,
+                                    color: AppColors.textWhite,
                                   ),
                                 ),
                                 title: Text(
-                                  vehicle['vehicleNumber'] ?? 'Unknown Vehicle',
+                                  vehicle[AppConstants.keyVehicleNumber] ?? AppConstants.labelUnknownVehicle,
                                   style: const TextStyle(fontWeight: FontWeight.bold),
                                 ),
                                 subtitle: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text("Type: ${vehicle['vehicleType'] ?? 'N/A'}"),
-                                    Text("Registration: ${vehicle['registrationNumber'] ?? 'N/A'}"),
-                                    Text("Capacity: ${vehicle['capacity'] ?? 'N/A'}"),
+                                    Text('${AppConstants.labelTypePrefix}${vehicle[AppConstants.keyVehicleType] ?? AppConstants.labelNA}')
+                                    ,
+                                    Text('${AppConstants.labelRegistrationNumber}: ${vehicle[AppConstants.keyRegistrationNumber] ?? AppConstants.labelNA}')
+                                    ,
+                                    Text('${AppConstants.labelCapacity}: ${vehicle[AppConstants.keyCapacity] ?? AppConstants.labelNA}')
+                                    ,
                                     Row(
                                       children: [
                                         Icon(
-                                          (vehicle['isActive'] == true) 
+                                          (vehicle[AppConstants.keyIsActive] == true) 
                                               ? Icons.check_circle 
                                               : Icons.cancel,
-                                          size: 16,
-                                          color: (vehicle['isActive'] == true) 
-                                              ? Colors.green 
-                                              : Colors.red,
+                                          size: AppSizes.iconXS,
+                                          color: (vehicle[AppConstants.keyIsActive] == true) 
+                                              ? AppColors.successColor 
+                                              : AppColors.errorColor,
                                         ),
-                                        const SizedBox(width: 4),
+                                        const SizedBox(width: AppSizes.marginXS),
                                         Text(
-                                          (vehicle['isActive'] == true) ? 'Active' : 'Inactive',
+                                          (vehicle[AppConstants.keyIsActive] == true) ? AppConstants.labelActive : AppConstants.labelInactive,
                                           style: TextStyle(
-                                            color: (vehicle['isActive'] == true) 
-                                                ? Colors.green 
-                                                : Colors.red,
+                                            color: (vehicle[AppConstants.keyIsActive] == true) 
+                                                ? AppColors.successColor 
+                                                : AppColors.errorColor,
                                             fontWeight: FontWeight.w500,
                                           ),
                                         ),
@@ -269,12 +262,12 @@ class _VehicleOwnerVehicleManagementPageState extends State<VehicleOwnerVehicleM
                                     switch (value) {
                                       case 'edit':
                                         // TODO: Navigate to edit vehicle page
-                                        _showSuccess("Edit functionality coming soon");
+                                        _showSuccess(AppConstants.msgEditFunctionalityComingSoon);
                                         break;
                                       case 'delete':
                                         _deleteVehicle(
-                                          vehicle['vehicleId'],
-                                          vehicle['vehicleNumber'] ?? 'Unknown',
+                                          vehicle[AppConstants.keyVehicleId],
+                                          vehicle[AppConstants.keyVehicleNumber] ?? AppConstants.labelUnknown,
                                         );
                                         break;
                                       case 'assign':
@@ -292,8 +285,8 @@ class _VehicleOwnerVehicleManagementPageState extends State<VehicleOwnerVehicleM
                                       child: Row(
                                         children: [
                                           Icon(Icons.edit, size: 20),
-                                          SizedBox(width: 8),
-                                          Text('Edit'),
+                                          SizedBox(width: AppSizes.marginSM),
+                                          Text(AppConstants.actionEdit),
                                         ],
                                       ),
                                     ),
@@ -302,8 +295,8 @@ class _VehicleOwnerVehicleManagementPageState extends State<VehicleOwnerVehicleM
                                       child: Row(
                                         children: [
                                           Icon(Icons.school, size: 20),
-                                          SizedBox(width: 8),
-                                          Text('Assign to School'),
+                                          SizedBox(width: AppSizes.marginSM),
+                                          Text(AppConstants.actionAssignToSchool),
                                         ],
                                       ),
                                     ),
@@ -311,9 +304,9 @@ class _VehicleOwnerVehicleManagementPageState extends State<VehicleOwnerVehicleM
                                       value: 'delete',
                                       child: Row(
                                         children: [
-                                          Icon(Icons.delete, size: 20, color: Colors.red),
-                                          SizedBox(width: 8),
-                                          Text('Delete', style: TextStyle(color: Colors.red)),
+                                          Icon(Icons.delete, size: 20, color: AppColors.errorColor),
+                                          SizedBox(width: AppSizes.marginSM),
+                                          Text(AppConstants.actionDelete, style: TextStyle(color: AppColors.errorColor)),
                                         ],
                                       ),
                                     ),

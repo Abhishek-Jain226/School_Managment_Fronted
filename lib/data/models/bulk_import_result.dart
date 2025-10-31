@@ -1,3 +1,5 @@
+import '../../utils/constants.dart';
+
 class BulkImportResult {
   final int totalRows;
   final int successfulImports;
@@ -19,17 +21,17 @@ class BulkImportResult {
 
   factory BulkImportResult.fromJson(Map<String, dynamic> json) {
     return BulkImportResult(
-      totalRows: json['totalRows'] ?? 0,
-      successfulImports: json['successfulImports'] ?? 0,
-      failedImports: json['failedImports'] ?? 0,
-      results: (json['results'] as List<dynamic>?)
+      totalRows: json[AppConstants.keyTotalRows] ?? 0,
+      successfulImports: json[AppConstants.keySuccessfulImports] ?? 0,
+      failedImports: json[AppConstants.keyFailedImports] ?? 0,
+      results: (json[AppConstants.keyResults] as List<dynamic>?)
           ?.map((item) => StudentImportResult.fromJson(item))
           .toList() ?? [],
-      errors: (json['errors'] as List<dynamic>?)
+      errors: (json[AppConstants.keyErrors] as List<dynamic>?)
           ?.map((item) => item.toString())
           .toList() ?? [],
-      message: json['message'] ?? '',
-      success: json['success'] ?? false,
+      message: json[AppConstants.keyMessage] ?? '',
+      success: json[AppConstants.keySuccess] ?? false,
     );
   }
 }
@@ -53,12 +55,12 @@ class StudentImportResult {
 
   factory StudentImportResult.fromJson(Map<String, dynamic> json) {
     return StudentImportResult(
-      studentId: json['studentId'],
-      studentName: json['studentName'] ?? '',
-      parentEmail: json['parentEmail'],
-      status: json['status'] ?? '',
-      errorMessage: json['errorMessage'],
-      rowNumber: json['rowNumber'],
+      studentId: json[AppConstants.keyStudentId],
+      studentName: json[AppConstants.keyStudentName] ?? '',
+      parentEmail: json[AppConstants.keyParentEmail],
+      status: json[AppConstants.keyStatus] ?? '',
+      errorMessage: json[AppConstants.keyErrorMessage],
+      rowNumber: json[AppConstants.keyRowNumber],
     );
   }
 }

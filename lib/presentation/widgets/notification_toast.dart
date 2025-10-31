@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../data/models/websocket_notification.dart';
+import '../../utils/constants.dart';
 
 class NotificationToast extends StatefulWidget {
   final WebSocketNotification notification;
@@ -28,12 +29,17 @@ class _NotificationToastState extends State<NotificationToast>
   void initState() {
     super.initState();
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 300),
+      duration: const Duration(
+        milliseconds: AppSizes.notificationToastAnimationMs,
+      ),
       vsync: this,
     );
 
     _slideAnimation = Tween<Offset>(
-      begin: const Offset(1.0, 0.0),
+      begin: const Offset(
+        AppSizes.notificationToastAnimationStart,
+        AppSizes.notificationToastAnimationEnd,
+      ),
       end: Offset.zero,
     ).animate(CurvedAnimation(
       parent: _animationController,
@@ -41,8 +47,8 @@ class _NotificationToastState extends State<NotificationToast>
     ));
 
     _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
+      begin: AppSizes.notificationToastAnimationEnd,
+      end: AppSizes.notificationToastAnimationStart,
     ).animate(CurvedAnimation(
       parent: _animationController,
       curve: Curves.easeOut,
@@ -51,11 +57,14 @@ class _NotificationToastState extends State<NotificationToast>
     _animationController.forward();
 
     // Auto dismiss after 5 seconds
-    Future.delayed(const Duration(seconds: 5), () {
-      if (mounted) {
-        _dismiss();
-      }
-    });
+    Future.delayed(
+      const Duration(seconds: AppSizes.notificationToastAutoDismissSec),
+      () {
+        if (mounted) {
+          _dismiss();
+        }
+      },
+    );
   }
 
   @override
@@ -77,29 +86,31 @@ class _NotificationToastState extends State<NotificationToast>
       child: FadeTransition(
         opacity: _fadeAnimation,
         child: Container(
-          margin: const EdgeInsets.all(8),
+          margin: const EdgeInsets.all(AppSizes.notificationToastMargin),
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
+            color: AppColors.notificationToastBackground,
+            borderRadius: BorderRadius.circular(AppSizes.notificationToastRadius),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
+                color: AppColors.notificationToastShadowColor.withValues(
+                  alpha: AppSizes.notificationToastShadowOpacity,
+                ),
+                blurRadius: AppSizes.notificationToastShadowBlur,
+                offset: const Offset(0, AppSizes.notificationToastShadowOffset),
               ),
             ],
           ),
           child: Material(
-            color: Colors.transparent,
+            color: AppColors.notificationToastTransparent,
             child: InkWell(
               onTap: widget.onTap,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(AppSizes.notificationToastRadius),
               child: Padding(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(AppSizes.notificationToastPadding),
                 child: Row(
                   children: [
                     _buildNotificationIcon(),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: AppSizes.notificationToastSpacingLG),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -109,27 +120,27 @@ class _NotificationToastState extends State<NotificationToast>
                             widget.notification.title,
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
-                              fontSize: 14,
+                              fontSize: AppSizes.notificationToastTitleFontSize,
                             ),
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: AppSizes.notificationToastSpacingXS),
                           Text(
                             widget.notification.message,
                             style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey,
+                              fontSize: AppSizes.notificationToastMessageFontSize,
+                              color: AppColors.notificationToastMessageColor,
                             ),
-                            maxLines: 2,
+                            maxLines: AppSizes.notificationToastMaxLines,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: AppSizes.notificationToastSpacingSM),
                     Column(
                       children: [
                         _buildPriorityIndicator(),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: AppSizes.notificationToastSpacingXS),
                         if (_isRequestNotification())
                           GestureDetector(
                             onTap: () {
@@ -137,15 +148,19 @@ class _NotificationToastState extends State<NotificationToast>
                               widget.onTap?.call();
                             },
                             child: Container(
-                              padding: const EdgeInsets.all(4),
+                              padding: const EdgeInsets.all(
+                                AppSizes.notificationToastActionPadding,
+                              ),
                               decoration: BoxDecoration(
-                                color: Colors.blue,
-                                borderRadius: BorderRadius.circular(4),
+                                color: AppColors.notificationToastActionBackground,
+                                borderRadius: BorderRadius.circular(
+                                  AppSizes.notificationToastActionRadius,
+                                ),
                               ),
                               child: const Icon(
                                 Icons.visibility,
-                                size: 12,
-                                color: Colors.white,
+                                size: AppSizes.notificationToastActionIconSize,
+                                color: AppColors.notificationToastActionIconColor,
                               ),
                             ),
                           )
@@ -154,8 +169,8 @@ class _NotificationToastState extends State<NotificationToast>
                             onTap: _dismiss,
                             child: const Icon(
                               Icons.close,
-                              size: 16,
-                              color: Colors.grey,
+                              size: AppSizes.notificationToastCloseIconSize,
+                              color: AppColors.notificationToastCloseIconColor,
                             ),
                           ),
                       ],
@@ -177,64 +192,66 @@ class _NotificationToastState extends State<NotificationToast>
     switch (widget.notification.type) {
       case NotificationType.tripUpdate:
         iconData = Icons.directions_bus;
-        iconColor = Colors.blue;
+        iconColor = AppColors.notificationTypeTripUpdate;
         break;
       case NotificationType.arrivalNotification:
         iconData = Icons.location_on;
-        iconColor = Colors.green;
+        iconColor = AppColors.notificationTypeArrival;
         break;
       case NotificationType.pickupConfirmation:
         iconData = Icons.person_add;
-        iconColor = Colors.orange;
+        iconColor = AppColors.notificationTypePickup;
         break;
       case NotificationType.dropConfirmation:
         iconData = Icons.person_remove;
-        iconColor = Colors.purple;
+        iconColor = AppColors.notificationTypeDrop;
         break;
       case NotificationType.delayNotification:
         iconData = Icons.schedule;
-        iconColor = Colors.red;
+        iconColor = AppColors.notificationTypeDelay;
         break;
       case NotificationType.systemAlert:
         iconData = Icons.warning;
-        iconColor = Colors.red;
+        iconColor = AppColors.notificationTypeSystemAlert;
         break;
       case NotificationType.attendanceUpdate:
         iconData = Icons.school;
-        iconColor = Colors.indigo;
+        iconColor = AppColors.notificationTypeAttendance;
         break;
       case NotificationType.vehicleStatusUpdate:
         iconData = Icons.directions_car;
-        iconColor = Colors.teal;
+        iconColor = AppColors.notificationTypeVehicleStatus;
         break;
       case NotificationType.vehicleAssignmentRequest:
         iconData = Icons.assignment;
-        iconColor = Colors.deepPurple;
+        iconColor = AppColors.notificationTypeAssignmentRequest;
         break;
       case NotificationType.vehicleAssignmentApproved:
         iconData = Icons.check_circle;
-        iconColor = Colors.teal;
+        iconColor = AppColors.notificationTypeAssignmentApproved;
         break;
       case NotificationType.vehicleAssignmentRejected:
         iconData = Icons.cancel;
-        iconColor = Colors.deepOrange;
+        iconColor = AppColors.notificationTypeAssignmentRejected;
         break;
       case NotificationType.connectionEstablished:
         iconData = Icons.wifi;
-        iconColor = Colors.lightGreen;
+        iconColor = AppColors.notificationTypeConnectionEstablished;
         break;
       default:
         iconData = Icons.notifications;
-        iconColor = Colors.grey;
+        iconColor = AppColors.notificationTypeDefault;
     }
 
     return CircleAvatar(
-      radius: 20,
-      backgroundColor: iconColor.withOpacity(0.1),
+      radius: AppSizes.notificationToastIconRadius,
+      backgroundColor: iconColor.withValues(
+        alpha: AppSizes.notificationToastIconOpacity,
+      ),
       child: Icon(
         iconData,
         color: iconColor,
-        size: 20,
+        size: AppSizes.notificationToastIconSize,
       ),
     );
   }
@@ -244,21 +261,21 @@ class _NotificationToastState extends State<NotificationToast>
 
     switch (widget.notification.priority) {
       case NotificationPriority.high:
-        priorityColor = Colors.red;
+        priorityColor = AppColors.notificationPriorityHigh;
         break;
       case NotificationPriority.medium:
-        priorityColor = Colors.orange;
+        priorityColor = AppColors.notificationPriorityMedium;
         break;
       case NotificationPriority.low:
-        priorityColor = Colors.green;
+        priorityColor = AppColors.notificationPriorityLow;
         break;
       default:
-        priorityColor = Colors.grey;
+        priorityColor = AppColors.notificationPriorityDefault;
     }
 
     return Container(
-      width: 8,
-      height: 8,
+      width: AppSizes.notificationToastPrioritySize,
+      height: AppSizes.notificationToastPrioritySize,
       decoration: BoxDecoration(
         color: priorityColor,
         shape: BoxShape.circle,
@@ -284,11 +301,12 @@ class _NotificationToastState extends State<NotificationToast>
 
     overlayEntry = OverlayEntry(
       builder: (context) => Positioned(
-        top: MediaQuery.of(context).padding.top + 10,
-        left: 16,
-        right: 16,
+        top: MediaQuery.of(context).padding.top + 
+             AppSizes.notificationToastOverlayTop,
+        left: AppSizes.notificationToastOverlaySide,
+        right: AppSizes.notificationToastOverlaySide,
         child: Material(
-          color: Colors.transparent,
+          color: AppColors.notificationToastTransparent,
           child: NotificationToast(
             notification: notification,
             onTap: onTap,
@@ -304,10 +322,13 @@ class _NotificationToastState extends State<NotificationToast>
     overlay.insert(overlayEntry);
 
     // Auto-dismiss after 5 seconds
-    Timer(const Duration(seconds: 5), () {
-      if (overlayEntry.mounted) {
-        overlayEntry.remove();
-      }
-    });
+    Timer(
+      const Duration(seconds: AppSizes.notificationToastAutoDismissSec),
+      () {
+        if (overlayEntry.mounted) {
+          overlayEntry.remove();
+        }
+      },
+    );
   }
 }

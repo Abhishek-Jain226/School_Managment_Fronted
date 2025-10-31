@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../data/models/websocket_notification.dart';
+import '../../utils/constants.dart';
 
 class NotificationCard extends StatelessWidget {
   final WebSocketNotification notification;
@@ -16,19 +17,24 @@ class NotificationCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      elevation: 2,
+      margin: const EdgeInsets.symmetric(
+        horizontal: AppSizes.notificationCardMarginHorizontal,
+        vertical: AppSizes.notificationCardMarginVertical,
+      ),
+      elevation: AppSizes.notificationCardElevation,
       child: Dismissible(
         key: Key(notification.id),
         direction: DismissDirection.endToStart,
         onDismissed: (_) => onDismiss?.call(),
         background: Container(
           alignment: Alignment.centerRight,
-          padding: const EdgeInsets.only(right: 20),
-          color: Colors.red,
+          padding: const EdgeInsets.only(
+            right: AppSizes.notificationCardDismissPadding,
+          ),
+          color: AppColors.notificationCardDismissBackground,
           child: const Icon(
             Icons.delete,
-            color: Colors.white,
+            color: AppColors.notificationCardDismissIconColor,
           ),
         ),
         child: ListTile(
@@ -38,7 +44,7 @@ class NotificationCard extends StatelessWidget {
             notification.title,
             style: const TextStyle(
               fontWeight: FontWeight.bold,
-              fontSize: 16,
+              fontSize: AppSizes.notificationCardTitleFontSize,
             ),
           ),
           subtitle: Column(
@@ -46,16 +52,18 @@ class NotificationCard extends StatelessWidget {
             children: [
               Text(
                 notification.message,
-                style: const TextStyle(fontSize: 14),
-                maxLines: 2,
+                style: const TextStyle(
+                  fontSize: AppSizes.notificationCardMessageFontSize,
+                ),
+                maxLines: AppSizes.notificationCardMaxLines,
                 overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: AppSizes.notificationCardSpacing),
               Text(
                 _formatTimestamp(notification.timestamp),
                 style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[600],
+                  fontSize: AppSizes.notificationCardTimeFontSize,
+                  color: AppColors.notificationCardTimeColor,
                 ),
               ),
             ],
@@ -74,47 +82,49 @@ class NotificationCard extends StatelessWidget {
     switch (notification.type) {
       case NotificationType.tripUpdate:
         iconData = Icons.directions_bus;
-        iconColor = Colors.blue;
+        iconColor = AppColors.notificationTypeTripUpdate;
         break;
       case NotificationType.arrivalNotification:
         iconData = Icons.location_on;
-        iconColor = Colors.green;
+        iconColor = AppColors.notificationTypeArrival;
         break;
       case NotificationType.pickupConfirmation:
         iconData = Icons.person_add;
-        iconColor = Colors.orange;
+        iconColor = AppColors.notificationTypePickup;
         break;
       case NotificationType.dropConfirmation:
         iconData = Icons.person_remove;
-        iconColor = Colors.purple;
+        iconColor = AppColors.notificationTypeDrop;
         break;
       case NotificationType.delayNotification:
         iconData = Icons.schedule;
-        iconColor = Colors.red;
+        iconColor = AppColors.notificationTypeDelay;
         break;
       case NotificationType.systemAlert:
         iconData = Icons.warning;
-        iconColor = Colors.red;
+        iconColor = AppColors.notificationTypeSystemAlert;
         break;
       case NotificationType.attendanceUpdate:
         iconData = Icons.school;
-        iconColor = Colors.indigo;
+        iconColor = AppColors.notificationTypeAttendance;
         break;
       case NotificationType.vehicleStatusUpdate:
         iconData = Icons.directions_car;
-        iconColor = Colors.teal;
+        iconColor = AppColors.notificationTypeVehicleStatus;
         break;
       default:
         iconData = Icons.notifications;
-        iconColor = Colors.grey;
+        iconColor = AppColors.notificationTypeDefault;
     }
 
     return CircleAvatar(
-      backgroundColor: iconColor.withOpacity(0.1),
+      backgroundColor: iconColor.withValues(
+        alpha: AppSizes.notificationCardIconOpacity,
+      ),
       child: Icon(
         iconData,
         color: iconColor,
-        size: 20,
+        size: AppSizes.notificationCardIconSize,
       ),
     );
   }
@@ -125,19 +135,19 @@ class NotificationCard extends StatelessWidget {
 
     switch (notification.priority) {
       case NotificationPriority.high:
-        priorityColor = Colors.red;
+        priorityColor = AppColors.notificationPriorityHigh;
         priorityIcon = Icons.priority_high;
         break;
       case NotificationPriority.medium:
-        priorityColor = Colors.orange;
+        priorityColor = AppColors.notificationPriorityMedium;
         priorityIcon = Icons.remove;
         break;
       case NotificationPriority.low:
-        priorityColor = Colors.green;
+        priorityColor = AppColors.notificationPriorityLow;
         priorityIcon = Icons.keyboard_arrow_down;
         break;
       default:
-        priorityColor = Colors.grey;
+        priorityColor = AppColors.notificationPriorityDefault;
         priorityIcon = Icons.remove;
     }
 
@@ -147,14 +157,14 @@ class NotificationCard extends StatelessWidget {
         Icon(
           priorityIcon,
           color: priorityColor,
-          size: 16,
+          size: AppSizes.notificationCardPriorityIconSize,
         ),
         if (!notification.isRead)
           Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              color: Colors.blue,
+            width: AppSizes.notificationCardUnreadIndicatorSize,
+            height: AppSizes.notificationCardUnreadIndicatorSize,
+            decoration: const BoxDecoration(
+              color: AppColors.notificationCardUnreadIndicator,
               shape: BoxShape.circle,
             ),
           ),
@@ -166,14 +176,14 @@ class NotificationCard extends StatelessWidget {
     final now = DateTime.now();
     final difference = now.difference(timestamp);
 
-    if (difference.inMinutes < 1) {
-      return 'Just now';
-    } else if (difference.inMinutes < 60) {
-      return '${difference.inMinutes}m ago';
-    } else if (difference.inHours < 24) {
-      return '${difference.inHours}h ago';
+    if (difference.inMinutes < AppSizes.notificationTimeThresholdMinutes) {
+      return AppConstants.labelJustNow;
+    } else if (difference.inMinutes < AppSizes.notificationTimeThresholdHours) {
+      return '${difference.inMinutes}${AppConstants.labelMinutesAgo}';
+    } else if (difference.inHours < AppSizes.notificationTimeThresholdDays) {
+      return '${difference.inHours}${AppConstants.labelHoursAgo}';
     } else {
-      return '${difference.inDays}d ago';
+      return '${difference.inDays}${AppConstants.labelDaysAgo}';
     }
   }
 }

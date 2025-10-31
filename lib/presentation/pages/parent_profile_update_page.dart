@@ -1,9 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/parent_service.dart';
+import '../../utils/constants.dart';
+import '../../bloc/parent/parent_bloc.dart';
+import '../../bloc/parent/parent_event.dart';
+import '../../bloc/parent/parent_state.dart';
+import '../../bloc/auth/auth_bloc.dart';
+import '../../bloc/auth/auth_state.dart';
 
 class ParentProfileUpdatePage extends StatefulWidget {
-  const ParentProfileUpdatePage({super.key});
+  final Map<String, dynamic>? profileData;
+  
+  const ParentProfileUpdatePage({super.key, this.profileData});
 
   @override
   State<ParentProfileUpdatePage> createState() => _ParentProfileUpdatePageState();
@@ -33,7 +42,22 @@ class _ParentProfileUpdatePageState extends State<ParentProfileUpdatePage> {
   @override
   void initState() {
     super.initState();
-    _loadUserId();
+    // If profile data passed from navigation, use it; otherwise load via BLoC
+    if (widget.profileData != null) {
+      _loadProfileData(widget.profileData!);
+    } else {
+      _loadUserId();
+    }
+  }
+  
+  void _loadProfileData(Map<String, dynamic> profileData) {
+    // Extract profile data from response
+    final data = profileData[AppConstants.keyData] ?? profileData;
+    setState(() {
+      _userNameController.text = data['parentName'] ?? data['name'] ?? data['userName'] ?? '';
+      _emailController.text = data['email'] ?? '';
+      _contactNumberController.text = data['contactNumber'] ?? data['phone'] ?? '';
+    });
   }
 
   @override
@@ -50,14 +74,14 @@ class _ParentProfileUpdatePageState extends State<ParentProfileUpdatePage> {
   Future<void> _loadUserId() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      _userId = prefs.getInt('userId');
+      _userId = prefs.getInt(AppConstants.keyUserId);
     });
     
     if (_userId != null) {
       _loadUserData();
     } else {
       setState(() {
-        _error = 'User ID not found. Please login again.';
+        _error = AppConstants.msgUserIdNotFoundLogin;
         _isLoading = false;
       });
     }
@@ -69,21 +93,42 @@ class _ParentProfileUpdatePageState extends State<ParentProfileUpdatePage> {
     setState(() => _isLoading = true);
     
     try {
-      // Get parent data by userId
+      // Try to get parent profile via BLoC first
+      final authState = context.read<AuthBloc>().state;
+      if (authState is AuthAuthenticated && authState.userId != null) {
+        // Request profile via BLoC
+        context.read<ParentBloc>().add(
+          ParentProfileRequested(parentId: authState.userId!),
+        );
+        // Wait for BLoC to load profile, or fallback to direct service call
+      }
+      
+      // Fallback: Get parent data by userId directly
       final response = await _parentService.getParentByUserId(_userId!);
       
       if (response['success'] == true && response['data'] != null) {
         final data = response['data'];
         setState(() {
-          _userNameController.text = data['parentName'] ?? '';
+          _userNameController.text = data['parentName'] ?? data['name'] ?? data['userName'] ?? '';
           _emailController.text = data['email'] ?? '';
-          _contactNumberController.text = data['contactNumber'] ?? '';
+          _contactNumberController.text = data['contactNumber'] ?? data['phone'] ?? '';
         });
+      } else {
+        // Try getParentProfile as fallback
+        final profileResponse = await _parentService.getParentProfile(_userId!);
+        if (profileResponse['success'] == true) {
+          final profileData = profileResponse[AppConstants.keyData] ?? profileResponse;
+          setState(() {
+            _userNameController.text = profileData['parentName'] ?? profileData['name'] ?? profileData['userName'] ?? '';
+            _emailController.text = profileData['email'] ?? '';
+            _contactNumberController.text = profileData['contactNumber'] ?? profileData['phone'] ?? '';
+          });
+        }
       }
     } catch (e) {
-      print('🔍 Error loading user data: $e');
+      debugPrint('🔍 Error loading user data: $e');
       setState(() {
-        _error = 'Error loading user data: $e';
+        _error = '${AppConstants.msgErrorLoadingUserData}$e';
       });
     } finally {
       setState(() => _isLoading = false);
@@ -94,13 +139,14 @@ class _ParentProfileUpdatePageState extends State<ParentProfileUpdatePage> {
     if (!_formKey.currentState!.validate()) return;
     
     setState(() => _isSaving = true);
+    _error = ''; // Clear previous errors
     
     try {
       final request = {
         'userName': _userNameController.text.trim(),
         'email': _emailController.text.trim(),
         'contactNumber': _contactNumberController.text.trim(),
-        'createdBy': 'PARENT', // or get from user data
+        'createdBy': 'PARENT',
       };
       
       // Add password if provided
@@ -108,68 +154,120 @@ class _ParentProfileUpdatePageState extends State<ParentProfileUpdatePage> {
         request['password'] = _newPasswordController.text.trim();
       }
       
-      final response = await _parentService.updateParentProfile(_userId!, request);
-      
-      if (response['success'] == true) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Profile updated successfully!'),
-            backgroundColor: Colors.green,
+      // Use BLoC to update profile
+      final authState = context.read<AuthBloc>().state;
+      if (authState is AuthAuthenticated && authState.userId != null) {
+        context.read<ParentBloc>().add(
+          ParentUpdateRequested(
+            parentId: authState.userId!,
+            parentData: request,
           ),
         );
-        
-        // Clear password fields
-        _currentPasswordController.clear();
-        _newPasswordController.clear();
-        _confirmPasswordController.clear();
-        
-        // Go back to dashboard
-        Navigator.pop(context);
+        // State updates will be handled by BlocListener
       } else {
-        setState(() {
-          _error = response['message'] ?? 'Failed to update profile';
-        });
+        // Fallback to direct service call
+        final response = await _parentService.updateParentProfile(_userId!, request);
+        
+        if (response['success'] == true) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(AppConstants.msgProfileUpdatedSuccessfully),
+              backgroundColor: AppColors.statusSuccess,
+            ),
+          );
+          
+          // Clear password fields
+          _currentPasswordController.clear();
+          _newPasswordController.clear();
+          _confirmPasswordController.clear();
+          
+          // Go back to dashboard
+          Navigator.pop(context);
+        } else {
+          setState(() {
+            _error = response['message'] ?? AppConstants.msgFailedToUpdateProfile;
+            _isSaving = false;
+          });
+        }
       }
     } catch (e) {
-      print('🔍 Error updating profile: $e');
+      debugPrint('🔍 Error updating profile: $e');
       setState(() {
-        _error = 'Error updating profile: $e';
+        _error = '${AppConstants.msgErrorUpdatingProfile}$e';
+        _isSaving = false;
       });
-    } finally {
-      setState(() => _isSaving = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Row(
-          children: [
-            Icon(Icons.edit, size: 28),
-            SizedBox(width: 8),
-            Text("Update Profile"),
-          ],
+    return BlocListener<ParentBloc, ParentState>(
+      listener: (context, state) {
+        if (state is ParentProfileLoaded) {
+          // Load profile data from BLoC
+          _loadProfileData(state.profile);
+          setState(() => _isLoading = false);
+        } else if (state is ParentError && state.actionType == AppConstants.actionTypeLoadProfile) {
+          setState(() {
+            _error = state.message;
+            _isLoading = false;
+          });
+        } else if (state is ParentActionSuccess && state.actionType == AppConstants.actionTypeUpdateProfile) {
+          // Profile updated successfully
+          setState(() {
+            _isSaving = false;
+          });
+          
+          // Clear password fields
+          _currentPasswordController.clear();
+          _newPasswordController.clear();
+          _confirmPasswordController.clear();
+          
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(state.message),
+                backgroundColor: AppColors.statusSuccess,
+              ),
+            );
+            Navigator.pop(context);
+          }
+        } else if (state is ParentError && state.actionType == AppConstants.actionTypeUpdateProfile) {
+          setState(() {
+            _error = state.message;
+            _isSaving = false;
+          });
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Row(
+            children: [
+              Icon(Icons.edit, size: AppSizes.parentProfileIconSize),
+              SizedBox(width: AppSizes.parentProfileIconSpacing),
+              Text(AppConstants.labelUpdateProfile),
+            ],
+          ),
         ),
-      ),
-      body: _isLoading
+        body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error.isNotEmpty && _userNameController.text.isEmpty
               ? Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(_error, style: const TextStyle(color: Colors.red, fontSize: 16)),
-                      const SizedBox(height: 10),
+                      Text(_error, style: const TextStyle(color: AppColors.errorColor, fontSize: AppSizes.parentProfileErrorFontSize)),
+                      const SizedBox(height: AppSizes.parentProfileErrorSpacing),
                       ElevatedButton(
                         onPressed: _loadUserData,
-                        child: const Text('Retry'),
+                        child: const Text(AppConstants.labelRetry),
                       ),
                     ],
                   ),
                 )
               : SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(AppSizes.parentProfilePadding),
                   child: Form(
                     key: _formKey,
                     child: Column(
@@ -179,86 +277,86 @@ class _ParentProfileUpdatePageState extends State<ParentProfileUpdatePage> {
                         if (_error.isNotEmpty)
                           Container(
                             width: double.infinity,
-                            padding: const EdgeInsets.all(12),
-                            margin: const EdgeInsets.only(bottom: 16),
+                            padding: const EdgeInsets.all(AppSizes.parentProfileErrorPadding),
+                            margin: const EdgeInsets.only(bottom: AppSizes.parentProfileSpacing),
                             decoration: BoxDecoration(
-                              color: Colors.red.withOpacity(0.1),
-                              border: Border.all(color: Colors.red),
-                              borderRadius: BorderRadius.circular(8),
+                              color: AppColors.errorColor.withValues(alpha: AppSizes.parentProfileErrorOpacity),
+                              border: Border.all(color: AppColors.errorColor),
+                              borderRadius: BorderRadius.circular(AppSizes.parentProfileErrorRadius),
                             ),
                             child: Text(
                               _error,
-                              style: const TextStyle(color: Colors.red),
+                              style: const TextStyle(color: AppColors.errorColor),
                             ),
                           ),
                         
                         // Profile Information Card
                         Card(
-                          elevation: 3,
+                          elevation: AppSizes.parentProfileCardElevation,
                           child: Padding(
-                            padding: const EdgeInsets.all(16),
+                            padding: const EdgeInsets.all(AppSizes.parentProfilePadding),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 const Text(
-                                  "Profile Information",
-                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                  AppConstants.labelProfileInformation,
+                                  style: TextStyle(fontSize: AppSizes.parentProfileTitleFontSize, fontWeight: FontWeight.bold),
                                 ),
-                                const SizedBox(height: 16),
+                                const SizedBox(height: AppSizes.parentProfileSpacing),
                                 
                                 // User Name
                                 TextFormField(
                                   controller: _userNameController,
                                   decoration: const InputDecoration(
-                                    labelText: 'Full Name',
+                                    labelText: AppConstants.labelFullName,
                                     prefixIcon: Icon(Icons.person),
                                     border: OutlineInputBorder(),
                                   ),
                                   validator: (value) {
                                     if (value == null || value.trim().isEmpty) {
-                                      return 'Please enter your full name';
+                                      return AppConstants.msgEnterFullName;
                                     }
                                     return null;
                                   },
                                 ),
-                                const SizedBox(height: 16),
+                                const SizedBox(height: AppSizes.parentProfileSpacing),
                                 
                                 // Email
                                 TextFormField(
                                   controller: _emailController,
                                   decoration: const InputDecoration(
-                                    labelText: 'Email',
+                                    labelText: AppConstants.labelEmail,
                                     prefixIcon: Icon(Icons.email),
                                     border: OutlineInputBorder(),
                                   ),
                                   keyboardType: TextInputType.emailAddress,
                                   validator: (value) {
                                     if (value == null || value.trim().isEmpty) {
-                                      return 'Please enter your email';
+                                      return AppConstants.msgEnterEmail;
                                     }
                                     if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
-                                      return 'Please enter a valid email';
+                                      return AppConstants.msgEnterValidEmail;
                                     }
                                     return null;
                                   },
                                 ),
-                                const SizedBox(height: 16),
+                                const SizedBox(height: AppSizes.parentProfileSpacing),
                                 
                                 // Contact Number
                                 TextFormField(
                                   controller: _contactNumberController,
                                   decoration: const InputDecoration(
-                                    labelText: 'Contact Number',
+                                    labelText: AppConstants.labelContactNumber,
                                     prefixIcon: Icon(Icons.phone),
                                     border: OutlineInputBorder(),
                                   ),
                                   keyboardType: TextInputType.phone,
                                   validator: (value) {
                                     if (value == null || value.trim().isEmpty) {
-                                      return 'Please enter your contact number';
+                                      return AppConstants.msgEnterContactNumber;
                                     }
-                                    if (value.length < 10) {
-                                      return 'Contact number must be at least 10 digits';
+                                    if (value.length < AppSizes.parentProfileContactMinLength) {
+                                      return AppConstants.msgContactNumberMinLength;
                                     }
                                     return null;
                                   },
@@ -267,32 +365,32 @@ class _ParentProfileUpdatePageState extends State<ParentProfileUpdatePage> {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: AppSizes.parentProfileSpacing),
                         
                         // Password Change Card
                         Card(
-                          elevation: 3,
+                          elevation: AppSizes.parentProfileCardElevation,
                           child: Padding(
-                            padding: const EdgeInsets.all(16),
+                            padding: const EdgeInsets.all(AppSizes.parentProfilePadding),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 const Text(
-                                  "Change Password (Optional)",
-                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                  AppConstants.labelChangePasswordOptional,
+                                  style: TextStyle(fontSize: AppSizes.parentProfileTitleFontSize, fontWeight: FontWeight.bold),
                                 ),
-                                const SizedBox(height: 8),
+                                const SizedBox(height: AppSizes.parentProfileSpacingSM),
                                 const Text(
-                                  "Leave password fields empty if you don't want to change password",
-                                  style: TextStyle(color: Colors.grey, fontSize: 12),
+                                  AppConstants.labelPasswordHint,
+                                  style: TextStyle(color: AppColors.textSecondary, fontSize: AppSizes.parentProfileHintFontSize),
                                 ),
-                                const SizedBox(height: 16),
+                                const SizedBox(height: AppSizes.parentProfileSpacing),
                                 
                                 // Current Password
                                 TextFormField(
                                   controller: _currentPasswordController,
                                   decoration: InputDecoration(
-                                    labelText: 'Current Password',
+                                    labelText: AppConstants.labelCurrentPassword,
                                     prefixIcon: const Icon(Icons.lock),
                                     border: const OutlineInputBorder(),
                                     suffixIcon: IconButton(
@@ -306,13 +404,13 @@ class _ParentProfileUpdatePageState extends State<ParentProfileUpdatePage> {
                                   ),
                                   obscureText: _obscureCurrentPassword,
                                 ),
-                                const SizedBox(height: 16),
+                                const SizedBox(height: AppSizes.parentProfileSpacing),
                                 
                                 // New Password
                                 TextFormField(
                                   controller: _newPasswordController,
                                   decoration: InputDecoration(
-                                    labelText: 'New Password',
+                                    labelText: AppConstants.labelNewPassword,
                                     prefixIcon: const Icon(Icons.lock_outline),
                                     border: const OutlineInputBorder(),
                                     suffixIcon: IconButton(
@@ -327,20 +425,20 @@ class _ParentProfileUpdatePageState extends State<ParentProfileUpdatePage> {
                                   obscureText: _obscureNewPassword,
                                   validator: (value) {
                                     if (_newPasswordController.text.isNotEmpty) {
-                                      if (value == null || value.length < 6) {
-                                        return 'Password must be at least 6 characters';
+                                      if (value == null || value.length < AppSizes.parentProfilePasswordMinLength) {
+                                        return AppConstants.msgPasswordMinLength;
                                       }
                                     }
                                     return null;
                                   },
                                 ),
-                                const SizedBox(height: 16),
+                                const SizedBox(height: AppSizes.parentProfileSpacing),
                                 
                                 // Confirm Password
                                 TextFormField(
                                   controller: _confirmPasswordController,
                                   decoration: InputDecoration(
-                                    labelText: 'Confirm New Password',
+                                    labelText: AppConstants.labelConfirmNewPassword,
                                     prefixIcon: const Icon(Icons.lock_outline),
                                     border: const OutlineInputBorder(),
                                     suffixIcon: IconButton(
@@ -356,7 +454,7 @@ class _ParentProfileUpdatePageState extends State<ParentProfileUpdatePage> {
                                   validator: (value) {
                                     if (_newPasswordController.text.isNotEmpty) {
                                       if (value != _newPasswordController.text) {
-                                        return 'Passwords do not match';
+                                        return AppConstants.msgPasswordsDoNotMatch;
                                       }
                                     }
                                     return null;
@@ -366,37 +464,37 @@ class _ParentProfileUpdatePageState extends State<ParentProfileUpdatePage> {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: AppSizes.parentProfileSpacingLG),
                         
                         // Save Button
                         SizedBox(
                           width: double.infinity,
-                          height: 50,
+                          height: AppSizes.parentProfileButtonHeight,
                           child: ElevatedButton(
                             onPressed: _isSaving ? null : _updateProfile,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.blue,
-                              foregroundColor: Colors.white,
+                              backgroundColor: AppColors.primaryColor,
+                              foregroundColor: AppColors.textWhite,
                             ),
                             child: _isSaving
                                 ? const Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
                                       SizedBox(
-                                        width: 20,
-                                        height: 20,
+                                        width: AppSizes.parentProfileLoadingSize,
+                                        height: AppSizes.parentProfileLoadingSize,
                                         child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                          strokeWidth: AppSizes.parentProfileLoadingStroke,
+                                          valueColor: AlwaysStoppedAnimation<Color>(AppColors.textWhite),
                                         ),
                                       ),
-                                      SizedBox(width: 12),
-                                      Text('Updating...'),
+                                      SizedBox(width: AppSizes.parentProfileLoadingSpacing),
+                                      Text(AppConstants.labelUpdating),
                                     ],
                                   )
                                 : const Text(
-                                    'Update Profile',
-                                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                    AppConstants.labelUpdateProfile,
+                                    style: TextStyle(fontSize: AppSizes.parentProfileButtonFontSize, fontWeight: FontWeight.bold),
                                   ),
                           ),
                         ),
@@ -404,6 +502,7 @@ class _ParentProfileUpdatePageState extends State<ParentProfileUpdatePage> {
                     ),
                   ),
                 ),
+      ),
     );
   }
 }

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
@@ -9,6 +8,7 @@ import '../../services/parent_service.dart';
 import '../../services/websocket_notification_service.dart';
 import '../../data/models/websocket_notification.dart' as websocket;
 import '../../data/models/trip.dart';
+import '../../utils/constants.dart';
 
 class EnhancedVehicleTrackingPage extends StatefulWidget {
   const EnhancedVehicleTrackingPage({super.key});
@@ -22,9 +22,8 @@ class _EnhancedVehicleTrackingPageState extends State<EnhancedVehicleTrackingPag
   final WebSocketNotificationService _webSocketService = WebSocketNotificationService();
   
   // Google Maps
-  GoogleMapController? _mapController;
-  Set<Marker> _markers = {};
-  Set<Polyline> _polylines = {};
+  final Set<Marker> _markers = {};
+  final Set<Polyline> _polylines = {};
   
   // State
   bool _isLoading = true;
@@ -48,8 +47,8 @@ class _EnhancedVehicleTrackingPageState extends State<EnhancedVehicleTrackingPag
 
   // Map settings
   static const CameraPosition _initialPosition = CameraPosition(
-    target: LatLng(28.6139, 77.2090), // Delhi coordinates as default
-    zoom: 15,
+    target: LatLng(AppConstants.defaultLatitude, AppConstants.defaultLongitude),
+    zoom: AppSizes.vehicleTrackingZoom,
   );
 
   @override
@@ -69,7 +68,7 @@ class _EnhancedVehicleTrackingPageState extends State<EnhancedVehicleTrackingPag
   Future<void> _loadUserId() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      _userId = prefs.getInt('userId');
+      _userId = prefs.getInt(AppConstants.keyUserId);
     });
     _loadActiveTrip();
   }
@@ -83,19 +82,19 @@ class _EnhancedVehicleTrackingPageState extends State<EnhancedVehicleTrackingPag
       _notificationSubscription = _webSocketService.notificationStream.listen(
         _handleWebSocketNotification,
         onError: (error) {
-          print('WebSocket error: $error');
+          debugPrint('${AppConstants.msgWebSocketError}$error');
           setState(() {
             _isConnected = false;
           });
         },
       );
       
-      print('🔌 WebSocket initialized for Enhanced Vehicle Tracking');
+      debugPrint(AppConstants.msgWebSocketInitializedVehicleTracking);
     });
   }
 
   void _handleWebSocketNotification(websocket.WebSocketNotification notification) {
-    print('🔔 Enhanced Vehicle Tracking - Received notification: ${notification.type} - ${notification.message}');
+    debugPrint('${AppConstants.msgReceivedNotificationVehicleTracking}${notification.type} - ${notification.message}');
     
     if (notification.type == websocket.NotificationType.locationUpdate) {
       _handleLocationUpdate(notification);
@@ -169,9 +168,9 @@ class _EnhancedVehicleTrackingPageState extends State<EnhancedVehicleTrackingPag
       });
       
     } catch (e) {
-      print('Error loading active trip: $e');
+      debugPrint('${AppConstants.msgErrorLoadingTrip}$e');
       setState(() {
-        _error = 'Failed to load trip data: $e';
+        _error = '${AppConstants.msgFailedToLoadTripData}$e';
         _isLoading = false;
       });
     }
@@ -184,15 +183,15 @@ class _EnhancedVehicleTrackingPageState extends State<EnhancedVehicleTrackingPag
     // In real implementation, you would get actual school/home coordinates
     if (_activeTrip!.tripType == 'MORNING_PICKUP') {
       // Going to school
-      _destinationLocation = const LatLng(28.6139, 77.2090); // School location
+      _destinationLocation = const LatLng(AppConstants.schoolLatitude, AppConstants.schoolLongitude);
     } else {
       // Going home
-      _destinationLocation = const LatLng(28.6141, 77.2092); // Home location
+      _destinationLocation = const LatLng(AppConstants.homeLatitude, AppConstants.homeLongitude);
     }
   }
 
   void _startETAUpdates() {
-    _etaUpdateTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+    _etaUpdateTimer = Timer.periodic(const Duration(seconds: AppConstants.etaUpdateSeconds), (timer) {
       _updateETA();
     });
   }
@@ -209,7 +208,7 @@ class _EnhancedVehicleTrackingPageState extends State<EnhancedVehicleTrackingPag
     );
     
     // Assume average speed of 30 km/h in city traffic
-    final estimatedMinutes = (distance / 1000) / 30 * 60;
+    final estimatedMinutes = (distance / 1000) / AppConstants.averageSpeedKmh * 60;
     
     final arrivalTime = DateTime.now().add(Duration(minutes: estimatedMinutes.round()));
     
@@ -228,7 +227,7 @@ class _EnhancedVehicleTrackingPageState extends State<EnhancedVehicleTrackingPag
         });
       }
     } catch (e) {
-      print('Error getting address: $e');
+      debugPrint('${AppConstants.msgErrorGettingAddress}$e');
     }
   }
 
@@ -242,8 +241,8 @@ class _EnhancedVehicleTrackingPageState extends State<EnhancedVehicleTrackingPag
           position: _driverLocation!,
           icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
           infoWindow: InfoWindow(
-            title: 'Driver Location',
-            snippet: _currentAddress ?? 'Current location',
+            title: AppConstants.labelDriverLocation,
+            snippet: _currentAddress ?? AppConstants.labelCurrentLocation,
           ),
         ),
       );
@@ -256,8 +255,8 @@ class _EnhancedVehicleTrackingPageState extends State<EnhancedVehicleTrackingPag
           position: _destinationLocation!,
           icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
           infoWindow: InfoWindow(
-            title: _activeTrip?.tripType == 'MORNING_PICKUP' ? 'School' : 'Home',
-            snippet: 'Destination',
+            title: _activeTrip?.tripType == 'MORNING_PICKUP' ? AppConstants.labelSchool : AppConstants.labelHome,
+            snippet: AppConstants.labelDestination,
           ),
         ),
       );
@@ -270,9 +269,12 @@ class _EnhancedVehicleTrackingPageState extends State<EnhancedVehicleTrackingPag
         Polyline(
           polylineId: const PolylineId('route'),
           points: [_driverLocation!, _destinationLocation!],
-          color: Colors.blue,
-          width: 4,
-          patterns: [PatternItem.dash(20), PatternItem.gap(10)],
+          color: AppColors.vehicleTrackingBlueColor,
+          width: AppSizes.vehicleTrackingPolylineWidth,
+          patterns: [
+            PatternItem.dash(AppSizes.vehicleTrackingPolylineDash),
+            PatternItem.gap(AppSizes.vehicleTrackingPolylineGap),
+          ],
         ),
       );
     }
@@ -281,7 +283,6 @@ class _EnhancedVehicleTrackingPageState extends State<EnhancedVehicleTrackingPag
   }
 
   void _onMapCreated(GoogleMapController controller) {
-    _mapController = controller;
     _updateMapMarkers();
   }
 
@@ -290,47 +291,47 @@ class _EnhancedVehicleTrackingPageState extends State<EnhancedVehicleTrackingPag
   }
 
   String _getTimeAgo(DateTime? dateTime) {
-    if (dateTime == null) return 'Unknown';
+    if (dateTime == null) return AppConstants.labelUnknown;
     
     final now = DateTime.now();
     final difference = now.difference(dateTime);
     
     if (difference.inMinutes < 1) {
-      return 'Just now';
+      return AppConstants.labelJustNow;
     } else if (difference.inMinutes < 60) {
-      return '${difference.inMinutes}m ago';
+      return '${difference.inMinutes}${AppConstants.labelMinutesAgo}';
     } else {
-      return '${difference.inHours}h ago';
+      return '${difference.inHours}${AppConstants.labelHoursAgo}';
     }
   }
 
   Color _getLocationStatusColor() {
-    if (_lastLocationUpdate == null) return Colors.grey;
+    if (_lastLocationUpdate == null) return AppColors.vehicleTrackingGreyColor;
     
     final now = DateTime.now();
     final difference = now.difference(_lastLocationUpdate!);
     
-    if (difference.inMinutes < 2) {
-      return Colors.green; // Live
-    } else if (difference.inMinutes < 5) {
-      return Colors.orange; // Recent
+    if (difference.inMinutes < AppConstants.locationLiveMinutes) {
+      return AppColors.vehicleTrackingGreenColor; // Live
+    } else if (difference.inMinutes < AppConstants.locationRecentMinutes) {
+      return AppColors.vehicleTrackingOrangeColor; // Recent
     } else {
-      return Colors.red; // Stale
+      return AppColors.vehicleTrackingRedColor; // Stale
     }
   }
 
   String _getLocationStatusText() {
-    if (_lastLocationUpdate == null) return 'No location data';
+    if (_lastLocationUpdate == null) return AppConstants.labelNoLocationData;
     
     final now = DateTime.now();
     final difference = now.difference(_lastLocationUpdate!);
     
-    if (difference.inMinutes < 2) {
-      return 'Live tracking';
-    } else if (difference.inMinutes < 5) {
-      return 'Recent update';
+    if (difference.inMinutes < AppConstants.locationLiveMinutes) {
+      return AppConstants.labelLiveTracking;
+    } else if (difference.inMinutes < AppConstants.locationRecentMinutes) {
+      return AppConstants.labelRecentUpdate;
     } else {
-      return 'Location may be outdated';
+      return AppConstants.labelLocationOutdated;
     }
   }
 
@@ -340,24 +341,24 @@ class _EnhancedVehicleTrackingPageState extends State<EnhancedVehicleTrackingPag
       appBar: AppBar(
         title: const Row(
           children: [
-            Icon(Icons.location_on, size: 24),
-            SizedBox(width: 8),
-            Text('Live Vehicle Tracking'),
+            Icon(Icons.location_on, size: AppSizes.vehicleTrackingAppBarIconSize),
+            SizedBox(width: AppSizes.vehicleTrackingAppBarSpacing),
+            Text(AppConstants.labelLiveVehicleTracking),
           ],
         ),
         actions: [
           // Connection status
           Icon(
             _isConnected ? Icons.wifi : Icons.wifi_off,
-            color: _isConnected ? Colors.green : Colors.red,
-            size: 20,
+            color: _isConnected ? AppColors.vehicleTrackingGreenColor : AppColors.vehicleTrackingRedColor,
+            size: AppSizes.vehicleTrackingWifiIconSize,
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: AppSizes.vehicleTrackingAppBarSpacing),
           // Refresh button
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadActiveTrip,
-            tooltip: 'Refresh',
+            tooltip: AppConstants.labelRefresh,
           ),
         ],
       ),
@@ -368,17 +369,17 @@ class _EnhancedVehicleTrackingPageState extends State<EnhancedVehicleTrackingPag
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.error, size: 64, color: Colors.red[300]),
-                      const SizedBox(height: 16),
+                      Icon(Icons.error, size: AppSizes.vehicleTrackingErrorIconSize, color: AppColors.vehicleTrackingRedColor),
+                      const SizedBox(height: AppSizes.vehicleTrackingErrorSpacing),
                       Text(
                         _error!,
-                        style: const TextStyle(fontSize: 16),
+                        style: const TextStyle(fontSize: AppSizes.vehicleTrackingErrorFontSize),
                         textAlign: TextAlign.center,
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: AppSizes.vehicleTrackingErrorSpacing),
                       ElevatedButton(
                         onPressed: _loadActiveTrip,
-                        child: const Text('Retry'),
+                        child: const Text(AppConstants.labelRetry),
                       ),
                     ],
                   ),
@@ -388,16 +389,16 @@ class _EnhancedVehicleTrackingPageState extends State<EnhancedVehicleTrackingPag
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.local_taxi, size: 64, color: Colors.grey[400]),
-                          const SizedBox(height: 16),
+                          Icon(Icons.local_taxi, size: AppSizes.vehicleTrackingNoTripIconSize, color: AppColors.vehicleTrackingGreyColor),
+                          const SizedBox(height: AppSizes.vehicleTrackingNoTripSpacing),
                           const Text(
-                            'No Active Trip',
-                            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                            AppConstants.labelNoActiveTrip,
+                            style: TextStyle(fontSize: AppSizes.vehicleTrackingNoTripTitleFontSize, fontWeight: FontWeight.bold),
                           ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Your child is not currently on any trip.',
-                            style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                          const SizedBox(height: AppSizes.vehicleTrackingAppBarSpacing),
+                          const Text(
+                            AppConstants.labelChildNotOnTrip,
+                            style: TextStyle(fontSize: AppSizes.vehicleTrackingNoTripMsgFontSize, color: AppColors.vehicleTrackingGreyColor),
                             textAlign: TextAlign.center,
                           ),
                         ],
@@ -408,8 +409,8 @@ class _EnhancedVehicleTrackingPageState extends State<EnhancedVehicleTrackingPag
                         // ETA and Status Bar
                         Container(
                           width: double.infinity,
-                          padding: const EdgeInsets.all(16),
-                          color: Colors.blue[50],
+                          padding: const EdgeInsets.all(AppSizes.vehicleTrackingBarPadding),
+                          color: AppColors.vehicleTrackingBlueColor.withValues(alpha: 0.1),
                           child: Column(
                             children: [
                               Row(
@@ -419,13 +420,13 @@ class _EnhancedVehicleTrackingPageState extends State<EnhancedVehicleTrackingPag
                                   _buildLocationStatus(),
                                 ],
                               ),
-                              const SizedBox(height: 8),
+                              const SizedBox(height: AppSizes.vehicleTrackingBarSpacing),
                               if (_currentAddress != null)
                                 Text(
                                   _currentAddress!,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey[600],
+                                  style: const TextStyle(
+                                    fontSize: AppSizes.vehicleTrackingAddressFontSize,
+                                    color: AppColors.vehicleTrackingGreyColor,
                                   ),
                                   textAlign: TextAlign.center,
                                 ),
@@ -452,16 +453,16 @@ class _EnhancedVehicleTrackingPageState extends State<EnhancedVehicleTrackingPag
                         
                         // Trip Information Panel
                         Container(
-                          height: 120,
-                          padding: const EdgeInsets.all(16),
+                          height: AppSizes.vehicleTrackingPanelHeight,
+                          padding: const EdgeInsets.all(AppSizes.vehicleTrackingPanelPadding),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: AppColors.vehicleTrackingWhiteColor,
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.grey.withOpacity(0.3),
-                                spreadRadius: 1,
-                                blurRadius: 5,
-                                offset: const Offset(0, -2),
+                                color: AppColors.vehicleTrackingGreyColor.withValues(alpha: AppConstants.locationOpacity),
+                                spreadRadius: AppSizes.vehicleTrackingPanelSpreadRadius,
+                                blurRadius: AppSizes.vehicleTrackingPanelBlurRadius,
+                                offset: const Offset(0, AppSizes.vehicleTrackingPanelOffsetY),
                               ),
                             ],
                           ),
@@ -471,17 +472,17 @@ class _EnhancedVehicleTrackingPageState extends State<EnhancedVehicleTrackingPag
                                 children: [
                                   Icon(
                                     _activeTrip!.tripType == 'MORNING_PICKUP' ? Icons.wb_sunny : Icons.wb_twilight,
-                                    color: _activeTrip!.tripType == 'MORNING_PICKUP' ? Colors.orange : Colors.blue,
-                                    size: 20,
+                                    color: _activeTrip!.tripType == 'MORNING_PICKUP' ? AppColors.vehicleTrackingOrangeColor : AppColors.vehicleTrackingBlueColor,
+                                    size: AppSizes.vehicleTrackingTripIconSize,
                                   ),
-                                  const SizedBox(width: 8),
+                                  const SizedBox(width: AppSizes.vehicleTrackingTripIconSpacing),
                                   Text(
-                                    _activeTrip!.tripType == 'MORNING_PICKUP' ? 'Morning Pickup' : 'Afternoon Drop',
-                                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                    _activeTrip!.tripType == 'MORNING_PICKUP' ? AppConstants.labelMorningPickup : AppConstants.labelAfternoonDrop,
+                                    style: const TextStyle(fontSize: AppSizes.vehicleTrackingTripTitleFontSize, fontWeight: FontWeight.bold),
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 8),
+                              const SizedBox(height: AppSizes.vehicleTrackingTripInfoSpacing),
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
@@ -489,12 +490,12 @@ class _EnhancedVehicleTrackingPageState extends State<EnhancedVehicleTrackingPag
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        'Driver: ${_driverName ?? 'Unknown'}',
-                                        style: const TextStyle(fontSize: 14),
+                                        '${AppConstants.labelDriver}${_driverName ?? AppConstants.labelUnknown}',
+                                        style: const TextStyle(fontSize: AppSizes.vehicleTrackingTripInfoFontSize),
                                       ),
                                       Text(
-                                        'Vehicle: ${_vehicleNumber ?? 'Unknown'}',
-                                        style: const TextStyle(fontSize: 14),
+                                        '${AppConstants.labelVehicle}${_vehicleNumber ?? AppConstants.labelUnknown}',
+                                        style: const TextStyle(fontSize: AppSizes.vehicleTrackingTripInfoFontSize),
                                       ),
                                     ],
                                   ),
@@ -502,12 +503,12 @@ class _EnhancedVehicleTrackingPageState extends State<EnhancedVehicleTrackingPag
                                     crossAxisAlignment: CrossAxisAlignment.end,
                                     children: [
                                       Text(
-                                        'Status: ${_activeTrip!.tripStatus ?? 'Unknown'}',
-                                        style: const TextStyle(fontSize: 14),
+                                        '${AppConstants.labelStatus}${_activeTrip!.tripStatus ?? AppConstants.labelUnknown}',
+                                        style: const TextStyle(fontSize: AppSizes.vehicleTrackingTripInfoFontSize),
                                       ),
                                       Text(
-                                        'Students: ${_activeTrip!.students.length}',
-                                        style: const TextStyle(fontSize: 14),
+                                        '${AppConstants.labelStudentsCount}${_activeTrip!.students.length}',
+                                        style: const TextStyle(fontSize: AppSizes.vehicleTrackingTripInfoFontSize),
                                       ),
                                     ],
                                   ),
@@ -524,15 +525,15 @@ class _EnhancedVehicleTrackingPageState extends State<EnhancedVehicleTrackingPag
   Widget _buildETAInfo() {
     return Column(
       children: [
-        const Icon(Icons.access_time, color: Colors.blue, size: 24),
-        const SizedBox(height: 4),
-        Text(
-          'ETA',
-          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+        const Icon(Icons.access_time, color: AppColors.vehicleTrackingBlueColor, size: AppSizes.vehicleTrackingETAIconSize),
+        const SizedBox(height: AppSizes.vehicleTrackingETASpacing),
+        const Text(
+          AppConstants.labelETA,
+          style: TextStyle(fontSize: AppSizes.vehicleTrackingETALabelFontSize, color: AppColors.vehicleTrackingGreyColor),
         ),
         Text(
-          _estimatedArrivalTime ?? 'Calculating...',
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue),
+          _estimatedArrivalTime ?? AppConstants.labelCalculating,
+          style: const TextStyle(fontSize: AppSizes.vehicleTrackingETAValueFontSize, fontWeight: FontWeight.bold, color: AppColors.vehicleTrackingBlueColor),
         ),
       ],
     );
@@ -542,22 +543,22 @@ class _EnhancedVehicleTrackingPageState extends State<EnhancedVehicleTrackingPag
     return Column(
       children: [
         Container(
-          width: 12,
-          height: 12,
+          width: AppSizes.vehicleTrackingStatusDotSize,
+          height: AppSizes.vehicleTrackingStatusDotSize,
           decoration: BoxDecoration(
             color: _getLocationStatusColor(),
             shape: BoxShape.circle,
           ),
         ),
-        const SizedBox(height: 4),
-        Text(
-          'Status',
-          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+        const SizedBox(height: AppSizes.vehicleTrackingETASpacing),
+        const Text(
+          AppConstants.labelStatus,
+          style: TextStyle(fontSize: AppSizes.vehicleTrackingStatusFontSize, color: AppColors.vehicleTrackingGreyColor),
         ),
         Text(
           _getLocationStatusText(),
           style: TextStyle(
-            fontSize: 12,
+            fontSize: AppSizes.vehicleTrackingStatusFontSize,
             fontWeight: FontWeight.w500,
             color: _getLocationStatusColor(),
           ),

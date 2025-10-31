@@ -5,6 +5,8 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../config/app_config.dart';
+import '../../utils/constants.dart';
+
 
 class SchoolProfilePage extends StatefulWidget {
   const SchoolProfilePage({super.key});
@@ -43,8 +45,15 @@ class _SchoolProfilePageState extends State<SchoolProfilePage> {
     final id = prefs.getInt("schoolId");
     if (id == null) return;
 
+    final token = prefs.getString("jwt_token");
     final url = Uri.parse("$baseUrl/$id");
-    final resp = await http.get(url);
+    final resp = await http.get(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        if (token != null) "Authorization": "Bearer $token",
+      },
+    );
     if (resp.statusCode == 200) {
       final data = jsonDecode(resp.body);
       final school = data["data"];
@@ -78,6 +87,9 @@ class _SchoolProfilePageState extends State<SchoolProfilePage> {
       photoBase64 = base64Encode(bytes);
     }
 
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString("jwt_token");
+    
     final url = Uri.parse("$baseUrl/$schoolId");
     final body = jsonEncode({
       "schoolName": schoolName,
@@ -89,8 +101,14 @@ class _SchoolProfilePageState extends State<SchoolProfilePage> {
       if (photoBase64 != null) "schoolPhoto": photoBase64,
     });
 
-    final resp = await http.put(url,
-        headers: {"Content-Type": "application/json"}, body: body);
+    final resp = await http.put(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        if (token != null) "Authorization": "Bearer $token",
+      },
+      body: body,
+    );
 
     setState(() => _isUpdating = false);
 
@@ -102,11 +120,11 @@ class _SchoolProfilePageState extends State<SchoolProfilePage> {
         _selectedImage = null;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("School updated successfully")),
+        const SnackBar(content: Text(AppConstants.msgSchoolUpdated)),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Update failed: ${resp.body}")),
+        SnackBar(content: Text('${AppConstants.msgUpdateFailed}: '+resp.body)),
       );
     }
   }
@@ -128,13 +146,13 @@ class _SchoolProfilePageState extends State<SchoolProfilePage> {
           });
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Selected image file not found")),
+            const SnackBar(content: Text(AppConstants.msgSelectedImageFileNotFound)),
           );
         }
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error picking image: $e")),
+        SnackBar(content: Text('${AppConstants.msgErrorPickingImage}$e')),
       );
     }
   }
@@ -156,13 +174,13 @@ class _SchoolProfilePageState extends State<SchoolProfilePage> {
           });
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Captured image file not found")),
+            const SnackBar(content: Text(AppConstants.msgCapturedImageFileNotFound)),
           );
         }
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error taking photo: $e")),
+        SnackBar(content: Text('${AppConstants.msgErrorTakingPhoto}$e')),
       );
     }
   }
@@ -172,26 +190,26 @@ class _SchoolProfilePageState extends State<SchoolProfilePage> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text("Select Image Source"),
-          content: const Text("Choose how you want to select the image"),
+          title: const Text(AppConstants.dialogTitleSelectImageSource),
+          content: const Text(AppConstants.dialogContentChooseImage),
           actions: [
             TextButton(
               onPressed: () {
                 Navigator.pop(context);
                 _pickImage();
               },
-              child: const Text("Gallery"),
+              child: const Text(AppConstants.labelGallery),
             ),
             TextButton(
               onPressed: () {
                 Navigator.pop(context);
                 _takePhoto();
               },
-              child: const Text("Camera"),
+              child: const Text(AppConstants.labelCamera),
             ),
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text("Cancel"),
+              child: const Text(AppConstants.actionCancel),
             ),
           ],
         );
@@ -203,7 +221,7 @@ class _SchoolProfilePageState extends State<SchoolProfilePage> {
     try {
       return MemoryImage(base64Decode(base64String));
     } catch (e) {
-      print('Error decoding base64 image: $e');
+      debugPrint('Error decoding base64 image: $e');
       return null;
     }
   }
@@ -211,11 +229,11 @@ class _SchoolProfilePageState extends State<SchoolProfilePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("School Profile")),
+      appBar: AppBar(title: const Text(AppConstants.labelSchoolProfile)),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : Padding(
-              padding: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.all(AppSizes.paddingMD),
               child: Form(
                 key: _formKey,
                 child: ListView(
@@ -224,84 +242,81 @@ class _SchoolProfilePageState extends State<SchoolProfilePage> {
                     Card(
                       elevation: 2,
                       child: Padding(
-                        padding: const EdgeInsets.all(16.0),
+                        padding: const EdgeInsets.all(AppSizes.paddingMD),
                         child: Column(
                           children: [
                             const Text(
-                              "School Photo",
+                              AppConstants.labelSchoolPhoto,
                               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                             ),
-                            const SizedBox(height: 16),
+                            const SizedBox(height: AppSizes.marginMD),
                             CircleAvatar(
-                              radius: 50,
-                              backgroundColor: Colors.blueGrey,
+                              radius: AppSizes.radiusXL, // 20.0; avatar looks balanced with XL
+                              backgroundColor: AppColors.primaryLight,
                               backgroundImage: _selectedImage != null
                                   ? FileImage(_selectedImage!) as ImageProvider<Object>?
                                   : (schoolPhoto != null && schoolPhoto!.isNotEmpty
                                       ? _getMemoryImage(schoolPhoto!) as ImageProvider<Object>?
                                       : null),
                               child: (_selectedImage == null && (schoolPhoto == null || schoolPhoto!.isEmpty))
-                                  ? const Icon(Icons.school, color: Colors.white, size: 50)
+                                  ? const Icon(Icons.school, color: AppColors.textWhite, size: AppSizes.iconXL)
                                   : null,
                             ),
-                            const SizedBox(height: 16),
+                            const SizedBox(height: AppSizes.marginMD),
                             ElevatedButton.icon(
                               onPressed: _showImageSourceDialog,
                               icon: const Icon(Icons.camera_alt),
-                              label: const Text("Change Photo"),
+                              label: const Text(AppConstants.labelChangePhoto),
                             ),
                             if (_selectedImage != null) ...[
-                              const SizedBox(height: 8),
-                              Text(
-                                "New photo selected",
-                                style: TextStyle(color: Colors.green[600], fontSize: 12),
+                              const SizedBox(height: AppSizes.marginSM),
+                              const Text(
+                                AppConstants.labelNewPhotoSelected,
+                                style: TextStyle(color: AppColors.successColor, fontSize: 12),
                               ),
                             ],
                           ],
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: AppSizes.marginMD),
                     TextFormField(
                       initialValue: schoolName,
-                      decoration: const InputDecoration(labelText: "School Name"),
+                      decoration: const InputDecoration(labelText: AppConstants.labelSchoolName),
                       onChanged: (v) => schoolName = v,
-                      validator: (v) =>
-                          v == null || v.isEmpty ? "Required" : null,
+                      validator: (v) => v == null || v.isEmpty ? AppConstants.labelRequired : null,
                     ),
                     TextFormField(
                       initialValue: schoolType,
-                      decoration: const InputDecoration(labelText: "School Type"),
+                      decoration: const InputDecoration(labelText: AppConstants.labelSchoolType),
                       onChanged: (v) => schoolType = v,
                     ),
                     TextFormField(
                       initialValue: affiliationBoard,
-                      decoration:
-                          const InputDecoration(labelText: "Affiliation Board"),
+                      decoration: const InputDecoration(labelText: AppConstants.labelAffiliationBoard),
                       onChanged: (v) => affiliationBoard = v,
                     ),
                     TextFormField(
                       initialValue: contactNo,
-                      decoration:
-                          const InputDecoration(labelText: "Contact No"),
+                      decoration: const InputDecoration(labelText: AppConstants.labelContactNo),
                       onChanged: (v) => contactNo = v,
                     ),
                     TextFormField(
                       initialValue: email,
-                      decoration: const InputDecoration(labelText: "Email"),
+                      decoration: const InputDecoration(labelText: AppConstants.labelSchoolEmail),
                       onChanged: (v) => email = v,
                     ),
                     TextFormField(
                       initialValue: address,
-                      decoration: const InputDecoration(labelText: "Address"),
+                      decoration: const InputDecoration(labelText: AppConstants.labelSchoolAddress),
                       onChanged: (v) => address = v,
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: AppSizes.marginLG),
                     ElevatedButton(
                       onPressed: _isUpdating ? null : _updateSchoolProfile,
                       child: _isUpdating
                           ? const CircularProgressIndicator()
-                          : const Text("Update"),
+                          : const Text(AppConstants.actionUpdate),
                     )
                   ],
                 ),

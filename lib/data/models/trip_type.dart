@@ -1,3 +1,5 @@
+import '../../utils/constants.dart';
+
 enum TripType {
   morningPickup('MORNING_PICKUP', 'Morning Pickup'),
   afternoonDrop('AFTERNOON_DROP', 'Afternoon Drop'),
@@ -18,8 +20,8 @@ enum TripType {
 
   static List<Map<String, String>> getDropdownItems() {
     return TripType.values.map((type) => {
-      'value': type.value,
-      'label': type.displayName,
+      AppConstants.keyValue: type.value,
+      AppConstants.keyLabel: type.displayName,
     }).toList();
   }
 }

@@ -1,10 +1,12 @@
 import 'dart:convert';
 
+import '../../utils/constants.dart';
+
 class StaffRequest {
   final String userName;
   final String password;
-  final String? email;         // optional
-  final String? contactNumber; // optional
+  final String? email;         
+  final String? contactNumber;
   final int schoolId;
   final int roleId;
   final String createdBy;
@@ -21,13 +23,13 @@ class StaffRequest {
 
   Map<String, dynamic> toJson() {
     return {
-      "userName": userName,
-      "password": password,
-      "email": email ?? "",            // ✅ null safe (backend me agar optional hoga to empty bhej do)
-      "contactNumber": contactNumber ?? "",
-      "schoolId": schoolId,
-      "roleId": roleId,
-      "createdBy": createdBy,
+      AppConstants.keyUserName: userName,
+      AppConstants.keyPassword: password,
+      AppConstants.keyEmail: email ?? "",
+      AppConstants.keyContactNumber: contactNumber ?? "",
+      AppConstants.keySchoolId: schoolId,
+      AppConstants.keyRoleId: roleId,
+      AppConstants.keyCreatedBy: createdBy,
     };
   }
 

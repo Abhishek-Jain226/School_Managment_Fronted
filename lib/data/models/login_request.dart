@@ -1,4 +1,6 @@
 /// lib/data/models/login_request.dart
+import '../../utils/constants.dart';
+
 class LoginRequest {
   final String loginId;   // ✅ username OR mobile number
   final String password;
@@ -6,7 +8,7 @@ class LoginRequest {
   LoginRequest({required this.loginId, required this.password});
 
   Map<String, dynamic> toJson() => {
-        'loginId': loginId,
-        'password': password,
+        AppConstants.keyLoginId: loginId,
+        AppConstants.keyPassword: password,
       };
 }

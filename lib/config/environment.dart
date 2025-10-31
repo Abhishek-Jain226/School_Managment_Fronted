@@ -1,11 +1,14 @@
 // lib/config/environment.dart
 // 🔹 Environment configuration for different deployment scenarios
 
+import 'package:flutter/foundation.dart';
+import '../utils/constants.dart';
+
 class Environment {
   // 🔹 Environment types
-  static const String development = 'development';
-  static const String production = 'production';
-  static const String local = 'local';
+  static const String development = AppConstants.envDevelopment;
+  static const String production = AppConstants.envProduction;
+  static const String local = AppConstants.envLocal;
   
   // 🔹 Current environment (can be set via build arguments)
   static const String current = String.fromEnvironment('ENV', defaultValue: development);
@@ -13,19 +16,19 @@ class Environment {
   // 🔹 Environment-specific configurations
   static const Map<String, Map<String, String>> configs = {
     development: {
-      'baseUrl': 'http://10.121.74.208:9001',
-      'apiTimeout': '30000',
-      'debugMode': 'true',
+      AppConstants.configKeyBaseUrl: AppConstants.baseUrl,
+      AppConstants.configKeyApiTimeout: AppConstants.configTimeoutDev,
+      AppConstants.configKeyDebugMode: AppConstants.configValueTrue,
     },
     production: {
-      'baseUrl': 'http://10.121.74.208:9001',
-      'apiTimeout': '15000',
-      'debugMode': 'false',
+      AppConstants.configKeyBaseUrl: AppConstants.baseUrl,
+      AppConstants.configKeyApiTimeout: AppConstants.configTimeoutProd,
+      AppConstants.configKeyDebugMode: AppConstants.configValueFalse,
     },
     local: {
-      'baseUrl': 'http://10.121.74.208:9001',
-      'apiTimeout': '30000',
-      'debugMode': 'true',
+      AppConstants.configKeyBaseUrl: AppConstants.baseUrl,
+      AppConstants.configKeyApiTimeout: AppConstants.configTimeoutDev,
+      AppConstants.configKeyDebugMode: AppConstants.configValueTrue,
     },
   };
   
@@ -33,9 +36,9 @@ class Environment {
   static Map<String, String> get currentConfig => configs[current] ?? configs[development]!;
   
   // 🔹 Helper methods
-  static String get baseUrl => currentConfig['baseUrl']!;
-  static int get apiTimeout => int.parse(currentConfig['apiTimeout']!);
-  static bool get debugMode => currentConfig['debugMode'] == 'true';
+  static String get baseUrl => currentConfig[AppConstants.configKeyBaseUrl]!;
+  static int get apiTimeout => int.parse(currentConfig[AppConstants.configKeyApiTimeout]!);
+  static bool get debugMode => currentConfig[AppConstants.configKeyDebugMode] == AppConstants.configValueTrue;
   
   // 🔹 Environment info
   static bool get isDevelopment => current == development;
@@ -44,10 +47,10 @@ class Environment {
   
   // 🔹 Print current environment info
   static void printEnvironmentInfo() {
-    print('🔧 Environment Configuration:');
-    print('   Current Environment: $current');
-    print('   Base URL: $baseUrl');
-    print('   API Timeout: ${apiTimeout}ms');
-    print('   Debug Mode: $debugMode');
+    debugPrint(AppConstants.logEnvironmentConfig);
+    debugPrint('${AppConstants.logCurrentEnvironment}$current');
+    debugPrint('${AppConstants.logBaseUrl}$baseUrl');
+    debugPrint('${AppConstants.logApiTimeout}$apiTimeout${AppConstants.logApiTimeoutMs}');
+    debugPrint('${AppConstants.logDebugMode}$debugMode');
   }
 }

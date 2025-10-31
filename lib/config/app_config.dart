@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'environment.dart';
+import '../utils/constants.dart';
 
 class AppConfig {
   // 🔹 Get current base URL based on environment
@@ -25,11 +27,11 @@ class AppConfig {
   
   // 🔹 Debug info
   static void printConfig() {
-    print('🔧 App Configuration:');
-    print('   Environment: ${Environment.current}');
-    print('   Base URL: $baseUrl');
-    print('   Auth URL: $authUrl');
-    print('   Schools URL: $schoolsUrl');
-    print('   Debug Mode: ${Environment.debugMode}');
+    debugPrint(AppConstants.logAppConfig);
+    debugPrint('${AppConstants.logEnvironment}${Environment.current}');
+    debugPrint('${AppConstants.logBaseUrl}$baseUrl');
+    debugPrint('${AppConstants.logAuthUrl}$authUrl');
+    debugPrint('${AppConstants.logSchoolsUrl}$schoolsUrl');
+    debugPrint('${AppConstants.logDebugMode}${Environment.debugMode}');
   }
 }

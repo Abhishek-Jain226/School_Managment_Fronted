@@ -1,14 +1,13 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../utils/constants.dart';
 import '../../data/models/bulk_student_import_request.dart';
 import '../../data/models/bulk_import_result.dart';
 import '../../services/bulk_student_import_service.dart';
 import '../../services/excel_parser_service.dart';
-import '../../services/master_data_service.dart';
 
 class BulkStudentImportPage extends StatefulWidget {
   const BulkStudentImportPage({Key? key}) : super(key: key);
@@ -21,7 +20,6 @@ class _BulkStudentImportPageState extends State<BulkStudentImportPage> {
   final _formKey = GlobalKey<FormState>();
   final _bulkImportService = BulkStudentImportService();
   final _excelParserService = ExcelParserService();
-  final _masterDataService = MasterDataService();
   
   File? _selectedFile;
   bool _isLoading = false;
@@ -33,7 +31,7 @@ class _BulkStudentImportPageState extends State<BulkStudentImportPage> {
   // Configuration
   String _schoolDomain = '';
   bool _sendActivationEmails = true;
-  String _emailStrategy = 'AUTO_GENERATE';
+  final String _emailStrategy = 'AUTO_GENERATE';
   
   // School info
   int? _schoolId;
@@ -69,7 +67,7 @@ class _BulkStudentImportPageState extends State<BulkStudentImportPage> {
         });
       }
     } catch (e) {
-      _showErrorSnackBar('Error picking file: $e');
+      _showErrorSnackBar('${AppConstants.msgErrorPickingFile}$e');
     }
   }
   
@@ -80,12 +78,12 @@ class _BulkStudentImportPageState extends State<BulkStudentImportPage> {
       final templateBytes = await _excelParserService.generateExcelTemplate();
       
       final directory = await getApplicationDocumentsDirectory();
-      final file = File('${directory.path}/student_import_template.xlsx');
+      final file = File('${directory.path}/${AppConstants.fileNameStudentTemplate}');
       await file.writeAsBytes(templateBytes);
       
-      _showSuccessSnackBar('Template downloaded to: ${file.path}');
+      _showSuccessSnackBar('${AppConstants.msgTemplateDownloaded}${file.path}');
     } catch (e) {
-      _showErrorSnackBar('Error downloading template: $e');
+      _showErrorSnackBar('${AppConstants.msgErrorDownloadingTemplate}$e');
     } finally {
       setState(() => _isLoading = false);
     }
@@ -93,7 +91,7 @@ class _BulkStudentImportPageState extends State<BulkStudentImportPage> {
   
   Future<void> _validateData() async {
     if (_selectedFile == null) {
-      _showErrorSnackBar('Please select an Excel file first');
+      _showErrorSnackBar(AppConstants.msgPleaseSelectExcelFile);
       return;
     }
     
@@ -106,7 +104,7 @@ class _BulkStudentImportPageState extends State<BulkStudentImportPage> {
       final students = await _excelParserService.parseStudentExcel(_selectedFile!);
       
       if (students.isEmpty) {
-        _showErrorSnackBar('No valid student data found in Excel file');
+        _showErrorSnackBar(AppConstants.msgNoValidStudentData);
         return;
       }
       
@@ -128,13 +126,13 @@ class _BulkStudentImportPageState extends State<BulkStudentImportPage> {
       });
       
       if (result.success) {
-        _showSuccessSnackBar('Validation successful! ${result.successfulImports} students are ready for import.');
+        _showSuccessSnackBar('${AppConstants.msgValidationSuccessful}${result.successfulImports}${AppConstants.msgStudentsReadyForImport}');
       } else {
-        _showErrorSnackBar('Validation failed. ${result.failedImports} students have errors.');
+        _showErrorSnackBar('${AppConstants.msgValidationFailed}${result.failedImports}${AppConstants.msgStudentsHaveErrors}');
       }
       
     } catch (e) {
-      _showErrorSnackBar('Error validating data: $e');
+      _showErrorSnackBar('${AppConstants.msgErrorValidatingData}$e');
     } finally {
       setState(() => _isValidating = false);
     }
@@ -142,12 +140,12 @@ class _BulkStudentImportPageState extends State<BulkStudentImportPage> {
   
   Future<void> _importData() async {
     if (_selectedFile == null) {
-      _showErrorSnackBar('Please select an Excel file first');
+      _showErrorSnackBar(AppConstants.msgPleaseSelectExcelFile);
       return;
     }
     
     if (_validationResult == null || !_validationResult!.success) {
-      _showErrorSnackBar('Please validate data first');
+      _showErrorSnackBar(AppConstants.msgPleaseValidateFirst);
       return;
     }
     
@@ -175,15 +173,15 @@ class _BulkStudentImportPageState extends State<BulkStudentImportPage> {
       });
       
       if (result.success) {
-        _showSuccessSnackBar('Import successful! ${result.successfulImports} students imported.');
+        _showSuccessSnackBar('${AppConstants.msgImportSuccessful}${result.successfulImports}${AppConstants.msgStudentsImported}');
         _showImportSummaryDialog(result);
       } else {
-        _showErrorSnackBar('Import completed with errors. ${result.successfulImports} successful, ${result.failedImports} failed.');
+        _showErrorSnackBar('${AppConstants.msgImportCompletedWithErrors}${result.successfulImports}${AppConstants.msgSuccessful}${result.failedImports}${AppConstants.msgFailed}');
         _showImportSummaryDialog(result);
       }
       
     } catch (e) {
-      _showErrorSnackBar('Error importing data: $e');
+      _showErrorSnackBar('${AppConstants.msgErrorImportingData}$e');
     } finally {
       setState(() => _isImporting = false);
     }
@@ -193,22 +191,22 @@ class _BulkStudentImportPageState extends State<BulkStudentImportPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Import Summary'),
+        title: const Text(AppConstants.labelImportSummary),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Total Rows: ${result.totalRows}'),
-              Text('Successful: ${result.successfulImports}'),
-              Text('Failed: ${result.failedImports}'),
-              SizedBox(height: 16),
+              Text('${AppConstants.labelTotalRows}: ${result.totalRows}'),
+              Text('${AppConstants.labelSuccessful}: ${result.successfulImports}'),
+              Text('${AppConstants.labelFailed}: ${result.failedImports}'),
+              const SizedBox(height: AppSizes.bulkImportSpacingMD),
               if (result.errors.isNotEmpty) ...[
-                Text('Errors:', style: TextStyle(fontWeight: FontWeight.bold)),
-                SizedBox(height: 8),
+                const Text('${AppConstants.labelError}:', style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: AppSizes.bulkImportSpacingSM),
                 ...result.errors.take(5).map((error) => Text('• $error')),
                 if (result.errors.length > 5)
-                  Text('... and ${result.errors.length - 5} more errors'),
+                  Text('${AppConstants.msgAndMoreErrors}${result.errors.length - 5}${AppConstants.msgMoreErrors}'),
               ],
             ],
           ),
@@ -216,7 +214,7 @@ class _BulkStudentImportPageState extends State<BulkStudentImportPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('OK'),
+            child: const Text(AppConstants.labelOk),
           ),
         ],
       ),
@@ -227,7 +225,7 @@ class _BulkStudentImportPageState extends State<BulkStudentImportPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: Colors.red,
+        backgroundColor: AppColors.bulkImportErrorColor,
       ),
     );
   }
@@ -236,7 +234,7 @@ class _BulkStudentImportPageState extends State<BulkStudentImportPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: Colors.green,
+        backgroundColor: AppColors.bulkImportSuccessColor,
       ),
     );
   }
@@ -245,14 +243,14 @@ class _BulkStudentImportPageState extends State<BulkStudentImportPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Bulk Student Import'),
-        backgroundColor: Colors.blue[700],
-        foregroundColor: Colors.white,
+        title: const Text(AppConstants.labelBulkImport),
+        backgroundColor: AppColors.bulkImportPrimaryColor[700],
+        foregroundColor: AppColors.bulkImportTextWhite,
       ),
       body: _isLoading
-          ? Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-              padding: EdgeInsets.all(16),
+              padding: const EdgeInsets.all(AppSizes.bulkImportPadding),
               child: Form(
                 key: _formKey,
                 child: Column(
@@ -261,101 +259,99 @@ class _BulkStudentImportPageState extends State<BulkStudentImportPage> {
                     // School Info Card
                     Card(
                       child: Padding(
-                        padding: EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(AppSizes.bulkImportPadding),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              'School Information',
-                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                            const Text(
+                              AppConstants.labelSchoolInformation,
+                              style: TextStyle(fontSize: AppSizes.bulkImportHeaderFontSize, fontWeight: FontWeight.bold),
                             ),
-                            SizedBox(height: 8),
-                            Text('School: $_schoolName'),
-                            Text('School ID: $_schoolId'),
+                            const SizedBox(height: AppSizes.bulkImportSpacingSM),
+                            Text('${AppConstants.labelSchool}: $_schoolName'),
+                            Text('${AppConstants.labelSchoolID}: $_schoolId'),
                           ],
                         ),
                       ),
                     ),
-                    SizedBox(height: 16),
+                    const SizedBox(height: AppSizes.bulkImportSpacingMD),
                     
                     // Configuration Card
                     Card(
                       child: Padding(
-                        padding: EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(AppSizes.bulkImportPadding),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              'Import Configuration',
-                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                            const Text(
+                              AppConstants.labelImportConfiguration,
+                              style: TextStyle(fontSize: AppSizes.bulkImportHeaderFontSize, fontWeight: FontWeight.bold),
                             ),
-                            SizedBox(height: 16),
+                            const SizedBox(height: AppSizes.bulkImportSpacingMD),
                             
                             // School Domain
                             TextFormField(
                               initialValue: _schoolDomain,
-                              decoration: InputDecoration(
-                                labelText: 'School Email Domain',
-                                hintText: 'e.g., schoolname.edu',
-                                prefixText: '@',
+                              decoration: const InputDecoration(
+                                labelText: AppConstants.labelSchoolEmailDomain,
+                                hintText: AppConstants.hintSchoolDomain,
+                                prefixText: AppConstants.hintEmailPrefix,
                                 border: OutlineInputBorder(),
                               ),
                               onChanged: (value) => _schoolDomain = value,
                               validator: (value) {
                                 if (value != null && value.isNotEmpty) {
                                   if (!value.contains('.')) {
-                                    return 'Please enter a valid domain (e.g., schoolname.edu)';
+                                    return AppConstants.validationInvalidDomain;
                                   }
                                 }
                                 return null;
                               },
                             ),
-                            SizedBox(height: 16),
+                            const SizedBox(height: AppSizes.bulkImportSpacingMD),
                             
                             // ✅ Email Strategy - Updated for mandatory emails
-                            Text('Email Strategy:', style: TextStyle(fontWeight: FontWeight.bold)),
+                            const Text(AppConstants.labelEmailStrategy, style: TextStyle(fontWeight: FontWeight.bold)),
                             Container(
-                              padding: EdgeInsets.all(12),
+                              padding: const EdgeInsets.all(AppSizes.bulkImportCardPadding),
                               decoration: BoxDecoration(
-                                color: Colors.blue[50],
-                                border: Border.all(color: Colors.blue),
-                                borderRadius: BorderRadius.circular(8),
+                                color: AppColors.bulkImportInfoColor[50],
+                                border: Border.all(color: AppColors.bulkImportInfoColor),
+                                borderRadius: BorderRadius.circular(AppSizes.bulkImportBorderRadius),
                               ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Row(
-                                    children: [
-                                      Icon(Icons.info, color: Colors.blue, size: 20),
-                                      SizedBox(width: 8),
+                                    children: const [
+                                      Icon(Icons.info, color: AppColors.bulkImportInfoColor, size: AppSizes.bulkImportIconSize),
+                                      SizedBox(width: AppSizes.bulkImportSpacingSM),
                                       Text(
-                                        'Parent Email is Required',
+                                        AppConstants.labelParentEmailRequired,
                                         style: TextStyle(
                                           fontWeight: FontWeight.bold,
-                                          color: Colors.blue[800],
+                                          color: AppColors.bulkImportInfoColor,
                                         ),
                                       ),
                                     ],
                                   ),
-                                  SizedBox(height: 8),
-                                  Text(
-                                    '• All parent emails must be provided in the Excel file\n'
-                                    '• Emails are used to send activation links for parent accounts\n'
-                                    '• Invalid or missing emails will cause import to fail',
+                                  const SizedBox(height: AppSizes.bulkImportSpacingSM),
+                                  const Text(
+                                    AppConstants.infoAllParentEmailsRequired,
                                     style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.blue[700],
+                                      fontSize: AppSizes.bulkImportInfoFontSize,
+                                      color: AppColors.bulkImportInfoColor,
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-                            SizedBox(height: 16),
+                            const SizedBox(height: AppSizes.bulkImportSpacingMD),
                             
                             // Send Activation Emails
                             CheckboxListTile(
-                              title: Text('Send Activation Emails'),
-                              subtitle: Text('Send activation emails to parents'),
+                              title: const Text(AppConstants.labelSendActivationEmails),
+                              subtitle: const Text(AppConstants.infoSendActivationToParents),
                               value: _sendActivationEmails,
                               onChanged: (value) => setState(() => _sendActivationEmails = value!),
                             ),
@@ -363,62 +359,62 @@ class _BulkStudentImportPageState extends State<BulkStudentImportPage> {
                         ),
                       ),
                     ),
-                    SizedBox(height: 16),
+                    const SizedBox(height: AppSizes.bulkImportSpacingMD),
                     
                     // File Selection Card
                     Card(
                       child: Padding(
-                        padding: EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(AppSizes.bulkImportPadding),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              'Excel File',
-                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                            const Text(
+                              AppConstants.labelExcelFile,
+                              style: TextStyle(fontSize: AppSizes.bulkImportHeaderFontSize, fontWeight: FontWeight.bold),
                             ),
-                            SizedBox(height: 16),
+                            const SizedBox(height: AppSizes.bulkImportSpacingMD),
                             
                             Row(
                               children: [
                                 Expanded(
                                   child: ElevatedButton.icon(
                                     onPressed: _pickExcelFile,
-                                    icon: Icon(Icons.upload_file),
-                                    label: Text('Select Excel File'),
+                                    icon: const Icon(Icons.upload_file),
+                                    label: const Text(AppConstants.labelSelectExcelFile),
                                   ),
                                 ),
-                                SizedBox(width: 16),
+                                const SizedBox(width: AppSizes.bulkImportSpacingMD),
                                 Expanded(
                                   child: ElevatedButton.icon(
                                     onPressed: _downloadTemplate,
-                                    icon: Icon(Icons.download),
-                                    label: Text('Download Template'),
+                                    icon: const Icon(Icons.download),
+                                    label: const Text(AppConstants.labelDownloadTemplate),
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.green,
-                                      foregroundColor: Colors.white,
+                                      backgroundColor: AppColors.bulkImportSuccessColor,
+                                      foregroundColor: AppColors.bulkImportTextWhite,
                                     ),
                                   ),
                                 ),
                               ],
                             ),
-                            SizedBox(height: 16),
+                            const SizedBox(height: AppSizes.bulkImportSpacingMD),
                             
                             if (_selectedFile != null) ...[
                               Container(
-                                padding: EdgeInsets.all(12),
+                                padding: const EdgeInsets.all(AppSizes.bulkImportCardPadding),
                                 decoration: BoxDecoration(
-                                  color: Colors.green[50],
-                                  border: Border.all(color: Colors.green),
-                                  borderRadius: BorderRadius.circular(8),
+                                  color: AppColors.bulkImportSuccessColor[50],
+                                  border: Border.all(color: AppColors.bulkImportSuccessColor),
+                                  borderRadius: BorderRadius.circular(AppSizes.bulkImportBorderRadius),
                                 ),
                                 child: Row(
                                   children: [
-                                    Icon(Icons.check_circle, color: Colors.green),
-                                    SizedBox(width: 8),
+                                    const Icon(Icons.check_circle, color: AppColors.bulkImportSuccessColor),
+                                    const SizedBox(width: AppSizes.bulkImportSpacingSM),
                                     Expanded(
                                       child: Text(
-                                        'Selected: ${_selectedFile!.path.split('/').last}',
-                                        style: TextStyle(color: Colors.green[800]),
+                                        '${AppConstants.labelSelected}: ${_selectedFile!.path.split('/').last}',
+                                        style: const TextStyle(color: AppColors.bulkImportSuccessColor),
                                       ),
                                     ),
                                   ],
@@ -429,7 +425,7 @@ class _BulkStudentImportPageState extends State<BulkStudentImportPage> {
                         ),
                       ),
                     ),
-                    SizedBox(height: 16),
+                    const SizedBox(height: AppSizes.bulkImportSpacingMD),
                     
                     // Action Buttons
                     Row(
@@ -438,66 +434,66 @@ class _BulkStudentImportPageState extends State<BulkStudentImportPage> {
                           child: ElevatedButton.icon(
                             onPressed: _isValidating ? null : _validateData,
                             icon: _isValidating 
-                                ? SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                ? const SizedBox(
+                                    width: AppSizes.bulkImportProgressSize,
+                                    height: AppSizes.bulkImportProgressSize,
+                                    child: CircularProgressIndicator(strokeWidth: AppSizes.bulkImportProgressStroke),
                                   )
-                                : Icon(Icons.check_circle),
-                            label: Text(_isValidating ? 'Validating...' : 'Validate Data'),
+                                : const Icon(Icons.check_circle),
+                            label: Text(_isValidating ? AppConstants.labelValidating : AppConstants.labelValidateData),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.orange,
-                              foregroundColor: Colors.white,
+                              backgroundColor: AppColors.bulkImportWarningColor,
+                              foregroundColor: AppColors.bulkImportTextWhite,
                             ),
                           ),
                         ),
-                        SizedBox(width: 16),
+                        const SizedBox(width: AppSizes.bulkImportSpacingMD),
                         Expanded(
                           child: ElevatedButton.icon(
                             onPressed: (_isImporting || _validationResult == null || !_validationResult!.success) 
                                 ? null 
                                 : _importData,
                             icon: _isImporting 
-                                ? SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                ? const SizedBox(
+                                    width: AppSizes.bulkImportProgressSize,
+                                    height: AppSizes.bulkImportProgressSize,
+                                    child: CircularProgressIndicator(strokeWidth: AppSizes.bulkImportProgressStroke),
                                   )
-                                : Icon(Icons.upload),
-                            label: Text(_isImporting ? 'Importing...' : 'Import Students'),
+                                : const Icon(Icons.upload),
+                            label: Text(_isImporting ? AppConstants.labelImporting : AppConstants.labelImportStudents),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.blue,
-                              foregroundColor: Colors.white,
+                              backgroundColor: AppColors.bulkImportPrimaryColor,
+                              foregroundColor: AppColors.bulkImportTextWhite,
                             ),
                           ),
                         ),
                       ],
                     ),
-                    SizedBox(height: 16),
+                    const SizedBox(height: AppSizes.bulkImportSpacingMD),
                     
                     // Validation Results
                     if (_validationResult != null) ...[
                       Card(
                         child: Padding(
-                          padding: EdgeInsets.all(16),
+                          padding: const EdgeInsets.all(AppSizes.bulkImportPadding),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                'Validation Results',
-                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                              const Text(
+                                AppConstants.labelValidationResults,
+                                style: TextStyle(fontSize: AppSizes.bulkImportHeaderFontSize, fontWeight: FontWeight.bold),
                               ),
-                              SizedBox(height: 16),
+                              const SizedBox(height: AppSizes.bulkImportSpacingMD),
                               _buildResultSummary(_validationResult!),
                               if (_validationResult!.results.isNotEmpty) ...[
-                                SizedBox(height: 16),
-                                Text('Details:', style: TextStyle(fontWeight: FontWeight.bold)),
-                                SizedBox(height: 8),
+                                const SizedBox(height: AppSizes.bulkImportSpacingMD),
+                                const Text('${AppConstants.labelDetails}:', style: TextStyle(fontWeight: FontWeight.bold)),
+                                const SizedBox(height: AppSizes.bulkImportSpacingSM),
                                 ..._validationResult!.results.take(10).map((result) => 
                                   _buildResultItem(result)
                                 ),
                                 if (_validationResult!.results.length > 10)
-                                  Text('... and ${_validationResult!.results.length - 10} more'),
+                                  Text('${AppConstants.msgAndMore}${_validationResult!.results.length - 10}${AppConstants.msgMore}'),
                               ],
                             ],
                           ),
@@ -509,15 +505,15 @@ class _BulkStudentImportPageState extends State<BulkStudentImportPage> {
                     if (_importResult != null) ...[
                       Card(
                         child: Padding(
-                          padding: EdgeInsets.all(16),
+                          padding: const EdgeInsets.all(AppSizes.bulkImportPadding),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                'Import Results',
-                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                              const Text(
+                                AppConstants.labelImportResults,
+                                style: TextStyle(fontSize: AppSizes.bulkImportHeaderFontSize, fontWeight: FontWeight.bold),
                               ),
-                              SizedBox(height: 16),
+                              const SizedBox(height: AppSizes.bulkImportSpacingMD),
                               _buildResultSummary(_importResult!),
                             ],
                           ),
@@ -536,25 +532,25 @@ class _BulkStudentImportPageState extends State<BulkStudentImportPage> {
       children: [
         Expanded(
           child: _buildSummaryCard(
-            'Total',
+            AppConstants.labelTotal,
             result.totalRows.toString(),
-            Colors.blue,
+            AppColors.bulkImportPrimaryColor,
           ),
         ),
-        SizedBox(width: 8),
+        const SizedBox(width: AppSizes.bulkImportSpacingSM),
         Expanded(
           child: _buildSummaryCard(
-            'Success',
+            AppConstants.labelSuccess,
             result.successfulImports.toString(),
-            Colors.green,
+            AppColors.bulkImportSuccessColor,
           ),
         ),
-        SizedBox(width: 8),
+        const SizedBox(width: AppSizes.bulkImportSpacingSM),
         Expanded(
           child: _buildSummaryCard(
-            'Failed',
+            AppConstants.labelFailed,
             result.failedImports.toString(),
-            Colors.red,
+            AppColors.bulkImportErrorColor,
           ),
         ),
       ],
@@ -563,18 +559,18 @@ class _BulkStudentImportPageState extends State<BulkStudentImportPage> {
   
   Widget _buildSummaryCard(String title, String value, Color color) {
     return Container(
-      padding: EdgeInsets.all(12),
+      padding: const EdgeInsets.all(AppSizes.bulkImportCardPadding),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: AppSizes.bulkImportBgOpacity),
         border: Border.all(color: color),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(AppSizes.bulkImportBorderRadius),
       ),
       child: Column(
         children: [
           Text(
             value,
             style: TextStyle(
-              fontSize: 24,
+              fontSize: AppSizes.bulkImportSummaryValueFontSize,
               fontWeight: FontWeight.bold,
               color: color,
             ),
@@ -582,7 +578,7 @@ class _BulkStudentImportPageState extends State<BulkStudentImportPage> {
           Text(
             title,
             style: TextStyle(
-              fontSize: 12,
+              fontSize: AppSizes.bulkImportSummaryTitleFontSize,
               color: color,
             ),
           ),
@@ -593,16 +589,16 @@ class _BulkStudentImportPageState extends State<BulkStudentImportPage> {
   
   Widget _buildResultItem(StudentImportResult result) {
     Color statusColor = result.status == 'SUCCESS' || result.status == 'VALID' 
-        ? Colors.green 
-        : Colors.red;
+        ? AppColors.bulkImportSuccessColor 
+        : AppColors.bulkImportErrorColor;
     
     return Container(
-      margin: EdgeInsets.only(bottom: 8),
-      padding: EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: AppSizes.bulkImportSpacingSM),
+      padding: const EdgeInsets.all(AppSizes.bulkImportResultPadding),
       decoration: BoxDecoration(
-        color: statusColor.withOpacity(0.1),
+        color: statusColor.withValues(alpha: AppSizes.bulkImportBgOpacity),
         border: Border.all(color: statusColor),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(AppSizes.bulkImportBorderRadius),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -614,29 +610,29 @@ class _BulkStudentImportPageState extends State<BulkStudentImportPage> {
                     ? Icons.check_circle 
                     : Icons.error,
                 color: statusColor,
-                size: 16,
+                size: AppSizes.bulkImportIconSizeSM,
               ),
-              SizedBox(width: 8),
+              const SizedBox(width: AppSizes.bulkImportSpacingSM),
               Expanded(
                 child: Text(
-                  'Row ${result.rowNumber}: ${result.studentName}',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                  '${AppConstants.labelRow} ${result.rowNumber}: ${result.studentName}',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
             ],
           ),
           if (result.parentEmail != null) ...[
-            SizedBox(height: 4),
+            const SizedBox(height: AppSizes.bulkImportSpacingXS),
             Text(
-              'Email: ${result.parentEmail}',
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              '${AppConstants.labelEmail}: ${result.parentEmail}',
+              style: const TextStyle(fontSize: AppSizes.bulkImportInfoFontSize, color: AppColors.textSecondary),
             ),
           ],
           if (result.errorMessage != null) ...[
-            SizedBox(height: 4),
+            const SizedBox(height: AppSizes.bulkImportSpacingXS),
             Text(
-              'Error: ${result.errorMessage}',
-              style: TextStyle(fontSize: 12, color: Colors.red),
+              '${AppConstants.labelError}: ${result.errorMessage}',
+              style: const TextStyle(fontSize: AppSizes.bulkImportInfoFontSize, color: AppColors.bulkImportErrorColor),
             ),
           ],
         ],

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../utils/constants.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:typed_data';
 import 'dart:io';
@@ -71,7 +72,7 @@ class _ReportsScreenState extends State<ReportsScreen>
       _notificationSubscription = _webSocketService.notificationStream.listen(
         _handleWebSocketNotification,
         onError: (error) {
-          print('WebSocket error: $error');
+          debugPrint('WebSocket error: $error');
           setState(() {
             _isConnected = false;
           });
@@ -82,13 +83,13 @@ class _ReportsScreenState extends State<ReportsScreen>
   }
 
   void _handleWebSocketNotification(WebSocketNotification notification) {
-    print('🔔 Reports - Received notification: ${notification.type} - ${notification.message}');
+    debugPrint('🔔 Reports - Received notification: ${notification.type} - ${notification.message}');
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('${notification.title}: ${notification.message}'),
-          duration: const Duration(seconds: 3),
-          backgroundColor: Colors.blue,
+          duration: const Duration(seconds: AppSizes.registerSchoolSnackBarDurationShort),
+          backgroundColor: AppColors.infoColor,
         ),
       );
     }
@@ -116,45 +117,105 @@ class _ReportsScreenState extends State<ReportsScreen>
     setState(() => _loading = true);
     try {
       final prefs = await SharedPreferences.getInstance();
-      schoolId = prefs.getInt("schoolId");
+      schoolId = prefs.getInt(AppConstants.keySchoolId);
+      
+      debugPrint('═══════════════════════════════════════');
+      debugPrint('🔍 REPORTS DASHBOARD - Loading Data');
+      debugPrint('🔍 schoolId from SharedPreferences: $schoolId');
+      debugPrint('═══════════════════════════════════════');
+      
+      if (schoolId == null) {
+        debugPrint('❌ ERROR: schoolId is NULL in SharedPreferences!');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(AppConstants.msgSchoolIdNotFoundLogin),
+              backgroundColor: AppColors.errorColor,
+            ),
+          );
+        }
+        setState(() => _loading = false);
+        return;
+      }
       
       if (schoolId != null) {
-        print('🔍 Loading report data for schoolId: $schoolId');
+        debugPrint('🔍 Loading report data for schoolId: $schoolId');
         
         // Load real data from services
-        final studentCount = await StudentService().getStudentCount(schoolId!.toString());
-        final vehicleCount = await VehicleService().getVehicleCount(schoolId!.toString());
-        final trips = await TripService().getTripsBySchool(schoolId!);
-        
-        // Load report data
-        await _loadAttendanceReport();
-        await _loadDispatchLogsReport();
-        await _loadNotificationLogsReport();
-        
-        setState(() {
-          totalStudents = studentCount;
-          totalVehicles = vehicleCount;
-          totalTrips = trips.length;
-          notificationsSent = notificationLogsData.length;
-          _loading = false;
-        });
-        
-        print('🔍 Report data loaded successfully');
+        try {
+          debugPrint('📊 Fetching student count...');
+          final studentCount = await StudentService().getStudentCount(schoolId!.toString());
+          debugPrint('✅ Student count: $studentCount');
+          
+          debugPrint('📊 Fetching vehicle count...');
+          final vehicleCount = await VehicleService().getVehicleCount(schoolId!.toString());
+          debugPrint('✅ Vehicle count: $vehicleCount');
+          
+          debugPrint('📊 Fetching trips...');
+          final trips = await TripService().getTripsBySchool(schoolId!);
+          debugPrint('✅ Trips count: ${trips.length}');
+          
+          // Load report data
+          debugPrint('📊 Loading attendance report...');
+          await _loadAttendanceReport();
+          
+          debugPrint('📊 Loading dispatch logs report...');
+          await _loadDispatchLogsReport();
+          
+          debugPrint('📊 Loading notification logs report...');
+          await _loadNotificationLogsReport();
+          
+          setState(() {
+            totalStudents = studentCount;
+            totalVehicles = vehicleCount;
+            totalTrips = trips.length;
+            notificationsSent = notificationLogsData.length;
+            _loading = false;
+          });
+          
+          debugPrint('═══════════════════════════════════════');
+          debugPrint('✅ REPORTS DASHBOARD - Data Loaded Successfully');
+          debugPrint('📊 Total Students: $totalStudents');
+          debugPrint('📊 Total Vehicles: $totalVehicles');
+          debugPrint('📊 Total Trips: $totalTrips');
+          debugPrint('📊 Notifications Sent: $notificationsSent');
+          debugPrint('📊 Attendance Records: ${attendanceData.length}');
+          debugPrint('📊 Dispatch Logs: ${dispatchLogsData.length}');
+          debugPrint('📊 Notification Logs: ${notificationLogsData.length}');
+          debugPrint('═══════════════════════════════════════');
+        } catch (e) {
+          debugPrint('❌ ERROR loading specific data: $e');
+          debugPrint('Stack trace: ${StackTrace.current}');
+          setState(() => _loading = false);
+        }
       } else {
+        debugPrint('❌ schoolId is still null after check');
         setState(() => _loading = false);
       }
     } catch (e) {
-      print('🔍 Error loading report data: $e');
+      debugPrint('═══════════════════════════════════════');
+      debugPrint('❌ CRITICAL ERROR loading report data: $e');
+      debugPrint('Stack trace: ${StackTrace.current}');
+      debugPrint('═══════════════════════════════════════');
       setState(() => _loading = false);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${AppConstants.msgErrorLoadingReports}$e'),
+            backgroundColor: AppColors.errorColor,
+          ),
+        );
+      }
     }
   }
   
   Future<void> _loadAttendanceReport() async {
     try {
       final response = await _reportService.getAttendanceReport(schoolId!, _selectedAttendanceFilter);
-      if (response['success'] == true) {
+      if (response[AppConstants.keySuccess] == true) {
         setState(() {
-          attendanceData = response['data'] is List ? response['data'] : [];
+          attendanceData = response[AppConstants.keyData] is List ? response[AppConstants.keyData] : [];
         });
         print('🔍 Attendance report loaded: ${attendanceData.length} records');
       }
@@ -166,9 +227,9 @@ class _ReportsScreenState extends State<ReportsScreen>
   Future<void> _loadDispatchLogsReport() async {
     try {
       final response = await _reportService.getDispatchLogsReport(schoolId!, _selectedDispatchFilter);
-      if (response['success'] == true) {
+      if (response[AppConstants.keySuccess] == true) {
         setState(() {
-          dispatchLogsData = response['data'] is List ? response['data'] : [];
+          dispatchLogsData = response[AppConstants.keyData] is List ? response[AppConstants.keyData] : [];
         });
         print('🔍 Dispatch logs report loaded: ${dispatchLogsData.length} records');
       }
@@ -180,9 +241,9 @@ class _ReportsScreenState extends State<ReportsScreen>
   Future<void> _loadNotificationLogsReport() async {
     try {
       final response = await _reportService.getNotificationLogsReport(schoolId!, _selectedNotificationFilter);
-      if (response['success'] == true) {
+      if (response[AppConstants.keySuccess] == true) {
         setState(() {
-          notificationLogsData = response['data'] is List ? response['data'] : [];
+          notificationLogsData = response[AppConstants.keyData] is List ? response[AppConstants.keyData] : [];
         });
         print('🔍 Notification logs report loaded: ${notificationLogsData.length} records');
       }
@@ -195,15 +256,15 @@ class _ReportsScreenState extends State<ReportsScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Reports Dashboard"),
+        title: const Text(AppConstants.labelReportsDashboard),
         actions: [
           // WebSocket connection status
           Padding(
             padding: const EdgeInsets.only(right: 8.0),
             child: Icon(
               _isConnected ? Icons.wifi : Icons.wifi_off,
-              color: _isConnected ? Colors.green : Colors.red,
-              size: 20,
+              color: _isConnected ? AppColors.successColor : AppColors.errorColor,
+              size: AppSizes.iconSM,
             ),
           ),
           IconButton(
@@ -214,9 +275,9 @@ class _ReportsScreenState extends State<ReportsScreen>
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
-            Tab(text: "Attendance"),
-            Tab(text: "Dispatch Logs"),
-            Tab(text: "Notifications"),
+            Tab(text: AppConstants.labelAttendanceTab),
+            Tab(text: AppConstants.labelDispatchLogsTab),
+            Tab(text: AppConstants.labelNotificationsTab),
           ],
         ),
       ),
@@ -224,16 +285,16 @@ class _ReportsScreenState extends State<ReportsScreen>
         children: [
           // 🔹 Summary Cards Row
           Padding(
-            padding: const EdgeInsets.all(12.0),
+            padding: const EdgeInsets.all(AppConstants.reportsHeaderPadding),
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
                 : Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      _buildStatCard("Total Students", totalStudents.toString(), Colors.blue),
-                      _buildStatCard("Total Vehicles", totalVehicles.toString(), Colors.green),
-                      _buildStatCard("Total Trips", totalTrips.toString(), Colors.orange),
-                      _buildStatCard("Notifications", notificationsSent.toString(), Colors.purple),
+                      _buildStatCard(AppConstants.labelTotalStudents, totalStudents.toString(), AppColors.infoColor),
+                      _buildStatCard(AppConstants.labelTotalVehicles, totalVehicles.toString(), AppColors.successColor),
+                      _buildStatCard(AppConstants.labelTotalTrips, totalTrips.toString(), AppColors.warningColor),
+                      _buildStatCard(AppConstants.labelNotifications, notificationsSent.toString(), AppColors.adminColor),
                     ],
                   ),
           ),
@@ -263,7 +324,7 @@ class _ReportsScreenState extends State<ReportsScreen>
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               FilterChip(
-                label: Text('Student-wise'),
+                label: Text(AppConstants.labelStudentWise),
                 selected: _selectedAttendanceFilter == 'student-wise',
                 onSelected: (selected) {
                   if (selected) {
@@ -272,9 +333,9 @@ class _ReportsScreenState extends State<ReportsScreen>
                   }
                 },
               ),
-              SizedBox(width: 8),
+              SizedBox(width: AppSizes.spaceSM),
               FilterChip(
-                label: Text('Class-wise'),
+                label: Text(AppConstants.labelClassWise),
                 selected: _selectedAttendanceFilter == 'class-wise',
                 onSelected: (selected) {
                   if (selected) {
@@ -292,9 +353,9 @@ class _ReportsScreenState extends State<ReportsScreen>
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.school, size: 64, color: Colors.grey),
-                      SizedBox(height: 16),
-                      Text('No attendance data available', style: TextStyle(color: Colors.grey)),
+                      Icon(Icons.school, size: AppConstants.reportsIconSizeLG, color: AppColors.textHint),
+                      SizedBox(height: AppConstants.reportsGapLG),
+                      Text(AppConstants.msgNoAttendanceData, style: TextStyle(color: AppColors.textHint)),
                     ],
                   ),
                 )
@@ -308,16 +369,16 @@ class _ReportsScreenState extends State<ReportsScreen>
                     final percentage = record['attendancePercentage'] ?? 0.0;
                     
                     return Card(
-                      margin: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      margin: EdgeInsets.symmetric(horizontal: AppSizes.spaceMD, vertical: AppSizes.spaceXS + 2),
                       child: ListTile(
                         leading: CircleAvatar(
-                          backgroundColor: percentage >= 75 ? Colors.green : percentage >= 50 ? Colors.orange : Colors.red,
+                          backgroundColor: percentage >= 75 ? AppColors.successColor : percentage >= 50 ? AppColors.warningColor : AppColors.errorColor,
                           child: Text(
                             percentage.toStringAsFixed(0) + '%',
-                            style: TextStyle(color: Colors.white, fontSize: 12),
+                            style: TextStyle(color: AppColors.textWhite, fontSize: AppConstants.reportsTitleFontSize),
                           ),
                         ),
-                        title: Text(record['studentName'] ?? 'Unknown'),
+                        title: Text(record['studentName'] ?? AppConstants.msgUnknown),
                         subtitle: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -327,7 +388,7 @@ class _ReportsScreenState extends State<ReportsScreen>
                         ),
                         trailing: Icon(
                           percentage >= 75 ? Icons.check_circle : percentage >= 50 ? Icons.warning : Icons.error,
-                          color: percentage >= 75 ? Colors.green : percentage >= 50 ? Colors.orange : Colors.red,
+                          color: percentage >= 75 ? AppColors.successColor : percentage >= 50 ? AppColors.warningColor : AppColors.errorColor,
                         ),
                       ),
                     );
@@ -350,7 +411,7 @@ class _ReportsScreenState extends State<ReportsScreen>
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               FilterChip(
-                label: Text('All'),
+                label: Text(AppConstants.labelAll),
                 selected: _selectedDispatchFilter == 'all',
                 onSelected: (selected) {
                   if (selected) {
@@ -359,9 +420,9 @@ class _ReportsScreenState extends State<ReportsScreen>
                   }
                 },
               ),
-              SizedBox(width: 8),
+              SizedBox(width: AppSizes.spaceSM),
               FilterChip(
-                label: Text('Trip-wise'),
+                label: Text(AppConstants.labelTripWise),
                 selected: _selectedDispatchFilter == 'trip-wise',
                 onSelected: (selected) {
                   if (selected) {
@@ -370,9 +431,9 @@ class _ReportsScreenState extends State<ReportsScreen>
                   }
                 },
               ),
-              SizedBox(width: 8),
+              SizedBox(width: AppSizes.spaceSM),
               FilterChip(
-                label: Text('Vehicle-wise'),
+                label: Text(AppConstants.labelVehicleWise),
                 selected: _selectedDispatchFilter == 'vehicle-wise',
                 onSelected: (selected) {
                   if (selected) {
@@ -390,9 +451,9 @@ class _ReportsScreenState extends State<ReportsScreen>
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.directions_bus, size: 64, color: Colors.grey),
-                      SizedBox(height: 16),
-                      Text('No dispatch logs available', style: TextStyle(color: Colors.grey)),
+                      Icon(Icons.directions_bus, size: AppConstants.reportsIconSizeLG, color: AppColors.textHint),
+                      SizedBox(height: AppConstants.reportsGapLG),
+                      Text(AppConstants.msgNoDispatchLogs, style: TextStyle(color: AppColors.textHint)),
                     ],
                   ),
                 )
@@ -410,11 +471,11 @@ class _ReportsScreenState extends State<ReportsScreen>
                           backgroundColor: _getEventTypeColor(eventType),
                           child: Icon(
                             _getEventTypeIcon(eventType),
-                            color: Colors.white,
-                            size: 20,
+                            color: AppColors.textWhite,
+                            size: AppConstants.reportsIconSizeMD,
                           ),
                         ),
-                        title: Text(log['tripName'] ?? 'Unknown Trip'),
+                        title: Text(log['tripName'] ?? AppConstants.msgUnknown),
                         subtitle: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -429,7 +490,7 @@ class _ReportsScreenState extends State<ReportsScreen>
                           style: TextStyle(
                             color: _getEventTypeColor(eventType),
                             fontWeight: FontWeight.bold,
-                            fontSize: 12,
+                            fontSize: AppConstants.reportsTitleFontSize,
                           ),
                         ),
                       ),
@@ -483,7 +544,7 @@ class _ReportsScreenState extends State<ReportsScreen>
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               FilterChip(
-                label: Text('All'),
+                label: Text(AppConstants.labelAll),
                 selected: _selectedNotificationFilter == 'all',
                 onSelected: (selected) {
                   if (selected) {
@@ -492,9 +553,9 @@ class _ReportsScreenState extends State<ReportsScreen>
                   }
                 },
               ),
-              SizedBox(width: 8),
+              SizedBox(width: AppSizes.spaceSM),
               FilterChip(
-                label: Text('Sent'),
+                label: Text(AppConstants.labelSent),
                 selected: _selectedNotificationFilter == 'sent',
                 onSelected: (selected) {
                   if (selected) {
@@ -503,9 +564,9 @@ class _ReportsScreenState extends State<ReportsScreen>
                   }
                 },
               ),
-              SizedBox(width: 8),
+              SizedBox(width: AppSizes.spaceSM),
               FilterChip(
-                label: Text('Failed'),
+                label: Text(AppConstants.labelFailed),
                 selected: _selectedNotificationFilter == 'failed',
                 onSelected: (selected) {
                   if (selected) {
@@ -514,9 +575,9 @@ class _ReportsScreenState extends State<ReportsScreen>
                   }
                 },
               ),
-              SizedBox(width: 8),
+              SizedBox(width: AppSizes.spaceSM),
               FilterChip(
-                label: Text('Pending'),
+                label: Text(AppConstants.labelPending),
                 selected: _selectedNotificationFilter == 'pending',
                 onSelected: (selected) {
                   if (selected) {
@@ -534,9 +595,9 @@ class _ReportsScreenState extends State<ReportsScreen>
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.notifications, size: 64, color: Colors.grey),
-                      SizedBox(height: 16),
-                      Text('No notification logs available', style: TextStyle(color: Colors.grey)),
+                      Icon(Icons.notifications, size: AppConstants.reportsIconSizeLG, color: AppColors.textHint),
+                      SizedBox(height: AppConstants.reportsGapLG),
+                      Text(AppConstants.msgNoNotificationLogs, style: TextStyle(color: AppColors.textHint)),
                     ],
                   ),
                 )
@@ -557,8 +618,8 @@ class _ReportsScreenState extends State<ReportsScreen>
                           backgroundColor: color,
                           child: Icon(
                             _getNotificationStatusIcon(status),
-                            color: Colors.white,
-                            size: 20,
+                            color: AppColors.textWhite,
+                            size: AppConstants.reportsIconSizeMD,
                           ),
                         ),
                         title: Text(message.length > 50 ? message.substring(0, 50) + '...' : message),
@@ -585,7 +646,7 @@ class _ReportsScreenState extends State<ReportsScreen>
                               Text(
                                 notification['deliveryStatus'],
                                 style: TextStyle(
-                                  color: Colors.grey,
+                                  color: AppColors.textHint,
                                   fontSize: 10,
                                 ),
                               ),
@@ -654,22 +715,22 @@ class _ReportsScreenState extends State<ReportsScreen>
   // 🔹 Export Buttons
   Widget _buildExportButtons(String reportType) {
     return Padding(
-      padding: const EdgeInsets.all(12.0),
+      padding: const EdgeInsets.all(AppConstants.reportsHeaderPadding),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
           ElevatedButton.icon(
             onPressed: () => _exportReport(reportType, 'pdf'),
-            icon: Icon(Icons.picture_as_pdf),
-            label: Text("Download PDF"),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+            icon: const Icon(Icons.picture_as_pdf),
+            label: const Text(AppConstants.labelDownloadPDF),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.errorColor),
           ),
-          SizedBox(width: 12),
+          SizedBox(width: AppConstants.reportsGapMD),
           ElevatedButton.icon(
             onPressed: () => _exportReport(reportType, 'csv'),
-            icon: Icon(Icons.table_chart),
-            label: Text("Export CSV"),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent),
+            icon: const Icon(Icons.table_chart),
+            label: const Text(AppConstants.labelExportCSV),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.infoColor),
           ),
         ],
       ),
@@ -680,7 +741,7 @@ class _ReportsScreenState extends State<ReportsScreen>
     try {
       if (schoolId == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('School ID not found')),
+          const SnackBar(content: Text(AppConstants.msgSchoolIdNotFoundLogin)),
         );
         return;
       }
@@ -693,19 +754,16 @@ class _ReportsScreenState extends State<ReportsScreen>
           final shouldRequest = await showDialog<bool>(
             context: context,
             builder: (context) => AlertDialog(
-              title: const Text('Storage Permission Required'),
-              content: const Text(
-                'This app needs storage permission to download reports. '
-                'Please grant permission in the next dialog.',
-              ),
+              title: const Text(AppConstants.labelStoragePermissionRequired),
+              content: const Text(AppConstants.msgStoragePermissionExplain),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context, false),
-                  child: const Text('Cancel'),
+                  child: const Text(AppConstants.labelCancel),
                 ),
                 ElevatedButton(
                   onPressed: () => Navigator.pop(context, true),
-                  child: const Text('Grant Permission'),
+                  child: const Text(AppConstants.labelGrantPermission),
                 ),
               ],
             ),
@@ -719,9 +777,9 @@ class _ReportsScreenState extends State<ReportsScreen>
           final permissionGranted = await _checkStoragePermission();
           if (!permissionGranted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Storage permission denied. Cannot download files.'),
-                backgroundColor: Colors.red,
+              const SnackBar(
+                content: Text(AppConstants.msgStoragePermissionDenied),
+                backgroundColor: AppColors.errorColor,
               ),
             );
             return;
@@ -736,9 +794,9 @@ class _ReportsScreenState extends State<ReportsScreen>
         builder: (context) => AlertDialog(
           content: Row(
             children: [
-              CircularProgressIndicator(),
-              SizedBox(width: 16),
-              Text('Downloading $type report...'),
+              const CircularProgressIndicator(),
+              SizedBox(width: AppConstants.reportsGapLG),
+              Text('${AppConstants.msgDownloadingReportPrefix}$type report...'),
             ],
           ),
         ),
@@ -755,9 +813,9 @@ class _ReportsScreenState extends State<ReportsScreen>
       
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Report downloaded successfully!'),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 3),
+          content: const Text(AppConstants.msgReportDownloaded),
+          backgroundColor: AppColors.successColor,
+          duration: const Duration(seconds: AppConstants.reportsSnackbarDuration),
         ),
       );
       
@@ -769,8 +827,8 @@ class _ReportsScreenState extends State<ReportsScreen>
       
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Download error: $e'),
-          backgroundColor: Colors.red,
+          content: Text('${AppConstants.msgDownloadError}$e'),
+          backgroundColor: AppColors.errorColor,
         ),
       );
     }
@@ -802,8 +860,8 @@ class _ReportsScreenState extends State<ReportsScreen>
   
   Future<void> _saveFileToDevice(Uint8List fileBytes, String type, String format) async {
     try {
-      print('🔍 File downloaded: ${fileBytes.length} bytes');
-      print('🔍 File type: $type.$format');
+      debugPrint('🔍 File downloaded: ${fileBytes.length} bytes');
+      debugPrint('🔍 File type: $type.$format');
       
       // Get the downloads directory with better handling
       Directory? downloadsDir;
@@ -840,7 +898,7 @@ class _ReportsScreenState extends State<ReportsScreen>
       }
       
       if (downloadsDir == null) {
-        throw Exception('Could not access downloads directory');
+        throw Exception(AppConstants.msgCouldNotAccessDownloads);
       }
       
       // Create filename with timestamp
@@ -852,37 +910,37 @@ class _ReportsScreenState extends State<ReportsScreen>
       final file = File(filePath);
       await file.writeAsBytes(fileBytes);
       
-      print('🔍 File saved to: $filePath');
+      debugPrint('🔍 File saved to: $filePath');
       
       // Show success dialog with file path
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          title: Text('File Downloaded Successfully!'),
+          title: const Text(AppConstants.msgFileDownloadedTitle),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('File Type: $type.$format'),
               Text('File Size: ${fileBytes.length} bytes'),
-              SizedBox(height: 8),
-              Text('Saved to:', style: TextStyle(fontWeight: FontWeight.bold)),
-              Text(filePath, style: TextStyle(fontSize: 12, color: Colors.blue)),
-              SizedBox(height: 16),
+              SizedBox(height: AppSizes.spaceSM),
+              const Text(AppConstants.msgSavedTo, style: TextStyle(fontWeight: FontWeight.bold)),
+              Text(filePath, style: const TextStyle(fontSize: 12, color: AppColors.infoColor)),
+              SizedBox(height: AppSizes.spaceMD),
               Container(
-                padding: EdgeInsets.all(8),
+                padding: const EdgeInsets.all(AppSizes.spaceSM),
                 decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
+                  color: AppColors.successColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(AppSizes.radiusSM),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.check_circle, color: Colors.green, size: 20),
-                    SizedBox(width: 8),
+                    const Icon(Icons.check_circle, color: AppColors.successColor, size: 20),
+                    SizedBox(width: AppSizes.spaceSM),
                     Expanded(
                       child: Text(
-                        'File has been saved to your device\'s download folder.',
-                        style: TextStyle(color: Colors.green, fontSize: 12),
+                        AppConstants.msgFileSavedInfo,
+                        style: const TextStyle(color: AppColors.successColor, fontSize: 12),
                       ),
                     ),
                   ],
@@ -893,40 +951,40 @@ class _ReportsScreenState extends State<ReportsScreen>
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text('OK'),
+              child: const Text(AppConstants.buttonOk),
             ),
           ],
         ),
       );
       
     } catch (e) {
-      print('🔍 Error saving file: $e');
+      debugPrint('🔍 Error saving file: $e');
       
       // Show error dialog
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          title: Text('Download Failed'),
+          title: const Text(AppConstants.msgDownloadFailedTitle),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('Error: $e'),
-              SizedBox(height: 16),
+              SizedBox(height: AppSizes.spaceMD),
               Container(
-                padding: EdgeInsets.all(8),
+                padding: const EdgeInsets.all(AppSizes.spaceSM),
                 decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
+                  color: AppColors.errorColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(AppSizes.radiusSM),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.error, color: Colors.red, size: 20),
-                    SizedBox(width: 8),
+                    const Icon(Icons.error, color: AppColors.errorColor, size: 20),
+                    SizedBox(width: AppSizes.spaceSM),
                     Expanded(
                       child: Text(
-                        'Please check your device permissions and try again.',
-                        style: TextStyle(color: Colors.red, fontSize: 12),
+                        AppConstants.msgCheckPermissionsTryAgain,
+                        style: const TextStyle(color: AppColors.errorColor, fontSize: 12),
                       ),
                     ),
                   ],
@@ -937,7 +995,7 @@ class _ReportsScreenState extends State<ReportsScreen>
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text('OK'),
+              child: const Text(AppConstants.buttonOk),
             ),
           ],
         ),

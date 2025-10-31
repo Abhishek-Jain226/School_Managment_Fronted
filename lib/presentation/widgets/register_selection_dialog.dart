@@ -27,7 +27,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (username == "parent@example.com" && password == "password123") {
       if (!mounted) return;
-      Navigator.pushReplacementNamed(context, AppRoutes.dashboard);
+      Navigator.pushReplacementNamed(context, AppRoutes.blocSchoolAdminDashboard);
     } else {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

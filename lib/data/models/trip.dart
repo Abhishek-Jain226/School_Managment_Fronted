@@ -1,3 +1,5 @@
+import '../../utils/constants.dart';
+
 class Trip {
   final int tripId;
   final String tripName;
@@ -75,77 +77,77 @@ class Trip {
 
   factory Trip.fromJson(Map<String, dynamic> json) {
     return Trip(
-      tripId: json['tripId'],
-      tripName: json['tripName'],
-      tripNumber: json['tripNumber'],
-      tripType: json['tripType'],
-      scheduledTime: json['scheduledTime'],
-      estimatedDurationMinutes: json['estimatedDurationMinutes'],
-      isActive: json['isActive'],
-      vehicleId: json['vehicleId'],
-      vehicleNumber: json['vehicleNumber'],
-      vehicleType: json['vehicleType'],
-      vehicleCapacity: json['vehicleCapacity'],
-      schoolId: json['schoolId'],
-      schoolName: json['schoolName'],
-      driverId: json['driverId'],
-      driverName: json['driverName'],
-      driverContactNumber: json['driverContactNumber'],
-      tripStatus: json['tripStatus'],
-      tripStartTime: json['tripStartTime'] != null 
-          ? DateTime.parse(json['tripStartTime']) 
+      tripId: json[AppConstants.keyTripId],
+      tripName: json[AppConstants.keyTripName],
+      tripNumber: json[AppConstants.keyTripNumber],
+      tripType: json[AppConstants.keyTripType],
+      scheduledTime: json[AppConstants.keyScheduledTime],
+      estimatedDurationMinutes: json[AppConstants.keyEstimatedDurationMinutes],
+      isActive: json[AppConstants.keyIsActive],
+      vehicleId: json[AppConstants.keyVehicleId],
+      vehicleNumber: json[AppConstants.keyVehicleNumber],
+      vehicleType: json[AppConstants.keyVehicleType],
+      vehicleCapacity: json[AppConstants.keyVehicleCapacity],
+      schoolId: json[AppConstants.keySchoolId],
+      schoolName: json[AppConstants.keySchoolName],
+      driverId: json[AppConstants.keyDriverId],
+      driverName: json[AppConstants.keyDriverName],
+      driverContactNumber: json[AppConstants.keyDriverContactNumber],
+      tripStatus: json[AppConstants.keyTripStatus],
+      tripStartTime: json[AppConstants.keyTripStartTime] != null 
+          ? DateTime.parse(json[AppConstants.keyTripStartTime]) 
           : null,
-      tripEndTime: json['tripEndTime'] != null 
-          ? DateTime.parse(json['tripEndTime']) 
+      tripEndTime: json[AppConstants.keyTripEndTime] != null 
+          ? DateTime.parse(json[AppConstants.keyTripEndTime]) 
           : null,
-      totalStudents: json['totalStudents'] ?? 0,
-      studentsPickedUp: json['studentsPickedUp'] ?? 0,
-      studentsDropped: json['studentsDropped'] ?? 0,
-      studentsAbsent: json['studentsAbsent'] ?? 0,
-      students: (json['students'] as List<dynamic>?)
+      totalStudents: json[AppConstants.keyTotalStudents] ?? 0,
+      studentsPickedUp: json[AppConstants.keyStudentsPickedUp] ?? 0,
+      studentsDropped: json[AppConstants.keyStudentsDropped] ?? 0,
+      studentsAbsent: json[AppConstants.keyStudentsAbsent] ?? 0,
+      students: (json[AppConstants.keyStudents] as List<dynamic>?)
           ?.map((student) => TripStudent.fromJson(student))
           .toList() ?? [],
-      createdBy: json['createdBy'],
-      createdDate: json['createdDate'] != null 
-          ? DateTime.parse(json['createdDate']) 
+      createdBy: json[AppConstants.keyCreatedBy],
+      createdDate: json[AppConstants.keyCreatedDate] != null 
+          ? DateTime.parse(json[AppConstants.keyCreatedDate]) 
           : null,
-      updatedBy: json['updatedBy'],
-      updatedDate: json['updatedDate'] != null 
-          ? DateTime.parse(json['updatedDate']) 
+      updatedBy: json[AppConstants.keyUpdatedBy],
+      updatedDate: json[AppConstants.keyUpdatedDate] != null 
+          ? DateTime.parse(json[AppConstants.keyUpdatedDate]) 
           : null,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'tripId': tripId,
-      'tripName': tripName,
-      'tripNumber': tripNumber,
-      'tripType': tripType,
-      'scheduledTime': scheduledTime,
-      'estimatedDurationMinutes': estimatedDurationMinutes,
-      'isActive': isActive,
-      'vehicleId': vehicleId,
-      'vehicleNumber': vehicleNumber,
-      'vehicleType': vehicleType,
-      'vehicleCapacity': vehicleCapacity,
-      'schoolId': schoolId,
-      'schoolName': schoolName,
-      'driverId': driverId,
-      'driverName': driverName,
-      'driverContactNumber': driverContactNumber,
-      'tripStatus': tripStatus,
-      'tripStartTime': tripStartTime?.toIso8601String(),
-      'tripEndTime': tripEndTime?.toIso8601String(),
-      'totalStudents': totalStudents,
-      'studentsPickedUp': studentsPickedUp,
-      'studentsDropped': studentsDropped,
-      'studentsAbsent': studentsAbsent,
-      'students': students.map((student) => student.toJson()).toList(),
-      'createdBy': createdBy,
-      'createdDate': createdDate?.toIso8601String(),
-      'updatedBy': updatedBy,
-      'updatedDate': updatedDate?.toIso8601String(),
+      AppConstants.keyTripId: tripId,
+      AppConstants.keyTripName: tripName,
+      AppConstants.keyTripNumber: tripNumber,
+      AppConstants.keyTripType: tripType,
+      AppConstants.keyScheduledTime: scheduledTime,
+      AppConstants.keyEstimatedDurationMinutes: estimatedDurationMinutes,
+      AppConstants.keyIsActive: isActive,
+      AppConstants.keyVehicleId: vehicleId,
+      AppConstants.keyVehicleNumber: vehicleNumber,
+      AppConstants.keyVehicleType: vehicleType,
+      AppConstants.keyVehicleCapacity: vehicleCapacity,
+      AppConstants.keySchoolId: schoolId,
+      AppConstants.keySchoolName: schoolName,
+      AppConstants.keyDriverId: driverId,
+      AppConstants.keyDriverName: driverName,
+      AppConstants.keyDriverContactNumber: driverContactNumber,
+      AppConstants.keyTripStatus: tripStatus,
+      AppConstants.keyTripStartTime: tripStartTime?.toIso8601String(),
+      AppConstants.keyTripEndTime: tripEndTime?.toIso8601String(),
+      AppConstants.keyTotalStudents: totalStudents,
+      AppConstants.keyStudentsPickedUp: studentsPickedUp,
+      AppConstants.keyStudentsDropped: studentsDropped,
+      AppConstants.keyStudentsAbsent: studentsAbsent,
+      AppConstants.keyStudents: students.map((student) => student.toJson()).toList(),
+      AppConstants.keyCreatedBy: createdBy,
+      AppConstants.keyCreatedDate: createdDate?.toIso8601String(),
+      AppConstants.keyUpdatedBy: updatedBy,
+      AppConstants.keyUpdatedDate: updatedDate?.toIso8601String(),
     };
   }
 
@@ -253,47 +255,47 @@ class TripStudent {
 
   factory TripStudent.fromJson(Map<String, dynamic> json) {
     return TripStudent(
-      studentId: json['studentId'],
-      studentName: json['studentName'],
-      studentPhoto: json['studentPhoto'],
-      className: json['className'],
-      sectionName: json['sectionName'],
-      pickupLocation: json['pickupLocation'],
-      dropLocation: json['dropLocation'],
-      pickupOrder: json['pickupOrder'],
-      dropOrder: json['dropOrder'],
-      attendanceStatus: json['attendanceStatus'],
-      pickupTime: json['pickupTime'] != null 
-          ? DateTime.parse(json['pickupTime']) 
+      studentId: json[AppConstants.keyStudentId],
+      studentName: json[AppConstants.keyStudentName],
+      studentPhoto: json[AppConstants.keyStudentPhoto],
+      className: json[AppConstants.keyClassName],
+      sectionName: json[AppConstants.keySectionName],
+      pickupLocation: json[AppConstants.keyPickupLocation],
+      dropLocation: json[AppConstants.keyDropLocation],
+      pickupOrder: json[AppConstants.keyPickupOrder],
+      dropOrder: json[AppConstants.keyDropOrder],
+      attendanceStatus: json[AppConstants.keyAttendanceStatus],
+      pickupTime: json[AppConstants.keyPickupTime] != null 
+          ? DateTime.parse(json[AppConstants.keyPickupTime]) 
           : null,
-      dropTime: json['dropTime'] != null 
-          ? DateTime.parse(json['dropTime']) 
+      dropTime: json[AppConstants.keyDropTime] != null 
+          ? DateTime.parse(json[AppConstants.keyDropTime]) 
           : null,
-      remarks: json['remarks'],
-      parentName: json['parentName'],
-      parentContactNumber: json['parentContactNumber'],
-      parentEmail: json['parentEmail'],
+      remarks: json[AppConstants.keyRemarks],
+      parentName: json[AppConstants.keyParentName],
+      parentContactNumber: json[AppConstants.keyParentContactNumber],
+      parentEmail: json[AppConstants.keyParentEmail],
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'studentId': studentId,
-      'studentName': studentName,
-      'studentPhoto': studentPhoto,
-      'className': className,
-      'sectionName': sectionName,
-      'pickupLocation': pickupLocation,
-      'dropLocation': dropLocation,
-      'pickupOrder': pickupOrder,
-      'dropOrder': dropOrder,
-      'attendanceStatus': attendanceStatus,
-      'pickupTime': pickupTime?.toIso8601String(),
-      'dropTime': dropTime?.toIso8601String(),
-      'remarks': remarks,
-      'parentName': parentName,
-      'parentContactNumber': parentContactNumber,
-      'parentEmail': parentEmail,
+      AppConstants.keyStudentId: studentId,
+      AppConstants.keyStudentName: studentName,
+      AppConstants.keyStudentPhoto: studentPhoto,
+      AppConstants.keyClassName: className,
+      AppConstants.keySectionName: sectionName,
+      AppConstants.keyPickupLocation: pickupLocation,
+      AppConstants.keyDropLocation: dropLocation,
+      AppConstants.keyPickupOrder: pickupOrder,
+      AppConstants.keyDropOrder: dropOrder,
+      AppConstants.keyAttendanceStatus: attendanceStatus,
+      AppConstants.keyPickupTime: pickupTime?.toIso8601String(),
+      AppConstants.keyDropTime: dropTime?.toIso8601String(),
+      AppConstants.keyRemarks: remarks,
+      AppConstants.keyParentName: parentName,
+      AppConstants.keyParentContactNumber: parentContactNumber,
+      AppConstants.keyParentEmail: parentEmail,
     };
   }
 

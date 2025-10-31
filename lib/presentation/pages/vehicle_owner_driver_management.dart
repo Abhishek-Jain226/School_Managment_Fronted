@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/vehicle_owner_service.dart';
-import '../../services/driver_service.dart';
 import '../../app_routes.dart';
+import '../../utils/constants.dart';
 
 class VehicleOwnerDriverManagementPage extends StatefulWidget {
   const VehicleOwnerDriverManagementPage({super.key});
@@ -13,7 +13,6 @@ class VehicleOwnerDriverManagementPage extends StatefulWidget {
 
 class _VehicleOwnerDriverManagementPageState extends State<VehicleOwnerDriverManagementPage> {
   final VehicleOwnerService _vehicleOwnerService = VehicleOwnerService();
-  final DriverService _driverService = DriverService();
   
   List<Map<String, dynamic>> _drivers = [];
   bool _isLoading = true;
@@ -30,19 +29,19 @@ class _VehicleOwnerDriverManagementPageState extends State<VehicleOwnerDriverMan
     
     try {
       final prefs = await SharedPreferences.getInstance();
-      final userId = prefs.getInt("userId");
+      final userId = prefs.getInt(AppConstants.keyUserId);
       
       if (userId != null) {
         // Load owner data
         final ownerResponse = await _vehicleOwnerService.getOwnerByUserId(userId);
-        if (ownerResponse['success'] == true) {
-          _ownerData = ownerResponse['data'];
-          final ownerId = _ownerData!['ownerId'];
+        if (ownerResponse[AppConstants.keySuccess] == true) {
+          _ownerData = ownerResponse[AppConstants.keyData];
+          final ownerId = _ownerData![AppConstants.keyOwnerId];
           // Load drivers by owner
           final driversResponse = await _vehicleOwnerService.getDriversByOwner(ownerId);
-          if (driversResponse['success'] == true) {
+          if (driversResponse[AppConstants.keySuccess] == true) {
             setState(() {
-              _drivers = List<Map<String, dynamic>>.from(driversResponse['data']['drivers'] ?? []);
+              _drivers = List<Map<String, dynamic>>.from(driversResponse[AppConstants.keyData][AppConstants.keyDrivers] ?? []);
             });
           } else {
             // If no drivers found, set empty list
@@ -53,8 +52,8 @@ class _VehicleOwnerDriverManagementPageState extends State<VehicleOwnerDriverMan
         }
       }
     } catch (e) {
-      print("Error loading data: $e");
-      _showError("Error loading drivers: $e");
+      debugPrint("Error loading data: $e");
+      _showError('${AppConstants.msgErrorLoadingDrivers}: $e');
     } finally {
       setState(() => _isLoading = false);
     }
@@ -65,7 +64,7 @@ class _VehicleOwnerDriverManagementPageState extends State<VehicleOwnerDriverMan
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(message),
-          backgroundColor: Colors.red,
+          backgroundColor: AppColors.errorColor,
         ),
       );
     }
@@ -76,7 +75,7 @@ class _VehicleOwnerDriverManagementPageState extends State<VehicleOwnerDriverMan
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(message),
-          backgroundColor: Colors.green,
+          backgroundColor: AppColors.successColor,
         ),
       );
     }
@@ -86,17 +85,17 @@ class _VehicleOwnerDriverManagementPageState extends State<VehicleOwnerDriverMan
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text("Delete Driver"),
-        content: Text("Are you sure you want to delete driver $driverName?"),
+        title: const Text(AppConstants.titleDeleteDriver),
+        content: Text('${AppConstants.msgConfirmDeleteDriver} $driverName?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text("Cancel"),
+            child: const Text(AppConstants.actionCancel),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.errorColor),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text("Delete"),
+            child: const Text(AppConstants.actionDelete),
           ),
         ],
       ),
@@ -105,10 +104,10 @@ class _VehicleOwnerDriverManagementPageState extends State<VehicleOwnerDriverMan
     if (confirmed == true) {
       try {
         // TODO: Implement delete driver API call
-        _showSuccess("Driver deleted successfully");
+        _showSuccess(AppConstants.msgDriverDeletedSuccess);
         _loadData(); // Refresh the list
       } catch (e) {
-        _showError("Error deleting driver: $e");
+        _showError('${AppConstants.msgErrorDeletingDriver}: $e');
       }
     }
   }
@@ -117,7 +116,7 @@ class _VehicleOwnerDriverManagementPageState extends State<VehicleOwnerDriverMan
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Driver Management"),
+        title: const Text(AppConstants.labelDriverManagement),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -131,34 +130,31 @@ class _VehicleOwnerDriverManagementPageState extends State<VehicleOwnerDriverMan
               children: [
                 // Summary Card
                 Card(
-                  margin: const EdgeInsets.all(16),
+                  margin: const EdgeInsets.all(AppSizes.marginMD),
                   child: Padding(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(AppSizes.paddingMD),
                     child: Row(
                       children: [
                         Icon(
                           Icons.person,
-                          size: 48,
-                          color: Colors.blue.shade600,
+                          size: AppSizes.iconXL,
+                          color: AppColors.primaryDark,
                         ),
-                        const SizedBox(width: 16),
+                        const SizedBox(width: AppSizes.marginMD),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                "Total Drivers",
+                                AppConstants.labelTotalDrivers,
                                 style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey.shade600,
+                                  fontSize: AppSizes.textSM,
+                                  color: AppColors.textSecondary,
                                 ),
                               ),
                               Text(
                                 _drivers.length.toString(),
-                                style: const TextStyle(
-                                  fontSize: 32,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                                style: const TextStyle(fontSize: AppSizes.textXXL, fontWeight: FontWeight.bold),
                               ),
                             ],
                           ),
@@ -169,7 +165,7 @@ class _VehicleOwnerDriverManagementPageState extends State<VehicleOwnerDriverMan
                                 .then((_) => _loadData());
                           },
                           icon: const Icon(Icons.add),
-                          label: const Text("Add Driver"),
+                          label: const Text(AppConstants.labelAddDriver),
                         ),
                       ],
                     ),
@@ -185,99 +181,102 @@ class _VehicleOwnerDriverManagementPageState extends State<VehicleOwnerDriverMan
                             children: [
                               Icon(
                                 Icons.person_outline,
-                                size: 64,
-                                color: Colors.grey.shade400,
+                                size: AppSizes.iconXL,
+                                color: AppColors.grey200,
                               ),
-                              const SizedBox(height: 16),
+                              const SizedBox(height: AppSizes.marginMD),
                               Text(
-                                "No drivers registered yet",
+                                AppConstants.emptyStateNoDrivers,
                                 style: TextStyle(
-                                  fontSize: 18,
-                                  color: Colors.grey.shade600,
+                                  fontSize: AppSizes.textXL,
+                                  color: AppColors.textSecondary,
                                 ),
                               ),
-                              const SizedBox(height: 8),
+                              const SizedBox(height: AppSizes.marginSM),
                               Text(
-                                "Add your first driver to get started",
+                                AppConstants.emptyStateAddFirstDriver,
                                 style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey.shade500,
+                                  fontSize: AppSizes.textSM,
+                                  color: AppColors.textSecondary,
                                 ),
                               ),
-                              const SizedBox(height: 24),
+                              const SizedBox(height: AppSizes.marginLG),
                               ElevatedButton.icon(
                                 onPressed: () {
                                   Navigator.pushNamed(context, AppRoutes.registerDriver)
                                       .then((_) => _loadData());
                                 },
                                 icon: const Icon(Icons.add),
-                                label: const Text("Register Driver"),
+                                label: const Text(AppConstants.labelRegisterDriver),
                               ),
                             ],
                           ),
                         )
                       : ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingMD),
                           itemCount: _drivers.length,
                           itemBuilder: (context, index) {
                             final driver = _drivers[index];
                             return Card(
-                              margin: const EdgeInsets.only(bottom: 12),
+                              margin: const EdgeInsets.only(bottom: AppSizes.marginSM),
                               child: ListTile(
                                 leading: CircleAvatar(
-                                  backgroundColor: (driver['isActive'] == true) 
-                                      ? Colors.green 
-                                      : Colors.grey,
+                                  backgroundColor: (driver[AppConstants.keyIsActive] == true) 
+                                      ? AppColors.successColor 
+                                      : AppColors.textSecondary,
                                   child: Icon(
                                     Icons.person,
-                                    color: Colors.white,
+                                    color: AppColors.textWhite,
                                   ),
                                 ),
                                 title: Text(
-                                  driver['driverName'] ?? 'Unknown Driver',
+                                  driver[AppConstants.keyDriverName] ?? AppConstants.labelUnknownDriver,
                                   style: const TextStyle(fontWeight: FontWeight.bold),
                                 ),
                                 subtitle: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text("Contact: ${driver['driverContactNumber'] ?? 'N/A'}"),
-                                    Text("Address: ${driver['driverAddress'] ?? 'N/A'}"),
-                                    if (driver['email'] != null)
-                                      Text("Email: ${driver['email']}"),
-                                    const SizedBox(height: 4),
+                                    Text('${AppConstants.labelContactPrefix}${driver[AppConstants.keyDriverContactNumber] ?? AppConstants.labelNA}')
+                                    ,
+                                    Text('${AppConstants.labelAddressPrefix}${driver[AppConstants.keyDriverAddress] ?? AppConstants.labelNA}')
+                                    ,
+                                    if (driver[AppConstants.keyEmail] != null)
+                                      Text('${AppConstants.labelEmailPrefix}${driver[AppConstants.keyEmail]}')
+                                    ,
+                                    const SizedBox(height: AppSizes.marginXS),
                                     Row(
                                       children: [
                                         Icon(
-                                          (driver['isActive'] == true) 
+                                          (driver[AppConstants.keyIsActive] == true) 
                                               ? Icons.check_circle 
                                               : Icons.cancel,
-                                          size: 16,
-                                          color: (driver['isActive'] == true) 
-                                              ? Colors.green 
-                                              : Colors.red,
+                                          size: AppSizes.iconXS,
+                                          color: (driver[AppConstants.keyIsActive] == true) 
+                                              ? AppColors.successColor 
+                                              : AppColors.errorColor,
                                         ),
-                                        const SizedBox(width: 4),
+                                        const SizedBox(width: AppSizes.marginXS),
                                         Text(
-                                          (driver['isActive'] == true) ? 'Active' : 'Inactive',
+                                          (driver[AppConstants.keyIsActive] == true) ? AppConstants.labelActive : AppConstants.labelInactive,
                                           style: TextStyle(
-                                            color: (driver['isActive'] == true) 
-                                                ? Colors.green 
-                                                : Colors.red,
+                                            color: (driver[AppConstants.keyIsActive] == true) 
+                                                ? AppColors.successColor 
+                                                : AppColors.errorColor,
                                             fontWeight: FontWeight.w500,
                                           ),
                                         ),
-                                        if (driver['assignedVehicle'] != null) ...[
-                                          const SizedBox(width: 16),
+                                        if (driver[AppConstants.keyAssignedVehicle] != null) ...[
+                                          const SizedBox(width: AppSizes.marginMD),
                                           Icon(
                                             Icons.directions_bus,
-                                            size: 16,
-                                            color: Colors.blue,
+                                            size: AppSizes.iconXS,
+                                            color: AppColors.primaryColor,
                                           ),
-                                          const SizedBox(width: 4),
+                                          const SizedBox(width: AppSizes.marginXS),
                                           Text(
-                                            "Assigned to ${driver['assignedVehicle']}",
+                                            '${AppConstants.labelAssignedToPrefix}${driver[AppConstants.keyAssignedVehicle]}',
                                             style: TextStyle(
-                                              color: Colors.blue,
+                                              color: AppColors.primaryColor,
                                               fontWeight: FontWeight.w500,
                                             ),
                                           ),
@@ -291,16 +290,16 @@ class _VehicleOwnerDriverManagementPageState extends State<VehicleOwnerDriverMan
                                     switch (value) {
                                       case 'edit':
                                         // TODO: Navigate to edit driver page
-                                        _showSuccess("Edit functionality coming soon");
+                                        _showSuccess(AppConstants.msgEditFunctionalityComingSoon);
                                         break;
                                       case 'assign':
                                         // TODO: Navigate to driver-vehicle assignment
-                                        _showSuccess("Assignment functionality coming soon");
+                                        _showSuccess(AppConstants.msgAssignmentFunctionalityComingSoon);
                                         break;
                                       case 'delete':
                                         _deleteDriver(
-                                          driver['driverId'],
-                                          driver['driverName'] ?? 'Unknown',
+                                          driver[AppConstants.keyDriverId],
+                                          driver[AppConstants.keyDriverName] ?? AppConstants.labelUnknown,
                                         );
                                         break;
                                     }
@@ -311,8 +310,8 @@ class _VehicleOwnerDriverManagementPageState extends State<VehicleOwnerDriverMan
                                       child: Row(
                                         children: [
                                           Icon(Icons.edit, size: 20),
-                                          SizedBox(width: 8),
-                                          Text('Edit'),
+                                          SizedBox(width: AppSizes.marginSM),
+                                          Text(AppConstants.actionEdit),
                                         ],
                                       ),
                                     ),
@@ -321,8 +320,8 @@ class _VehicleOwnerDriverManagementPageState extends State<VehicleOwnerDriverMan
                                       child: Row(
                                         children: [
                                           Icon(Icons.assignment, size: 20),
-                                          SizedBox(width: 8),
-                                          Text('Assign to Vehicle'),
+                                          SizedBox(width: AppSizes.marginSM),
+                                          Text(AppConstants.actionAssignToVehicle),
                                         ],
                                       ),
                                     ),
@@ -330,9 +329,9 @@ class _VehicleOwnerDriverManagementPageState extends State<VehicleOwnerDriverMan
                                       value: 'delete',
                                       child: Row(
                                         children: [
-                                          Icon(Icons.delete, size: 20, color: Colors.red),
-                                          SizedBox(width: 8),
-                                          Text('Delete', style: TextStyle(color: Colors.red)),
+                                          Icon(Icons.delete, size: 20, color: AppColors.errorColor),
+                                          SizedBox(width: AppSizes.marginSM),
+                                          Text(AppConstants.actionDelete, style: TextStyle(color: AppColors.errorColor)),
                                         ],
                                       ),
                                     ),

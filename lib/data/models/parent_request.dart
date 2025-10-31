@@ -1,3 +1,5 @@
+import '../../utils/constants.dart';
+
 class ParentRequest {
   final int? userId;
   final String name;
@@ -16,11 +18,11 @@ class ParentRequest {
   });
 
   Map<String, dynamic> toJson() => {
-    "userId": userId,
-    "name": name,
-    "email": email,
-    "contactNumber": contactNumber,
-    "relation": relation,
-    "createdBy": createdBy,
+    AppConstants.keyUserId: userId,
+    AppConstants.keyName: name,
+    AppConstants.keyEmail: email,
+    AppConstants.keyContactNumber: contactNumber,
+    AppConstants.keyRelation: relation,
+    AppConstants.keyCreatedBy: createdBy,
   };
 }

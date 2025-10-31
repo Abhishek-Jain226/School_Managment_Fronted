@@ -1,19 +1,16 @@
 import 'package:flutter/widgets.dart';
 import 'package:school_tracker/presentation/pages/StudentProfilePage.dart';
 import 'package:school_tracker/presentation/pages/activation_screen.dart';
-import 'package:school_tracker/presentation/pages/app_admin_dashboard.dart';
 import 'package:school_tracker/presentation/pages/app_admin_school_management.dart';
 import 'package:school_tracker/presentation/pages/app_admin_profile_page.dart';
 import 'package:school_tracker/presentation/pages/create_trip_page.dart';
-import 'package:school_tracker/presentation/pages/simplified_driver_dashboard.dart';
 import 'package:school_tracker/presentation/pages/driver_profile_page.dart';
 import 'package:school_tracker/presentation/pages/driver_reports_page.dart';
 import 'package:school_tracker/presentation/pages/simplified_student_management_page.dart';
 import 'package:school_tracker/presentation/pages/vehicle_tracking_page.dart';
 import 'package:school_tracker/presentation/pages/enhanced_vehicle_tracking_page.dart';
 import 'package:school_tracker/presentation/pages/forgot_password_screen.dart';
-import 'package:school_tracker/presentation/pages/gate_staff_dashboard.dart';
-import 'package:school_tracker/presentation/pages/parent_dashboard_page.dart';
+import 'package:school_tracker/presentation/pages/bloc_gate_staff_dashboard.dart';
 import 'package:school_tracker/presentation/pages/attendance_history_page.dart';
 import 'package:school_tracker/presentation/pages/monthly_report_page.dart';
 import 'package:school_tracker/presentation/pages/parent_profile_update_page.dart';
@@ -27,7 +24,6 @@ import 'package:school_tracker/presentation/pages/reports_screen.dart';
 import 'package:school_tracker/presentation/pages/request_vehicle_assignment_page.dart';
 import 'package:school_tracker/presentation/pages/school_profile_page.dart';
 import 'package:school_tracker/presentation/pages/trips_list_page.dart';
-import 'package:school_tracker/presentation/pages/vehicle_owner_dashboard_page.dart';
 import 'package:school_tracker/presentation/pages/vehicle_owner_profile.dart';
 import 'package:school_tracker/presentation/pages/vehicle_management_page.dart';
 import 'package:school_tracker/presentation/pages/staff_management_page.dart';
@@ -40,32 +36,40 @@ import 'package:school_tracker/presentation/pages/student_management_page.dart';
 import 'package:school_tracker/presentation/pages/class_management_page.dart';
 import 'package:school_tracker/presentation/pages/section_management_page.dart';
 import 'package:school_tracker/presentation/pages/bulk_student_import_page.dart';
+import 'package:school_tracker/presentation/pages/driver_management_page.dart';
+import 'package:school_tracker/presentation/pages/vehicle_owner_management_page.dart';
+import 'package:school_tracker/presentation/pages/parent_management_page.dart';
 import 'package:school_tracker/presentation/pages/notification_page.dart';
+import 'package:school_tracker/presentation/pages/bloc_login_screen.dart';
+import 'package:school_tracker/presentation/pages/bloc_driver_dashboard.dart';
+import 'package:school_tracker/presentation/pages/bloc_school_admin_dashboard.dart';
+import 'package:school_tracker/presentation/pages/bloc_vehicle_owner_dashboard.dart';
+import 'package:school_tracker/presentation/pages/bloc_parent_dashboard.dart';
+import 'package:school_tracker/presentation/pages/bloc_app_admin_dashboard.dart';
 import 'data/models/driver_profile.dart';
 import 'data/models/driver_reports.dart';
 import 'data/models/trip.dart';
 import 'presentation/pages/splash_page.dart';
 import 'presentation/pages/home_page.dart';
-import 'presentation/pages/login_screen.dart';
 import 'presentation/pages/register_school_screen.dart';
 import 'presentation/pages/register_student_screen.dart';
-import 'presentation/pages/dashboard_page.dart';
 
 class AppRoutes {
   static const splash = '/';
   static const home = '/home';
   static const login = '/login';
+  static const blocLogin = '/bloc-login';
   static const registerSchool = '/register-school';
-  static const dashboard = '/dashboard';
-  static const appAdminDashboard = '/app-admin-dashboard';
   static const appAdminSchoolManagement = '/app-admin-school-management';
   static const appAdminProfile = '/app-admin-profile';
-  static const driverDashboard = '/driver-dashboard'; // Driver
-  static const simplifiedDriverDashboard = '/simplified-driver-dashboard'; // Simplified Driver Dashboard
+  static const blocDriverDashboard = '/bloc-driver-dashboard'; // BLoC Driver Dashboard
+  static const blocSchoolAdminDashboard = '/bloc-school-admin-dashboard';
+  static const blocVehicleOwnerDashboard = '/bloc-vehicle-owner-dashboard';
+  static const blocParentDashboard = '/bloc-parent-dashboard';
+  static const blocAppAdminDashboard = '/bloc-app-admin-dashboard';
   static const driverProfile = '/driver-profile';
   static const driverReports = '/driver-reports';
   static const simplifiedStudentManagement = '/simplified-student-management';
-   static const ownerDashboard = '/owner-dashboard';
   //static const registerVehicle = '/register-vehicle';
   static const registerStudent = '/register-student';
   // Add this route constant
@@ -80,9 +84,6 @@ class AppRoutes {
 
   static const String registerVehicleOwner = "/register-vehicle-owner";
 
-  static const String vehicleOwnerDashboard = "/vehicle-owner-dashboard";
-
-  static const String parentDashboard = '/parent-dashboard';
   static const String vehicleTracking = '/vehicle-tracking';
   static const String enhancedVehicleTracking = '/enhanced-vehicle-tracking';
   static const String attendanceHistory = '/attendance-history';
@@ -95,11 +96,14 @@ class AppRoutes {
      static const String vehicleManagement = '/vehicle-management';
 
     static const String registerGateStaff = '/register-gate-staff';
+    static const String registerStaff = '/register-gate-staff'; // Alias for staff registration
     static const String staffManagement = '/staff-management';
 
      static const String gateStaffDashboard = '/gateStaffDashboard';
+     static const String blocGateStaffDashboard = '/bloc-gate-staff-dashboard';
 
      static const String reports = '/reports';
+     static const String schoolReports = '/school-reports';
 
      static const String vehicleOwnerProfile = '/vehicleOwnerProfile';
 
@@ -125,40 +129,44 @@ static const String createTrip = '/createTrip';
   static const classManagement = "/class-management";
   static const sectionManagement = "/section-management";
   static const bulkStudentImport = "/bulk-student-import";
+  static const driverManagement = "/driver-management";
+  static const vehicleOwnerManagement = "/vehicle-owner-management";
+  static const parentManagement = "/parent-management";
   static const notification = "/notifications";
 
   static Map<String, WidgetBuilder> routes = {
     splash: (_) => const SplashPage(),
     home: (_) => const HomePage(),
-    login: (_) => const LoginScreen(),
+    login: (_) => const BlocLoginScreen(), // Use BLoC login as default
+    blocLogin: (_) => const BlocLoginScreen(),
     registerSchool: (_) => const RegisterSchoolScreen(),
-    dashboard: (_) => const SchoolAdminDashboardPage(), // no argument needed
-    appAdminDashboard: (_) => const AppAdminDashboardPage(),
     appAdminSchoolManagement: (_) => const AppAdminSchoolManagementPage(),
     appAdminProfile: (_) => const AppAdminProfilePage(),
-    //registerVehicle: (_) => const AddVehiclePage(), // no argument needed
-   registerStudent: (_) => const RegisterStudentScreen(),
-    //driverDashboard: (_) => const DriverDashboard(),
-   // ownerDashboard: (_) => const OwnerDashboard(),
+    registerStudent: (_) => const RegisterStudentScreen(),
     schoolProfile: (context) => const SchoolProfilePage(),
     privacyPolicy: (_) => const PrivacyPolicyScreen(),
 
     forgotPassword: (_) => const ForgotPasswordScreen(),
 
     registerVehicleOwner: (_) => const RegisterVehicleOwnerScreen(),
-
-    vehicleOwnerDashboard: (_) => const VehicleOwnerDashboardPage(),
-
-    parentDashboard: (_) => const ParentDashboardPage(),
     vehicleTracking: (_) => const VehicleTrackingPage(),
     enhancedVehicleTracking: (_) => const EnhancedVehicleTrackingPage(),
     attendanceHistory: (_) => const AttendanceHistoryPage(),
     monthlyReport: (_) => const MonthlyReportPage(),
-    parentProfileUpdate: (_) => const ParentProfileUpdatePage(),
+    parentProfileUpdate: (context) {
+      final args = ModalRoute.of(context)?.settings.arguments;
+      return ParentProfileUpdatePage(
+        profileData: args is Map<String, dynamic> ? args : null,
+      );
+    },
 
     registerDriver: (_) => const RegisterDriverScreen(),
 
-    simplifiedDriverDashboard: (context) => const SimplifiedDriverDashboardPage(),
+    blocDriverDashboard: (context) => const BlocDriverDashboard(),
+    blocSchoolAdminDashboard: (context) => const BlocSchoolAdminDashboard(),
+    blocVehicleOwnerDashboard: (context) => const BlocVehicleOwnerDashboard(),
+    blocParentDashboard: (context) => const BlocParentDashboard(),
+    blocAppAdminDashboard: (context) => const BlocAppAdminDashboard(),
     driverProfile: (context) {
       final profile = ModalRoute.of(context)!.settings.arguments as DriverProfile;
       return DriverProfilePage(profile: profile);
@@ -180,16 +188,17 @@ static const String createTrip = '/createTrip';
     registerGateStaff: (context) => RegisterGateStaffPage(),
     staffManagement: (context) => const StaffManagementPage(),
 
-     gateStaffDashboard: (context) => const GateStaffDashboardPage(),
+     gateStaffDashboard: (context) => const BlocGateStaffDashboard(),
+     blocGateStaffDashboard: (context) => const BlocGateStaffDashboard(),
 
       reports: (context) => ReportsScreen(),
+      schoolReports: (context) => ReportsScreen(),
 
        trips: (context) => TripsListPage(),
   createTrip: (context) => CreateTripPage(),
 
-  pendingRequests: (context) => const PendingVehicleRequestsPage(),
-
   requestVehicle: (context) => const RequestVehicleAssignmentPage(),
+  pendingRequests: (context) => const PendingVehicleRequestsPage(),
   
   // Vehicle Owner Management Routes
   vehicleOwnerVehicleManagement: (context) => const VehicleOwnerVehicleManagementPage(),
@@ -205,10 +214,6 @@ static const String createTrip = '/createTrip';
   return VehicleOwnerProfilePage(ownerId: ownerId);
 },
 
-// parentProfile: (context) {
-//   final parentId = ModalRoute.of(context)!.settings.arguments as int;
-//   return ParentProfilePage(parentId: parentId);
-// },
 studentProfile: (context) {
           final studentId = ModalRoute.of(context)!.settings.arguments as int;
           return StudentProfilePage(studentId: studentId);
@@ -227,6 +232,9 @@ activation: (context) {
     classManagement: (context) => const ClassManagementPage(),
     sectionManagement: (context) => const SectionManagementPage(),
     bulkStudentImport: (context) => const BulkStudentImportPage(),
+    driverManagement: (context) => const DriverManagementPage(),
+    vehicleOwnerManagement: (context) => const VehicleOwnerManagementPage(),
+    parentManagement: (context) => const ParentManagementPage(),
     
     // Notification Route
     notification: (context) => const NotificationPage(),

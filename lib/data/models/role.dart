@@ -1,3 +1,5 @@
+import '../../utils/constants.dart';
+
 class Role {
   final int roleId;
   final String roleName;
@@ -21,31 +23,31 @@ class Role {
 
   factory Role.fromJson(Map<String, dynamic> json) {
     return Role(
-      roleId: json['roleId'] ?? 0,
-      roleName: json['roleName'] ?? '',
-      description: json['description'] ?? '',
-      isActive: json['isActive'] ?? true,
-      createdBy: json['createdBy'],
-      createdDate: json['createdDate'] != null 
-          ? DateTime.parse(json['createdDate']) 
+      roleId: json[AppConstants.keyRoleId] ?? 0,
+      roleName: json[AppConstants.keyRoleName] ?? '',
+      description: json[AppConstants.keyDescription] ?? '',
+      isActive: json[AppConstants.keyIsActive] ?? true,
+      createdBy: json[AppConstants.keyCreatedBy],
+      createdDate: json[AppConstants.keyCreatedDate] != null 
+          ? DateTime.parse(json[AppConstants.keyCreatedDate]) 
           : null,
-      updatedBy: json['updatedBy'],
-      updatedDate: json['updatedDate'] != null 
-          ? DateTime.parse(json['updatedDate']) 
+      updatedBy: json[AppConstants.keyUpdatedBy],
+      updatedDate: json[AppConstants.keyUpdatedDate] != null 
+          ? DateTime.parse(json[AppConstants.keyUpdatedDate]) 
           : null,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'roleId': roleId,
-      'roleName': roleName,
-      'description': description,
-      'isActive': isActive,
-      'createdBy': createdBy,
-      'createdDate': createdDate?.toIso8601String(),
-      'updatedBy': updatedBy,
-      'updatedDate': updatedDate?.toIso8601String(),
+      AppConstants.keyRoleId: roleId,
+      AppConstants.keyRoleName: roleName,
+      AppConstants.keyDescription: description,
+      AppConstants.keyIsActive: isActive,
+      AppConstants.keyCreatedBy: createdBy,
+      AppConstants.keyCreatedDate: createdDate?.toIso8601String(),
+      AppConstants.keyUpdatedBy: updatedBy,
+      AppConstants.keyUpdatedDate: updatedDate?.toIso8601String(),
     };
   }
 

@@ -1,4 +1,6 @@
 // models/trip_request.dart
+import '../../utils/constants.dart';
+
 class TripRequest {
   final int schoolId;
   final int vehicleId;
@@ -24,15 +26,15 @@ class TripRequest {
 
   Map<String, dynamic> toJson() {
     return {
-      "schoolId": schoolId,
-      "vehicleId": vehicleId,
-      "tripName": tripName,
-      "tripNumber": tripNumber,
-      "tripType": tripType,
-      "routeName": routeName,
-      "routeDescription": routeDescription,
-      "createdBy": createdBy,
-      "updatedBy": updatedBy,
+      AppConstants.keySchoolId: schoolId,
+      AppConstants.keyVehicleId: vehicleId,
+      AppConstants.keyTripName: tripName,
+      AppConstants.keyTripNumber: tripNumber,
+      AppConstants.keyTripType: tripType,
+      AppConstants.keyRouteName: routeName,
+      AppConstants.keyRouteDescription: routeDescription,
+      AppConstants.keyCreatedBy: createdBy,
+      AppConstants.keyUpdatedBy: updatedBy,
     };
   }
 }

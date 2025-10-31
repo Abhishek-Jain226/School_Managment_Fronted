@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../utils/constants.dart';
 import '../../data/models/websocket_notification.dart';
 import '../../services/websocket_notification_service.dart';
 import '../widgets/notification_card.dart';
@@ -13,17 +14,8 @@ class NotificationPage extends StatefulWidget {
 class _NotificationPageState extends State<NotificationPage> {
   final WebSocketNotificationService _notificationService = WebSocketNotificationService();
   final List<WebSocketNotification> _notifications = [];
-  String _selectedFilter = 'All';
+  String _selectedFilter = AppConstants.labelFilterAll;
   bool _isLoading = true;
-
-  final List<String> _filterOptions = [
-    'All',
-    'Trip Updates',
-    'Arrivals',
-    'Pickups',
-    'Drops',
-    'System Alerts',
-  ];
 
   @override
   void initState() {
@@ -41,25 +33,25 @@ class _NotificationPageState extends State<NotificationPage> {
   }
 
   List<WebSocketNotification> get _filteredNotifications {
-    if (_selectedFilter == 'All') {
+    if (_selectedFilter == AppConstants.labelFilterAll) {
       return _notifications;
     }
 
     String filterType;
     switch (_selectedFilter) {
-      case 'Trip Updates':
+      case AppConstants.labelFilterTripUpdates:
         filterType = NotificationType.tripUpdate;
         break;
-      case 'Arrivals':
+      case AppConstants.labelFilterArrivals:
         filterType = NotificationType.arrivalNotification;
         break;
-      case 'Pickups':
+      case AppConstants.labelFilterPickups:
         filterType = NotificationType.pickupConfirmation;
         break;
-      case 'Drops':
+      case AppConstants.labelFilterDrops:
         filterType = NotificationType.dropConfirmation;
         break;
-      case 'System Alerts':
+      case AppConstants.labelFilterSystemAlerts:
         filterType = NotificationType.systemAlert;
         break;
       default:
@@ -88,12 +80,12 @@ class _NotificationPageState extends State<NotificationPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Clear All Notifications'),
-        content: const Text('Are you sure you want to clear all notifications?'),
+        title: const Text(AppConstants.labelClearAllNotifications),
+        content: const Text(AppConstants.msgClearAllNotificationsConfirm),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: const Text(AppConstants.actionCancel),
           ),
           TextButton(
             onPressed: () {
@@ -102,7 +94,7 @@ class _NotificationPageState extends State<NotificationPage> {
               });
               Navigator.pop(context);
             },
-            child: const Text('Clear All'),
+            child: const Text(AppConstants.labelClearAll),
           ),
         ],
       ),
@@ -113,13 +105,13 @@ class _NotificationPageState extends State<NotificationPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Notifications'),
+        title: const Text(AppConstants.labelNotifications),
         actions: [
           if (_notifications.isNotEmpty)
             IconButton(
               onPressed: _clearAllNotifications,
               icon: const Icon(Icons.clear_all),
-              tooltip: 'Clear All',
+              tooltip: AppConstants.labelClearAll,
             ),
         ],
       ),
@@ -127,18 +119,18 @@ class _NotificationPageState extends State<NotificationPage> {
         children: [
           // Filter chips
           Container(
-            height: 50,
-            padding: const EdgeInsets.symmetric(vertical: 8),
+            height: AppSizes.notificationFilterHeight,
+            padding: const EdgeInsets.symmetric(vertical: AppSizes.notificationFilterPaddingV),
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              itemCount: _filterOptions.length,
+              padding: const EdgeInsets.symmetric(horizontal: AppSizes.notificationFilterPaddingH),
+              itemCount: AppConstants.notificationFilterOptions.length,
               itemBuilder: (context, index) {
-                final filter = _filterOptions[index];
+                final filter = AppConstants.notificationFilterOptions[index];
                 final isSelected = _selectedFilter == filter;
                 
                 return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: AppSizes.notificationFilterChipPadding),
                   child: FilterChip(
                     label: Text(filter),
                     selected: isSelected,
@@ -147,7 +139,7 @@ class _NotificationPageState extends State<NotificationPage> {
                         _selectedFilter = filter;
                       });
                     },
-                    selectedColor: Theme.of(context).primaryColor.withOpacity(0.2),
+                    selectedColor: Theme.of(context).primaryColor.withValues(alpha: AppSizes.notificationFilterOpacity),
                     checkmarkColor: Theme.of(context).primaryColor,
                   ),
                 );
@@ -190,24 +182,24 @@ class _NotificationPageState extends State<NotificationPage> {
         children: [
           Icon(
             Icons.notifications_none,
-            size: 64,
-            color: Colors.grey[400],
+            size: AppSizes.notificationEmptyIconSize,
+            color: AppColors.textSecondary.withValues(alpha: 0.6),
           ),
-          const SizedBox(height: 16),
-          Text(
-            'No notifications',
+          const SizedBox(height: AppSizes.notificationEmptySpacing),
+          const Text(
+            AppConstants.labelNoNotifications,
             style: TextStyle(
-              fontSize: 18,
-              color: Colors.grey[600],
+              fontSize: AppSizes.notificationEmptyTitleFontSize,
+              color: AppColors.textSecondary,
               fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            'You\'ll see real-time notifications here',
+          const SizedBox(height: AppSizes.notificationEmptySpacingSM),
+          const Text(
+            AppConstants.labelNotificationsSubtitle,
             style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[500],
+              fontSize: AppSizes.notificationEmptySubtitleFontSize,
+              color: AppColors.textHint,
             ),
           ),
         ],

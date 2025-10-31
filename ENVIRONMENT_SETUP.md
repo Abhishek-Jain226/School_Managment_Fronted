@@ -49,7 +49,7 @@ java -jar app.jar
 #### **Method 2: Environment Variables**
 ```bash
 # Set environment variable
-export FRONTEND_ACTIVATION_URL=http://10.14.247.208:9001/activation
+export FRONTEND_ACTIVATION_URL=http://10.195.183.208:9001/activation
 java -jar app.jar
 ```
 
@@ -68,13 +68,13 @@ java -jar app.jar
 ## 🔄 Environment Settings
 
 ### **Development Environment**
-- **Base URL**: `http://192.168.29.254:9001`
+- **Base URL**: `http://10.195.183.208:9001`
 - **Database**: Local MySQL
 - **Debug Mode**: Enabled
 - **Logging**: DEBUG level
 
 ### **Production Environment**
-- **Base URL**: `http://10.14.247.208:9001`
+- **Base URL**: `http://10.195.183.208:9001`
 - **Database**: Production MySQL
 - **Debug Mode**: Disabled
 - **Logging**: INFO level
@@ -131,7 +131,7 @@ Check logs for active profile and configuration:
 ```bash
 # Look for these lines in the logs:
 # Active profiles: dev
-# Frontend activation URL: http://192.168.29.254:9001/activation
+# Frontend activation URL: http://10.195.183.208:9001/activation
 ```
 
 ## ⚡ Quick Commands

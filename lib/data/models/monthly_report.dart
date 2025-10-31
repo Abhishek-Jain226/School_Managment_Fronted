@@ -1,3 +1,5 @@
+import '../../utils/constants.dart';
+
 class MonthlyReport {
   final int studentId;
   final String studentName;
@@ -45,28 +47,28 @@ class MonthlyReport {
 
   factory MonthlyReport.fromJson(Map<String, dynamic> json) {
     return MonthlyReport(
-      studentId: json['studentId'] ?? 0,
-      studentName: json['studentName'] ?? '',
-      schoolName: json['schoolName'] ?? '',
-      className: json['className'] ?? '',
-      sectionName: json['sectionName'] ?? '',
-      year: json['year'] ?? DateTime.now().year,
-      month: json['month'] ?? DateTime.now().month,
-      monthName: json['monthName'] ?? '',
-      totalSchoolDays: json['totalSchoolDays'] ?? 0,
-      presentDays: json['presentDays'] ?? 0,
-      absentDays: json['absentDays'] ?? 0,
-      lateDays: json['lateDays'] ?? 0,
-      attendancePercentage: (json['attendancePercentage'] ?? 0.0).toDouble(),
-      totalTrips: json['totalTrips'] ?? 0,
-      completedTrips: json['completedTrips'] ?? 0,
-      missedTrips: json['missedTrips'] ?? 0,
-      tripCompletionRate: (json['tripCompletionRate'] ?? 0.0).toDouble(),
-      performanceMetrics: Map<String, dynamic>.from(json['performanceMetrics'] ?? {}),
-      dailyReports: (json['dailyReports'] as List<dynamic>?)
+      studentId: json[AppConstants.keyStudentId] ?? 0,
+      studentName: json[AppConstants.keyStudentName] ?? '',
+      schoolName: json[AppConstants.keySchoolName] ?? '',
+      className: json[AppConstants.keyClassName] ?? '',
+      sectionName: json[AppConstants.keySectionName] ?? '',
+      year: json[AppConstants.keyYear] ?? DateTime.now().year,
+      month: json[AppConstants.keyMonth] ?? DateTime.now().month,
+      monthName: json[AppConstants.keyMonthName] ?? '',
+      totalSchoolDays: json[AppConstants.keyTotalSchoolDays] ?? 0,
+      presentDays: json[AppConstants.keyPresentDays] ?? 0,
+      absentDays: json[AppConstants.keyAbsentDays] ?? 0,
+      lateDays: json[AppConstants.keyLateDays] ?? 0,
+      attendancePercentage: (json[AppConstants.keyAttendancePercentage] ?? 0.0).toDouble(),
+      totalTrips: json[AppConstants.keyTotalTrips] ?? 0,
+      completedTrips: json[AppConstants.keyCompletedTrips] ?? 0,
+      missedTrips: json[AppConstants.keyMissedTrips] ?? 0,
+      tripCompletionRate: (json[AppConstants.keyTripCompletionRate] ?? 0.0).toDouble(),
+      performanceMetrics: Map<String, dynamic>.from(json[AppConstants.keyPerformanceMetrics] ?? {}),
+      dailyReports: (json[AppConstants.keyDailyReports] as List<dynamic>?)
           ?.map((report) => DailyReport.fromJson(report))
           .toList() ?? [],
-      weeklyReports: (json['weeklyReports'] as List<dynamic>?)
+      weeklyReports: (json[AppConstants.keyWeeklyReports] as List<dynamic>?)
           ?.map((report) => WeeklyReport.fromJson(report))
           .toList() ?? [],
     );
@@ -74,26 +76,26 @@ class MonthlyReport {
 
   Map<String, dynamic> toJson() {
     return {
-      'studentId': studentId,
-      'studentName': studentName,
-      'schoolName': schoolName,
-      'className': className,
-      'sectionName': sectionName,
-      'year': year,
-      'month': month,
-      'monthName': monthName,
-      'totalSchoolDays': totalSchoolDays,
-      'presentDays': presentDays,
-      'absentDays': absentDays,
-      'lateDays': lateDays,
-      'attendancePercentage': attendancePercentage,
-      'totalTrips': totalTrips,
-      'completedTrips': completedTrips,
-      'missedTrips': missedTrips,
-      'tripCompletionRate': tripCompletionRate,
-      'performanceMetrics': performanceMetrics,
-      'dailyReports': dailyReports.map((report) => report.toJson()).toList(),
-      'weeklyReports': weeklyReports.map((report) => report.toJson()).toList(),
+      AppConstants.keyStudentId: studentId,
+      AppConstants.keyStudentName: studentName,
+      AppConstants.keySchoolName: schoolName,
+      AppConstants.keyClassName: className,
+      AppConstants.keySectionName: sectionName,
+      AppConstants.keyYear: year,
+      AppConstants.keyMonth: month,
+      AppConstants.keyMonthName: monthName,
+      AppConstants.keyTotalSchoolDays: totalSchoolDays,
+      AppConstants.keyPresentDays: presentDays,
+      AppConstants.keyAbsentDays: absentDays,
+      AppConstants.keyLateDays: lateDays,
+      AppConstants.keyAttendancePercentage: attendancePercentage,
+      AppConstants.keyTotalTrips: totalTrips,
+      AppConstants.keyCompletedTrips: completedTrips,
+      AppConstants.keyMissedTrips: missedTrips,
+      AppConstants.keyTripCompletionRate: tripCompletionRate,
+      AppConstants.keyPerformanceMetrics: performanceMetrics,
+      AppConstants.keyDailyReports: dailyReports.map((report) => report.toJson()).toList(),
+      AppConstants.keyWeeklyReports: weeklyReports.map((report) => report.toJson()).toList(),
     };
   }
 }
@@ -119,25 +121,25 @@ class DailyReport {
 
   factory DailyReport.fromJson(Map<String, dynamic> json) {
     return DailyReport(
-      date: DateTime.parse(json['date'] ?? DateTime.now().toIso8601String()),
-      dayOfWeek: json['dayOfWeek'] ?? '',
-      attendanceStatus: json['attendanceStatus'] ?? '',
-      tripStatus: json['tripStatus'] ?? '',
-      arrivalTime: json['arrivalTime'],
-      departureTime: json['departureTime'],
-      remarks: json['remarks'],
+      date: DateTime.parse(json[AppConstants.keyDate] ?? DateTime.now().toIso8601String()),
+      dayOfWeek: json[AppConstants.keyDayOfWeek] ?? '',
+      attendanceStatus: json[AppConstants.keyAttendanceStatus] ?? '',
+      tripStatus: json[AppConstants.keyTripStatus] ?? '',
+      arrivalTime: json[AppConstants.keyArrivalTime],
+      departureTime: json[AppConstants.keyDepartureTime],
+      remarks: json[AppConstants.keyRemarks],
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'date': date.toIso8601String(),
-      'dayOfWeek': dayOfWeek,
-      'attendanceStatus': attendanceStatus,
-      'tripStatus': tripStatus,
-      'arrivalTime': arrivalTime,
-      'departureTime': departureTime,
-      'remarks': remarks,
+      AppConstants.keyDate: date.toIso8601String(),
+      AppConstants.keyDayOfWeek: dayOfWeek,
+      AppConstants.keyAttendanceStatus: attendanceStatus,
+      AppConstants.keyTripStatus: tripStatus,
+      AppConstants.keyArrivalTime: arrivalTime,
+      AppConstants.keyDepartureTime: departureTime,
+      AppConstants.keyRemarks: remarks,
     };
   }
 }
@@ -163,25 +165,25 @@ class WeeklyReport {
 
   factory WeeklyReport.fromJson(Map<String, dynamic> json) {
     return WeeklyReport(
-      weekNumber: json['weekNumber'] ?? 0,
-      weekStart: DateTime.parse(json['weekStart'] ?? DateTime.now().toIso8601String()),
-      weekEnd: DateTime.parse(json['weekEnd'] ?? DateTime.now().toIso8601String()),
-      presentDays: json['presentDays'] ?? 0,
-      absentDays: json['absentDays'] ?? 0,
-      lateDays: json['lateDays'] ?? 0,
-      weeklyAttendancePercentage: (json['weeklyAttendancePercentage'] ?? 0.0).toDouble(),
+      weekNumber: json[AppConstants.keyWeekNumber] ?? 0,
+      weekStart: DateTime.parse(json[AppConstants.keyWeekStart] ?? DateTime.now().toIso8601String()),
+      weekEnd: DateTime.parse(json[AppConstants.keyWeekEnd] ?? DateTime.now().toIso8601String()),
+      presentDays: json[AppConstants.keyPresentDays] ?? 0,
+      absentDays: json[AppConstants.keyAbsentDays] ?? 0,
+      lateDays: json[AppConstants.keyLateDays] ?? 0,
+      weeklyAttendancePercentage: (json[AppConstants.keyWeeklyAttendancePercentage] ?? 0.0).toDouble(),
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'weekNumber': weekNumber,
-      'weekStart': weekStart.toIso8601String(),
-      'weekEnd': weekEnd.toIso8601String(),
-      'presentDays': presentDays,
-      'absentDays': absentDays,
-      'lateDays': lateDays,
-      'weeklyAttendancePercentage': weeklyAttendancePercentage,
+      AppConstants.keyWeekNumber: weekNumber,
+      AppConstants.keyWeekStart: weekStart.toIso8601String(),
+      AppConstants.keyWeekEnd: weekEnd.toIso8601String(),
+      AppConstants.keyPresentDays: presentDays,
+      AppConstants.keyAbsentDays: absentDays,
+      AppConstants.keyLateDays: lateDays,
+      AppConstants.keyWeeklyAttendancePercentage: weeklyAttendancePercentage,
     };
   }
 }

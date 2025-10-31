@@ -5,6 +5,7 @@ import '../../services/vehicle_owner_service.dart';
 import '../../services/trip_service.dart';
 import '../../services/student_service.dart';
 import '../../services/trip_student_service.dart';
+import '../../utils/constants.dart';
 
 class VehicleOwnerStudentTripAssignmentPage extends StatefulWidget {
   const VehicleOwnerStudentTripAssignmentPage({super.key});
@@ -55,28 +56,28 @@ class _VehicleOwnerStudentTripAssignmentPageState extends State<VehicleOwnerStud
     
     try {
       final prefs = await SharedPreferences.getInstance();
-      final userId = prefs.getInt("userId");
-      _currentSchoolId = prefs.getInt("currentSchoolId");
+      final userId = prefs.getInt(AppConstants.keyUserId);
+      _currentSchoolId = prefs.getInt(AppConstants.keyCurrentSchoolId);
       
       if (userId != null && _currentSchoolId != null) {
         // Load owner data
         final ownerResponse = await _vehicleOwnerService.getOwnerByUserId(userId);
-        if (ownerResponse['success'] == true) {
-          _ownerData = ownerResponse['data'];
+        if (ownerResponse[AppConstants.keySuccess] == true) {
+          _ownerData = ownerResponse[AppConstants.keyData];
           
           // Load trips for the current school
           final tripsResponse = await _tripService.getTripsBySchoolMap(_currentSchoolId!);
-          if (tripsResponse['success'] == true) {
+          if (tripsResponse[AppConstants.keySuccess] == true) {
             setState(() {
-              _trips = List<Map<String, dynamic>>.from(tripsResponse['data'] ?? []);
+              _trips = List<Map<String, dynamic>>.from(tripsResponse[AppConstants.keyData] ?? []);
             });
           }
           
           // Load students for the current school
           final studentsResponse = await _studentService.getStudentsBySchool(_currentSchoolId!);
-          if (studentsResponse['success'] == true) {
+          if (studentsResponse[AppConstants.keySuccess] == true) {
             setState(() {
-              _students = List<Map<String, dynamic>>.from(studentsResponse['data'] ?? []);
+              _students = List<Map<String, dynamic>>.from(studentsResponse[AppConstants.keyData] ?? []);
             });
           }
           
@@ -85,8 +86,8 @@ class _VehicleOwnerStudentTripAssignmentPageState extends State<VehicleOwnerStud
         }
       }
     } catch (e) {
-      print("Error loading data: $e");
-      _showError("Error loading data: $e");
+      debugPrint("Error loading data: $e");
+      _showError('${AppConstants.msgErrorLoadingData}$e');
     } finally {
       setState(() => _isLoading = false);
     }
@@ -97,20 +98,20 @@ class _VehicleOwnerStudentTripAssignmentPageState extends State<VehicleOwnerStud
     
     try {
       final assignmentsResponse = await _tripStudentService.getAllAssignmentsBySchool(_currentSchoolId!);
-      if (assignmentsResponse['success'] == true) {
+      if (assignmentsResponse[AppConstants.keySuccess] == true) {
         setState(() {
-          _assignments = List<Map<String, dynamic>>.from(assignmentsResponse['data'] ?? []);
+          _assignments = List<Map<String, dynamic>>.from(assignmentsResponse[AppConstants.keyData] ?? []);
           _lastUpdateTime = DateTime.now();
         });
-        print("🔍 Loaded ${_assignments.length} trip-student assignments");
+        debugPrint("🔍 Loaded ${_assignments.length} trip-student assignments");
       } else {
-        print("🔍 Failed to load assignments: ${assignmentsResponse['message']}");
+        debugPrint("🔍 Failed to load assignments: ${assignmentsResponse[AppConstants.keyMessage]}");
         setState(() {
           _assignments = [];
         });
       }
     } catch (e) {
-      print("🔍 Error loading assignments: $e");
+      debugPrint("🔍 Error loading assignments: $e");
       setState(() {
         _assignments = [];
       });
@@ -122,7 +123,7 @@ class _VehicleOwnerStudentTripAssignmentPageState extends State<VehicleOwnerStud
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(message),
-          backgroundColor: Colors.red,
+          backgroundColor: AppColors.errorColor,
         ),
       );
     }
@@ -133,7 +134,7 @@ class _VehicleOwnerStudentTripAssignmentPageState extends State<VehicleOwnerStud
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(message),
-          backgroundColor: Colors.green,
+          backgroundColor: AppColors.successColor,
         ),
       );
     }
@@ -141,7 +142,7 @@ class _VehicleOwnerStudentTripAssignmentPageState extends State<VehicleOwnerStud
 
   void _showAssignStudentDialog() {
     if (_trips.isEmpty || _students.isEmpty) {
-      _showError("No trips or students available for assignment");
+      _showError(AppConstants.msgNoTripsOrStudentsAvailable);
       return;
     }
 
@@ -153,21 +154,21 @@ class _VehicleOwnerStudentTripAssignmentPageState extends State<VehicleOwnerStud
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: const Text("Assign Student to Trip"),
+          title: const Text(AppConstants.titleAssignStudentToTrip),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               DropdownButtonFormField<String>(
                 value: selectedTripId,
                 decoration: const InputDecoration(
-                  labelText: "Select Trip",
+                  labelText: AppConstants.labelSelectTrip,
                   border: OutlineInputBorder(),
                 ),
                 items: _trips
-                    .where((t) => t['isActive'] == true)
+                    .where((t) => t[AppConstants.keyIsActive] == true)
                     .map((trip) => DropdownMenuItem(
-                          value: trip['tripId'].toString(),
-                          child: Text(trip['tripName'] ?? 'Unknown Trip'),
+                          value: trip[AppConstants.keyTripId].toString(),
+                          child: Text(trip[AppConstants.keyTripName] ?? AppConstants.labelUnknownTrip),
                         ))
                     .toList(),
                 onChanged: (value) {
@@ -176,18 +177,18 @@ class _VehicleOwnerStudentTripAssignmentPageState extends State<VehicleOwnerStud
                   });
                 },
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSizes.marginMD),
               DropdownButtonFormField<String>(
                 value: selectedStudentId,
                 decoration: const InputDecoration(
-                  labelText: "Select Student",
+                  labelText: AppConstants.labelSelectStudent,
                   border: OutlineInputBorder(),
                 ),
                 items: _students
-                    .where((s) => s['isActive'] == true)
+                    .where((s) => s[AppConstants.keyIsActive] == true)
                     .map((student) => DropdownMenuItem(
-                          value: student['studentId'].toString(),
-                          child: Text("${student['firstName']} ${student['lastName']}"),
+                          value: student[AppConstants.keyStudentId].toString(),
+                          child: Text('${student[AppConstants.keyFirstName]} ${student[AppConstants.keyLastName]}'),
                         ))
                     .toList(),
                 onChanged: (value) {
@@ -196,13 +197,13 @@ class _VehicleOwnerStudentTripAssignmentPageState extends State<VehicleOwnerStud
                   });
                 },
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSizes.marginMD),
               TextFormField(
                 initialValue: pickupOrder.toString(),
                 decoration: const InputDecoration(
-                  labelText: "Pickup Order",
+                  labelText: AppConstants.labelPickupOrder,
                   border: OutlineInputBorder(),
-                  helperText: "Order in which student will be picked up",
+                  helperText: AppConstants.hintPickupOrder,
                 ),
                 keyboardType: TextInputType.number,
                 onChanged: (value) {
@@ -214,7 +215,7 @@ class _VehicleOwnerStudentTripAssignmentPageState extends State<VehicleOwnerStud
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text("Cancel"),
+              child: const Text(AppConstants.actionCancel),
             ),
             ElevatedButton(
               onPressed: selectedTripId != null && selectedStudentId != null
@@ -227,7 +228,7 @@ class _VehicleOwnerStudentTripAssignmentPageState extends State<VehicleOwnerStud
                       );
                     }
                   : null,
-              child: const Text("Assign"),
+              child: const Text(AppConstants.actionAssign),
             ),
           ],
         ),
@@ -238,7 +239,7 @@ class _VehicleOwnerStudentTripAssignmentPageState extends State<VehicleOwnerStud
   Future<void> _assignStudentToTrip(int tripId, int studentId, int pickupOrder) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final userName = prefs.getString("userName") ?? "Vehicle Owner";
+      final userName = prefs.getString(AppConstants.keyUserName) ?? AppConstants.labelVehicleOwner;
       
       final response = await _tripStudentService.assignStudentToTrip(
         tripId: tripId,
@@ -247,14 +248,14 @@ class _VehicleOwnerStudentTripAssignmentPageState extends State<VehicleOwnerStud
         createdBy: userName,
       );
       
-      if (response['success'] == true) {
-        _showSuccess("Student assigned to trip successfully");
+      if (response[AppConstants.keySuccess] == true) {
+        _showSuccess(AppConstants.msgStudentAssignedToTripSuccess);
         await _loadAssignmentsData(); // Refresh the assignments list
       } else {
-        _showError("Failed to assign student: ${response['message']}");
+        _showError('${AppConstants.msgFailedToAssignStudent}: ${response[AppConstants.keyMessage]}');
       }
     } catch (e) {
-      _showError("Error assigning student: $e");
+      _showError('${AppConstants.msgErrorAssigningStudent}: $e');
     }
   }
 
@@ -262,17 +263,17 @@ class _VehicleOwnerStudentTripAssignmentPageState extends State<VehicleOwnerStud
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text("Remove Assignment"),
-        content: const Text("Are you sure you want to remove this student from the trip?"),
+        title: const Text(AppConstants.titleRemoveAssignment),
+        content: const Text(AppConstants.msgConfirmRemoveStudentFromTrip),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text("Cancel"),
+            child: const Text(AppConstants.actionCancel),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.errorColor),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text("Remove"),
+            child: const Text(AppConstants.actionRemove),
           ),
         ],
       ),
@@ -282,14 +283,14 @@ class _VehicleOwnerStudentTripAssignmentPageState extends State<VehicleOwnerStud
       try {
         final response = await _tripStudentService.removeStudentFromTrip(assignmentId);
         
-        if (response['success'] == true) {
-          _showSuccess("Assignment removed successfully");
+        if (response[AppConstants.keySuccess] == true) {
+          _showSuccess(AppConstants.msgAssignmentRemovedSuccess);
           await _loadAssignmentsData(); // Refresh the assignments list
         } else {
-          _showError("Failed to remove assignment: ${response['message']}");
+          _showError('${AppConstants.msgFailedToRemoveAssignment}: ${response[AppConstants.keyMessage]}');
         }
       } catch (e) {
-        _showError("Error removing assignment: $e");
+        _showError('${AppConstants.msgErrorRemovingAssignment}: $e');
       }
     }
   }
@@ -301,11 +302,11 @@ class _VehicleOwnerStudentTripAssignmentPageState extends State<VehicleOwnerStud
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text("Student-Trip Assignments"),
+            const Text(AppConstants.labelStudentTripAssignments),
             if (_lastUpdateTime != null)
               Text(
-                "Last updated: ${_formatTime(_lastUpdateTime!)}",
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
+                '${AppConstants.labelLastUpdated} ${_formatTime(_lastUpdateTime!)}',
+                style: const TextStyle(fontSize: AppSizes.textXS, fontWeight: FontWeight.normal),
               ),
           ],
         ),
@@ -314,7 +315,7 @@ class _VehicleOwnerStudentTripAssignmentPageState extends State<VehicleOwnerStud
             icon: const Icon(Icons.refresh),
             onPressed: () async {
               await _loadData();
-              _showSuccess("Data refreshed successfully");
+              _showSuccess(AppConstants.msgDataRefreshedSuccessfully);
             },
           ),
         ],
@@ -328,24 +329,18 @@ class _VehicleOwnerStudentTripAssignmentPageState extends State<VehicleOwnerStud
                     children: [
                       Icon(
                         Icons.school_outlined,
-                        size: 64,
-                        color: Colors.orange.shade400,
+                        size: AppSizes.iconXL,
+                        color: AppColors.warningColor,
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: AppSizes.marginMD),
                       Text(
-                        "Please select a school first",
-                        style: TextStyle(
-                          fontSize: 18,
-                          color: Colors.grey.shade600,
-                        ),
+                        AppConstants.msgNoSchoolSelected,
+                        style: const TextStyle(fontSize: AppSizes.textXL, color: AppColors.textSecondary),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: AppSizes.marginSM),
                       Text(
-                        "Use the school selector in the dashboard",
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey.shade500,
-                        ),
+                        AppConstants.msgUseSchoolSelectorHint,
+                        style: const TextStyle(fontSize: AppSizes.textSM, color: AppColors.textSecondary),
                       ),
                     ],
                   ),
@@ -354,98 +349,80 @@ class _VehicleOwnerStudentTripAssignmentPageState extends State<VehicleOwnerStud
                   children: [
                     // Summary Cards
                     Padding(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(AppSizes.paddingMD),
                       child: Row(
                         children: [
                           Expanded(
                             child: Card(
                               child: Padding(
-                                padding: const EdgeInsets.all(16),
+                                padding: const EdgeInsets.all(AppSizes.paddingMD),
                                 child: Column(
                                   children: [
                                     Icon(
                                       Icons.route,
-                                      size: 32,
-                                      color: Colors.blue.shade600,
+                                      size: AppSizes.iconLG,
+                                      color: AppColors.primaryDark,
                                     ),
-                                    const SizedBox(height: 8),
+                                    const SizedBox(height: AppSizes.marginSM),
                                     Text(
                                       _trips.length.toString(),
-                                      style: const TextStyle(
-                                        fontSize: 24,
-                                        fontWeight: FontWeight.bold,
-                                      ),
+                                      style: const TextStyle(fontSize: AppSizes.textXXL, fontWeight: FontWeight.bold),
                                     ),
                                     Text(
-                                      "Trips",
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey.shade600,
-                                      ),
+                                      AppConstants.labelTrips,
+                                      style: const TextStyle(fontSize: AppSizes.textSM, color: AppColors.textSecondary),
                                     ),
                                   ],
                                 ),
                               ),
                             ),
                           ),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: AppSizes.marginSM),
                           Expanded(
                             child: Card(
                               child: Padding(
-                                padding: const EdgeInsets.all(16),
+                                padding: const EdgeInsets.all(AppSizes.paddingMD),
                                 child: Column(
                                   children: [
                                     Icon(
                                       Icons.school,
-                                      size: 32,
-                                      color: Colors.green.shade600,
+                                      size: AppSizes.iconLG,
+                                      color: AppColors.successColor,
                                     ),
-                                    const SizedBox(height: 8),
+                                    const SizedBox(height: AppSizes.marginSM),
                                     Text(
                                       _students.length.toString(),
-                                      style: const TextStyle(
-                                        fontSize: 24,
-                                        fontWeight: FontWeight.bold,
-                                      ),
+                                      style: const TextStyle(fontSize: AppSizes.textXXL, fontWeight: FontWeight.bold),
                                     ),
                                     Text(
-                                      "Students",
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey.shade600,
-                                      ),
+                                      AppConstants.labelStudents,
+                                      style: const TextStyle(fontSize: AppSizes.textSM, color: AppColors.textSecondary),
                                     ),
                                   ],
                                 ),
                               ),
                             ),
                           ),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: AppSizes.marginSM),
                           Expanded(
                             child: Card(
                               child: Padding(
-                                padding: const EdgeInsets.all(16),
+                                padding: const EdgeInsets.all(AppSizes.paddingMD),
                                 child: Column(
                                   children: [
                                     Icon(
                                       Icons.assignment,
-                                      size: 32,
-                                      color: Colors.orange.shade600,
+                                      size: AppSizes.iconLG,
+                                      color: AppColors.warningColor,
                                     ),
-                                    const SizedBox(height: 8),
+                                    const SizedBox(height: AppSizes.marginSM),
                                     Text(
                                       _assignments.length.toString(),
-                                      style: const TextStyle(
-                                        fontSize: 24,
-                                        fontWeight: FontWeight.bold,
-                                      ),
+                                      style: const TextStyle(fontSize: AppSizes.textXXL, fontWeight: FontWeight.bold),
                                     ),
                                     Text(
-                                      "Assignments",
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey.shade600,
-                                      ),
+                                      AppConstants.labelAssignments,
+                                      style: const TextStyle(fontSize: AppSizes.textSM, color: AppColors.textSecondary),
                                     ),
                                   ],
                                 ),
@@ -458,18 +435,18 @@ class _VehicleOwnerStudentTripAssignmentPageState extends State<VehicleOwnerStud
                     
                     // Action Button
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingMD),
                       child: SizedBox(
                         width: double.infinity,
                         child: ElevatedButton.icon(
                           onPressed: _showAssignStudentDialog,
                           icon: const Icon(Icons.add),
-                          label: const Text("Assign Student to Trip"),
+                          label: const Text(AppConstants.labelAssignStudentToTrip),
                         ),
                       ),
                     ),
                     
-                    const SizedBox(height: 16),
+                    const SizedBox(height: AppSizes.marginMD),
                     
                     // Assignments List
                     Expanded(
@@ -480,58 +457,52 @@ class _VehicleOwnerStudentTripAssignmentPageState extends State<VehicleOwnerStud
                                 children: [
                                   Icon(
                                     Icons.assignment_outlined,
-                                    size: 64,
-                                    color: Colors.grey.shade400,
+                                    size: AppSizes.iconXL,
+                                    color: AppColors.grey200,
                                   ),
-                                  const SizedBox(height: 16),
+                                  const SizedBox(height: AppSizes.marginMD),
                                   Text(
-                                    "No student-trip assignments yet",
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      color: Colors.grey.shade600,
-                                    ),
+                                    AppConstants.emptyStateNoStudentTripAssignments,
+                                    style: const TextStyle(fontSize: AppSizes.textXL, color: AppColors.textSecondary),
                                   ),
-                                  const SizedBox(height: 8),
+                                  const SizedBox(height: AppSizes.marginSM),
                                   Text(
-                                    "Assign students to trips to get started",
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: Colors.grey.shade500,
-                                    ),
+                                    AppConstants.emptyStateAssignStudentsHint,
+                                    style: const TextStyle(fontSize: AppSizes.textSM, color: AppColors.textSecondary),
                                   ),
                                 ],
                               ),
                             )
                           : ListView.builder(
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingMD),
                               itemCount: _assignments.length,
                               itemBuilder: (context, index) {
                                 final assignment = _assignments[index];
                                 return Card(
-                                  margin: const EdgeInsets.only(bottom: 12),
+                                  margin: const EdgeInsets.only(bottom: AppSizes.marginSM),
                                   child: ListTile(
                                     leading: CircleAvatar(
-                                      backgroundColor: Colors.blue.shade600,
+                                      backgroundColor: AppColors.primaryDark,
                                       child: Text(
-                                        assignment['pickupOrder']?.toString() ?? '?',
+                                        assignment[AppConstants.keyPickupOrder]?.toString() ?? AppConstants.labelQuestion,
                                         style: const TextStyle(
-                                          color: Colors.white,
+                                          color: AppColors.textWhite,
                                           fontWeight: FontWeight.bold,
                                         ),
                                       ),
                                     ),
                                     title: Text(
-                                      assignment['studentName'] ?? 'Unknown Student',
+                                      assignment[AppConstants.keyStudentName] ?? AppConstants.labelUnknownStudent,
                                       style: const TextStyle(fontWeight: FontWeight.bold),
                                     ),
                                     subtitle: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Text("Trip: ${assignment['tripName'] ?? 'Unknown Trip'}"),
-                                        Text("Pickup Order: ${assignment['pickupOrder'] ?? 'Not Set'}"),
-                                        Text("Assigned on: ${_formatDate(assignment['createdDate'])}"),
-                                        if (assignment['createdBy'] != null)
-                                          Text("Created by: ${assignment['createdBy']}"),
+                                        Text('${AppConstants.labelTripPrefix}${assignment[AppConstants.keyTripName] ?? AppConstants.labelUnknownTrip}'),
+                                        Text('${AppConstants.labelPickupOrderPrefix}${assignment[AppConstants.keyPickupOrder] ?? AppConstants.labelNotSet}'),
+                                        Text('${AppConstants.labelAssignedOnPrefix}${_formatDate(assignment[AppConstants.keyCreatedDate])}'),
+                                        if (assignment[AppConstants.keyCreatedBy] != null)
+                                          Text('${AppConstants.labelCreatedByPrefix}${assignment[AppConstants.keyCreatedBy]}'),
                                       ],
                                     ),
                                     trailing: PopupMenuButton<String>(
@@ -539,10 +510,10 @@ class _VehicleOwnerStudentTripAssignmentPageState extends State<VehicleOwnerStud
                                         switch (value) {
                                           case 'edit':
                                             // TODO: Navigate to edit assignment
-                                            _showSuccess("Edit functionality coming soon");
+                                            _showSuccess(AppConstants.msgEditFunctionalityComingSoon);
                                             break;
                                           case 'remove':
-                                            _removeAssignment(assignment['tripStudentId']);
+                                            _removeAssignment(assignment[AppConstants.keyTripStudentId]);
                                             break;
                                         }
                                       },
@@ -552,8 +523,8 @@ class _VehicleOwnerStudentTripAssignmentPageState extends State<VehicleOwnerStud
                                           child: Row(
                                             children: [
                                               Icon(Icons.edit, size: 20),
-                                              SizedBox(width: 8),
-                                              Text('Edit Order'),
+                                              SizedBox(width: AppSizes.marginSM),
+                                              Text(AppConstants.actionEditOrder),
                                             ],
                                           ),
                                         ),
@@ -561,9 +532,9 @@ class _VehicleOwnerStudentTripAssignmentPageState extends State<VehicleOwnerStud
                                           value: 'remove',
                                           child: Row(
                                             children: [
-                                              Icon(Icons.remove_circle, size: 20, color: Colors.red),
-                                              SizedBox(width: 8),
-                                              Text('Remove', style: TextStyle(color: Colors.red)),
+                                              Icon(Icons.remove_circle, size: 20, color: AppColors.errorColor),
+                                              SizedBox(width: AppSizes.marginSM),
+                                              Text(AppConstants.actionRemove, style: TextStyle(color: AppColors.errorColor)),
                                             ],
                                           ),
                                         ),
@@ -580,7 +551,7 @@ class _VehicleOwnerStudentTripAssignmentPageState extends State<VehicleOwnerStud
   }
 
   String _formatDate(dynamic date) {
-    if (date == null) return 'Unknown date';
+    if (date == null) return AppConstants.labelUnknownDate;
     
     try {
       DateTime dateTime;
@@ -589,12 +560,12 @@ class _VehicleOwnerStudentTripAssignmentPageState extends State<VehicleOwnerStud
       } else if (date is DateTime) {
         dateTime = date;
       } else {
-        return 'Unknown date';
+        return AppConstants.labelUnknownDate;
       }
       
       return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
     } catch (e) {
-      return 'Unknown date';
+      return AppConstants.labelUnknownDate;
     }
   }
 
@@ -603,11 +574,11 @@ class _VehicleOwnerStudentTripAssignmentPageState extends State<VehicleOwnerStud
     final difference = now.difference(dateTime);
     
     if (difference.inSeconds < 60) {
-      return 'Just now';
+      return AppConstants.labelJustNow;
     } else if (difference.inMinutes < 60) {
-      return '${difference.inMinutes}m ago';
+      return '${difference.inMinutes}${AppConstants.labelMinutesAgoSuffix}';
     } else if (difference.inHours < 24) {
-      return '${difference.inHours}h ago';
+      return '${difference.inHours}${AppConstants.labelHoursAgoSuffix}';
     } else {
       return '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
     }

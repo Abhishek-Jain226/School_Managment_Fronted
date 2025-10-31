@@ -1,3 +1,5 @@
+import '../../utils/constants.dart';
+
 class StudentRequest {
   final String firstName;
   final String? middleName;
@@ -34,20 +36,20 @@ class StudentRequest {
   });
 
   Map<String, dynamic> toJson() => {
-        "firstName": firstName,
-        "middleName": middleName,
-        "lastName": lastName,
-        "gender": gender,
-        "classId": classId,
-        "sectionId": sectionId,
-        "studentPhoto": studentPhotoBase64,
-        "schoolId": schoolId,
-        "motherName": motherName,
-        "fatherName": fatherName,
-        "primaryContactNumber": primaryContactNumber,
-        "alternateContactNumber": alternateContactNumber,
-        "email": email,
-        "createdBy": createdBy,
-        "parentRelation": relation,
+        AppConstants.keyFirstName: firstName,
+        AppConstants.keyMiddleName: middleName,
+        AppConstants.keyLastName: lastName,
+        AppConstants.keyGender: gender,
+        AppConstants.keyClassId: classId,
+        AppConstants.keySectionId: sectionId,
+        AppConstants.keyStudentPhoto: studentPhotoBase64,
+        AppConstants.keySchoolId: schoolId,
+        AppConstants.keyMotherName: motherName,
+        AppConstants.keyFatherName: fatherName,
+        AppConstants.keyPrimaryContact: primaryContactNumber,
+        AppConstants.keyAlternateContact: alternateContactNumber,
+        AppConstants.keyEmail: email,
+        AppConstants.keyCreatedBy: createdBy,
+        AppConstants.keyParentRelation: relation,
       };
 }

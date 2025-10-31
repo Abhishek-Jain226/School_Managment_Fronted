@@ -1,6 +1,7 @@
 // lib/presentation/pages/section_management_page.dart
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../utils/constants.dart';
 import '../../data/models/section_master.dart';
 import '../../services/master_data_service.dart';
 
@@ -31,7 +32,7 @@ class _SectionManagementPageState extends State<SectionManagementPage> {
 
   Future<void> _loadSchoolId() async {
     final prefs = await SharedPreferences.getInstance();
-    _schoolId = prefs.getInt('schoolId');
+    _schoolId = prefs.getInt(AppConstants.keySchoolId);
     if (_schoolId != null) {
       _loadSections();
     } else {
@@ -39,7 +40,7 @@ class _SectionManagementPageState extends State<SectionManagementPage> {
         _loading = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('School ID not found. Please login again.')),
+        const SnackBar(content: Text(AppConstants.msgSchoolIdNotFoundLogin)),
       );
     }
   }
@@ -57,17 +58,17 @@ class _SectionManagementPageState extends State<SectionManagementPage> {
     setState(() => _loading = true);
     try {
       final response = await _service.getAllSections(_schoolId!);
-      if (response['success'] == true) {
+      if (response[AppConstants.keySuccess] == true) {
         setState(() {
-          _sections = (response['data'] as List)
+          _sections = (response[AppConstants.keyData] as List)
               .map((json) => SectionMaster.fromJson(json))
               .toList();
         });
       } else {
-        _showErrorSnackBar(response['message'] ?? 'Failed to load sections');
+        _showErrorSnackBar(response[AppConstants.keyMessage] ?? AppConstants.msgFailedToLoadSections);
       }
     } catch (e) {
-      _showErrorSnackBar('Error loading sections: $e');
+      _showErrorSnackBar('${AppConstants.msgErrorLoadingSections}$e');
     } finally {
       setState(() => _loading = false);
     }
@@ -78,7 +79,7 @@ class _SectionManagementPageState extends State<SectionManagementPage> {
 
     try {
       final prefs = await SharedPreferences.getInstance();
-      final createdBy = prefs.getString('userName') ?? 'Admin';
+      final createdBy = prefs.getString(AppConstants.keyUserName) ?? 'Admin';
 
       final sectionMaster = SectionMaster(
         sectionId: _isEditing ? _editingSectionId : null,
@@ -97,15 +98,15 @@ class _SectionManagementPageState extends State<SectionManagementPage> {
         response = await _service.createSection(sectionMaster);
       }
 
-      if (response['success'] == true) {
-        _showSuccessSnackBar(_isEditing ? 'Section updated successfully' : 'Section created successfully');
+      if (response[AppConstants.keySuccess] == true) {
+        _showSuccessSnackBar(_isEditing ? AppConstants.msgSectionUpdated : AppConstants.msgSectionCreated);
         _resetForm();
         _loadSections();
       } else {
-        _showErrorSnackBar(response['message'] ?? 'Operation failed');
+        _showErrorSnackBar(response[AppConstants.keyMessage] ?? AppConstants.msgOperationFailed);
       }
     } catch (e) {
-      _showErrorSnackBar('Error: $e');
+      _showErrorSnackBar('${AppConstants.labelException}: $e');
     }
   }
 
@@ -113,16 +114,16 @@ class _SectionManagementPageState extends State<SectionManagementPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Section'),
-        content: Text('Are you sure you want to delete "${sectionMaster.sectionName}"?'),
+        title: const Text(AppConstants.dialogTitleDeleteSection),
+        content: Text('${AppConstants.msgConfirmDeleteSectionStart}${sectionMaster.sectionName}${AppConstants.msgConfirmDeleteSectionEnd}'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: const Text(AppConstants.actionCancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            child: const Text(AppConstants.actionDelete, style: TextStyle(color: AppColors.errorColor)),
           ),
         ],
       ),
@@ -131,11 +132,11 @@ class _SectionManagementPageState extends State<SectionManagementPage> {
     if (confirmed == true) {
       try {
         final response = await _service.deleteSection(sectionMaster.sectionId!);
-        if (response['success'] == true) {
-          _showSuccessSnackBar('Section deleted successfully');
+        if (response[AppConstants.keySuccess] == true) {
+          _showSuccessSnackBar(AppConstants.msgSectionDeleted);
           _loadSections();
         } else {
-          _showErrorSnackBar(response['message'] ?? 'Failed to delete section');
+          _showErrorSnackBar(response[AppConstants.keyMessage] ?? AppConstants.msgFailedToDeleteSection);
         }
       } catch (e) {
         _showErrorSnackBar('Error deleting section: $e');
@@ -146,14 +147,14 @@ class _SectionManagementPageState extends State<SectionManagementPage> {
   Future<void> _toggleStatus(SectionMaster sectionMaster) async {
     try {
       final response = await _service.toggleSectionStatus(sectionMaster.sectionId!);
-      if (response['success'] == true) {
-        _showSuccessSnackBar('Section status updated successfully');
+      if (response[AppConstants.keySuccess] == true) {
+        _showSuccessSnackBar(AppConstants.msgSectionStatusUpdated);
         _loadSections();
       } else {
-        _showErrorSnackBar(response['message'] ?? 'Failed to update status');
+        _showErrorSnackBar(response[AppConstants.keyMessage] ?? AppConstants.msgFailedToUpdateStatus);
       }
     } catch (e) {
-      _showErrorSnackBar('Error updating status: $e');
+      _showErrorSnackBar('${AppConstants.msgErrorUpdatingStatus}$e');
     }
   }
 
@@ -177,13 +178,13 @@ class _SectionManagementPageState extends State<SectionManagementPage> {
 
   void _showSuccessSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.green),
+      SnackBar(content: Text(message), backgroundColor: AppColors.successColor),
     );
   }
 
   void _showErrorSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.red),
+      SnackBar(content: Text(message), backgroundColor: AppColors.errorColor),
     );
   }
 
@@ -191,7 +192,7 @@ class _SectionManagementPageState extends State<SectionManagementPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Section Management'),
+        title: const Text(AppConstants.labelSectionManagement),
         actions: [
           IconButton(
             onPressed: _loadSections,
@@ -205,56 +206,56 @@ class _SectionManagementPageState extends State<SectionManagementPage> {
               children: [
                 // Form Section
                 Card(
-                  margin: const EdgeInsets.all(16),
+                  margin: const EdgeInsets.all(AppSizes.marginMD),
                   child: Padding(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(AppSizes.paddingMD),
                     child: Form(
                       key: _formKey,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            _isEditing ? 'Edit Section' : 'Add New Section',
+                            _isEditing ? AppConstants.labelEditSection : AppConstants.labelAddNewSection,
                             style: Theme.of(context).textTheme.titleLarge,
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: AppSizes.marginMD),
                           TextFormField(
                             controller: _sectionNameController,
                             decoration: const InputDecoration(
-                              labelText: 'Section Name *',
-                              hintText: 'e.g., A, B, Rose, Lily, Red, Blue',
+                              labelText: AppConstants.labelSectionName,
+                              hintText: AppConstants.hintSectionNameExamples,
                             ),
                             validator: (value) {
                               if (value == null || value.trim().isEmpty) {
-                                return 'Section name is required';
+                                return AppConstants.validationFieldRequired;
                               }
                               if (value.trim().length > 50) {
-                                return 'Section name cannot exceed 50 characters';
+                                return AppConstants.msgNameTooLong50;
                               }
                               return null;
                             },
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: AppSizes.marginMD),
                           TextFormField(
                             controller: _descriptionController,
                             decoration: const InputDecoration(
-                              labelText: 'Description (Optional)',
-                              hintText: 'Additional details about the section',
+                              labelText: AppConstants.labelDescriptionOptional,
+                              hintText: AppConstants.hintSectionDescription,
                             ),
                             maxLines: 2,
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: AppSizes.marginMD),
                           Row(
                             children: [
                               ElevatedButton(
                                 onPressed: _submitForm,
-                                child: Text(_isEditing ? 'Update Section' : 'Add Section'),
+                                child: Text(_isEditing ? AppConstants.labelUpdateSection : AppConstants.labelAddSection),
                               ),
-                              const SizedBox(width: 16),
+                              const SizedBox(width: AppSizes.marginMD),
                               if (_isEditing)
                                 TextButton(
                                   onPressed: _resetForm,
-                                  child: const Text('Cancel'),
+                                  child: const Text(AppConstants.actionCancel),
                                 ),
                             ],
                           ),
@@ -268,24 +269,24 @@ class _SectionManagementPageState extends State<SectionManagementPage> {
                   child: _sections.isEmpty
                       ? const Center(
                           child: Text(
-                            'No sections found.\nAdd your first section above.',
+                            AppConstants.msgNoSectionsFoundAddFirst,
                             textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 16, color: Colors.grey),
+                            style: TextStyle(fontSize: 16, color: AppColors.textSecondary),
                           ),
                         )
                       : ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingMD),
                           itemCount: _sections.length,
                           itemBuilder: (context, index) {
                             final sectionMaster = _sections[index];
                             return Card(
-                              margin: const EdgeInsets.only(bottom: 8),
+                              margin: const EdgeInsets.only(bottom: AppSizes.marginSM),
                               child: ListTile(
                                 title: Text(
                                   sectionMaster.sectionName,
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
-                                    color: sectionMaster.isActive ? null : Colors.grey,
+                                    color: sectionMaster.isActive ? null : AppColors.textSecondary,
                                   ),
                                 ),
                                 subtitle: Column(
@@ -297,19 +298,19 @@ class _SectionManagementPageState extends State<SectionManagementPage> {
                                       children: [
                                         Container(
                                           padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 2,
+                                            horizontal: AppSizes.paddingSM,
+                                            vertical: AppSizes.paddingXS,
                                           ),
                                           decoration: BoxDecoration(
                                             color: sectionMaster.isActive
-                                                ? Colors.green
-                                                : Colors.red,
-                                            borderRadius: BorderRadius.circular(12),
+                                                ? AppColors.successColor
+                                                : AppColors.errorColor,
+                                            borderRadius: BorderRadius.circular(AppSizes.radiusMD),
                                           ),
                                           child: Text(
-                                            sectionMaster.isActive ? 'Active' : 'Inactive',
+                                            sectionMaster.isActive ? AppConstants.labelActive : AppConstants.labelInactive,
                                             style: const TextStyle(
-                                              color: Colors.white,
+                                              color: AppColors.textWhite,
                                               fontSize: 12,
                                             ),
                                           ),
@@ -339,7 +340,7 @@ class _SectionManagementPageState extends State<SectionManagementPage> {
                                         children: [
                                           Icon(Icons.edit),
                                           SizedBox(width: 8),
-                                          Text('Edit'),
+                                          Text(AppConstants.actionEdit),
                                         ],
                                       ),
                                     ),
@@ -352,8 +353,8 @@ class _SectionManagementPageState extends State<SectionManagementPage> {
                                               : Icons.visibility),
                                           const SizedBox(width: 8),
                                           Text(sectionMaster.isActive
-                                              ? 'Deactivate'
-                                              : 'Activate'),
+                                              ? AppConstants.labelInactive
+                                              : AppConstants.labelActive),
                                         ],
                                       ),
                                     ),
@@ -361,9 +362,9 @@ class _SectionManagementPageState extends State<SectionManagementPage> {
                                       value: 'delete',
                                       child: Row(
                                         children: [
-                                          Icon(Icons.delete, color: Colors.red),
+                                          Icon(Icons.delete, color: AppColors.errorColor),
                                           SizedBox(width: 8),
-                                          Text('Delete', style: TextStyle(color: Colors.red)),
+                                          Text(AppConstants.actionDelete, style: TextStyle(color: AppColors.errorColor)),
                                         ],
                                       ),
                                     ),

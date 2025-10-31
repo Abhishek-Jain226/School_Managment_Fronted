@@ -1,3 +1,5 @@
+import '../../utils/constants.dart';
+
 class NotificationRequest {
   final int driverId;
   final int tripId;
@@ -33,35 +35,35 @@ class NotificationRequest {
 
   factory NotificationRequest.fromJson(Map<String, dynamic> json) {
     return NotificationRequest(
-      driverId: json['driverId'],
-      tripId: json['tripId'],
-      dispatchLogId: json['dispatchLogId'],
-      notificationType: json['notificationType'],
-      message: json['message'],
-      title: json['title'],
-      studentIds: json['studentIds'] != null 
-          ? List<int>.from(json['studentIds']) 
+      driverId: json[AppConstants.keyDriverId],
+      tripId: json[AppConstants.keyTripId],
+      dispatchLogId: json[AppConstants.keyDispatchLogId],
+      notificationType: json[AppConstants.keyNotificationType],
+      message: json[AppConstants.keyMessage],
+      title: json[AppConstants.keyTitle],
+      studentIds: json[AppConstants.keyStudentIds] != null 
+          ? List<int>.from(json[AppConstants.keyStudentIds]) 
           : null,
-      sendSms: json['sendSms'] ?? false,
-      sendEmail: json['sendEmail'] ?? false,
-      sendPushNotification: json['sendPushNotification'] ?? false,
-      minutesBeforeArrival: json['minutesBeforeArrival'],
+      sendSms: json[AppConstants.keySendSms] ?? false,
+      sendEmail: json[AppConstants.keySendEmail] ?? false,
+      sendPushNotification: json[AppConstants.keySendPushNotification] ?? false,
+      minutesBeforeArrival: json[AppConstants.keyMinutesBeforeArrival],
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'driverId': driverId,
-      'tripId': tripId,
-      'dispatchLogId': dispatchLogId,
-      'notificationType': notificationType,
-      'message': message,
-      'title': title,
-      'studentIds': studentIds,
-      'sendSms': sendSms,
-      'sendEmail': sendEmail,
-      'sendPushNotification': sendPushNotification,
-      'minutesBeforeArrival': minutesBeforeArrival,
+      AppConstants.keyDriverId: driverId,
+      AppConstants.keyTripId: tripId,
+      AppConstants.keyDispatchLogId: dispatchLogId,
+      AppConstants.keyNotificationType: notificationType,
+      AppConstants.keyMessage: message,
+      AppConstants.keyTitle: title,
+      AppConstants.keyStudentIds: studentIds,
+      AppConstants.keySendSms: sendSms,
+      AppConstants.keySendEmail: sendEmail,
+      AppConstants.keySendPushNotification: sendPushNotification,
+      AppConstants.keyMinutesBeforeArrival: minutesBeforeArrival,
     };
   }
 
@@ -107,17 +109,17 @@ class NotificationResponse {
 
   factory NotificationResponse.fromJson(Map<String, dynamic> json) {
     return NotificationResponse(
-      success: json['success'],
-      message: json['message'],
-      data: json['data'],
+      success: json[AppConstants.keySuccess],
+      message: json[AppConstants.keyMessage],
+      data: json[AppConstants.keyData],
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'success': success,
-      'message': message,
-      'data': data,
+      AppConstants.keySuccess: success,
+      AppConstants.keyMessage: message,
+      AppConstants.keyData: data,
     };
   }
 }

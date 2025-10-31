@@ -1,3 +1,5 @@
+import '../../utils/constants.dart';
+
 class BulkStudentImportRequest {
   final List<StudentRequest> students;
   final int schoolId;
@@ -16,12 +18,12 @@ class BulkStudentImportRequest {
   });
 
   Map<String, dynamic> toJson() => {
-    'students': students.map((s) => s.toJson()).toList(),
-    'schoolId': schoolId,
-    'createdBy': createdBy,
-    if (schoolDomain != null) 'schoolDomain': schoolDomain,
-    'sendActivationEmails': sendActivationEmails,
-    'emailGenerationStrategy': emailGenerationStrategy,
+    AppConstants.keyStudents: students.map((s) => s.toJson()).toList(),
+    AppConstants.keySchoolId: schoolId,
+    AppConstants.keyCreatedBy: createdBy,
+    if (schoolDomain != null) AppConstants.keySchoolDomain: schoolDomain,
+    AppConstants.keySendActivationEmails: sendActivationEmails,
+    AppConstants.keyEmailGenerationStrategy: emailGenerationStrategy,
   };
 }
 
@@ -57,18 +59,18 @@ class StudentRequest {
   });
 
   Map<String, dynamic> toJson() => {
-    'firstName': firstName,
-    'lastName': lastName,
-    'fatherName': fatherName,
-    if (motherName != null) 'motherName': motherName,
-    'primaryContactNumber': primaryContactNumber,
-    if (alternateContactNumber != null) 'alternateContactNumber': alternateContactNumber,
-    'email': email, // ✅ Email is now required
-    if (dateOfBirth != null) 'dateOfBirth': dateOfBirth,
-    if (gender != null) 'gender': gender,
-    if (studentPhoto != null) 'studentPhoto': studentPhoto,
-    if (classId != null) 'classId': classId,
-    if (sectionId != null) 'sectionId': sectionId,
-    'createdBy': createdBy,
+    AppConstants.keyFirstName: firstName,
+    AppConstants.keyLastName: lastName,
+    AppConstants.keyFatherName: fatherName,
+    if (motherName != null) AppConstants.keyMotherName: motherName,
+    AppConstants.keyPrimaryContact: primaryContactNumber,
+    if (alternateContactNumber != null) AppConstants.keyAlternateContact: alternateContactNumber,
+    AppConstants.keyEmail: email, // ✅ Email is now required
+    if (dateOfBirth != null) AppConstants.keyDateOfBirth: dateOfBirth,
+    if (gender != null) AppConstants.keyGender: gender,
+    if (studentPhoto != null) AppConstants.keyStudentPhoto: studentPhoto,
+    if (classId != null) AppConstants.keyClassId: classId,
+    if (sectionId != null) AppConstants.keySectionId: sectionId,
+    AppConstants.keyCreatedBy: createdBy,
   };
 }

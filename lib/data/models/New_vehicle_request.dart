@@ -1,4 +1,6 @@
 // lib/data/models/vehicle_request.dart
+import '../../utils/constants.dart';
+
 class VehicleRequest {
   String vehicleNumber;
   String registrationNumber;
@@ -18,11 +20,11 @@ class VehicleRequest {
   });
 
   Map<String, dynamic> toJson() => {
-        "vehicleNumber": vehicleNumber,
-        "registrationNumber": registrationNumber,
-        "vehiclePhoto": vehiclePhoto,
-        "createdBy": createdBy,
-        "vehicleType": vehicleType,
-        "capacity": capacity,
+        AppConstants.keyVehicleNumber: vehicleNumber,
+        AppConstants.keyRegistrationNumber: registrationNumber,
+        AppConstants.keyVehiclePhoto: vehiclePhoto,
+        AppConstants.keyCreatedBy: createdBy,
+        AppConstants.keyVehicleType: vehicleType,
+        AppConstants.keyCapacity: capacity,
       };
 }

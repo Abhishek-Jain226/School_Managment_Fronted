@@ -3,7 +3,7 @@ import '../../app_routes.dart';
 import '../../services/auth_service.dart';
 import '../../services/pending_service.dart';
 import '../../services/school_service.dart';
-
+import '../../utils/constants.dart';
 
 class ActivationScreen extends StatefulWidget {
   final String token;
@@ -41,24 +41,33 @@ class _ActivationScreenState extends State<ActivationScreen> {
     setState(() => _verifying = true);
     try {
       final resp = await _pendingService.verifyToken(widget.token);
-      if (resp['success'] == true && resp['data'] != null) {
-        final data = resp['data'];
+      if (resp[AppConstants.keySuccess] == true && 
+          resp[AppConstants.keyData] != null) {
+        final data = resp[AppConstants.keyData];
         setState(() {
-          _email = data['email']?.toString();
-          _entityType = data['entityType']?.toString();
-          _entityId = data['entityId'] != null ? (data['entityId'] as num).toInt() : null;
+          _email = data[AppConstants.keyEmail]?.toString();
+          _entityType = data[AppConstants.keyEntityType]?.toString();
+          _entityId = data[AppConstants.keyEntityId] != null 
+              ? (data[AppConstants.keyEntityId] as num).toInt() 
+              : null;
           _isTokenValid = true;
         });
         
         // Load school name if it's a school registration
-        if (_entityType == "SCHOOL") {
+        if (_entityType == AppConstants.entityTypeSchool) {
           await _loadSchoolName();
         }
       } else {
-        _showErrorDialog("Invalid Token", resp['message'] ?? 'This activation link is invalid or expired.');
+        _showErrorDialog(
+          AppConstants.titleInvalidToken,
+          resp[AppConstants.keyMessage] ?? AppConstants.msgInvalidTokenExpired,
+        );
       }
     } catch (e) {
-      _showErrorDialog("Verification Failed", "Unable to verify activation link. Please try again.");
+      _showErrorDialog(
+        AppConstants.titleVerificationFailed,
+        AppConstants.msgUnableToVerify,
+      );
     } finally {
       setState(() => _verifying = false);
     }
@@ -69,9 +78,9 @@ class _ActivationScreenState extends State<ActivationScreen> {
       try {
         final schoolService = SchoolService();
         final response = await schoolService.getSchoolById(_entityId!);
-        if (response['success'] == true) {
+        if (response[AppConstants.keySuccess] == true) {
           setState(() {
-            _schoolName = response['data']['schoolName'];
+            _schoolName = response[AppConstants.keyData][AppConstants.keySchoolName];
           });
         }
       } catch (e) {
@@ -93,7 +102,7 @@ class _ActivationScreenState extends State<ActivationScreen> {
               Navigator.of(ctx).pop();
               Navigator.of(context).pushReplacementNamed(AppRoutes.registerSchool);
             },
-            child: const Text("Register Again"),
+            child: const Text(AppConstants.labelRegisterAgain),
           ),
         ],
       ),
@@ -107,7 +116,7 @@ class _ActivationScreenState extends State<ActivationScreen> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     if (!_agreed) {
-      _showSnack("Please agree to Privacy Policy & Terms");
+      _showSnack(AppConstants.msgAgreeToTerms);
       return;
     }
 
@@ -119,14 +128,20 @@ class _ActivationScreenState extends State<ActivationScreen> {
         password: _passwordCtl.text.trim(),
       );
 
-      if (res['success'] == true) {
-        _showSnack(res['message'] ?? "Registration completed. You can now login.");
-        Navigator.of(context).pushReplacementNamed(AppRoutes.login);
+      if (res[AppConstants.keySuccess] == true) {
+        _showSnack(
+          res[AppConstants.keyMessage] ?? AppConstants.msgRegistrationCompleted,
+        );
+        if (mounted) {
+          Navigator.of(context).pushReplacementNamed(AppRoutes.login);
+        }
       } else {
-        _showSnack(res['message'] ?? 'Activation failed');
+        _showSnack(
+          res[AppConstants.keyMessage] ?? AppConstants.msgActivationFailed,
+        );
       }
     } catch (e) {
-      _showSnack("Activation failed: $e");
+      _showSnack('${AppConstants.msgActivationFailedPrefix}$e');
     } finally {
       setState(() => _loading = false);
     }
@@ -143,18 +158,22 @@ class _ActivationScreenState extends State<ActivationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Activate Account')),
+      appBar: AppBar(
+        title: const Text(AppConstants.labelActivateAccount),
+      ),
       body: _verifying
           ? const Center(child: CircularProgressIndicator())
           : !_isTokenValid
-              ? const Center(child: Text("Invalid activation link"))
+              ? const Center(
+                  child: Text(AppConstants.msgInvalidActivationLink),
+                )
               : _buildActivationForm(),
     );
   }
 
   Widget _buildActivationForm() {
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSizes.activationPadding),
       child: Form(
         key: _formKey,
         child: ListView(
@@ -162,90 +181,105 @@ class _ActivationScreenState extends State<ActivationScreen> {
             if (_schoolName != null) ...[
               Card(
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(AppSizes.activationPadding),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text("School Information", 
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 8),
-                      Text("School: $_schoolName"),
-                      Text("Email: $_email"),
+                      const Text(
+                        AppConstants.labelSchoolInformation,
+                        style: TextStyle(
+                          fontSize: AppSizes.activationHeaderFontSize,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: AppSizes.activationSpacingSM),
+                      Text('${AppConstants.labelSchoolWithColon}$_schoolName'),
+                      Text('${AppConstants.labelEmailWithColon}$_email'),
                     ],
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSizes.activationSpacingMD),
             ] else if (_email != null) ...[
-              Text('Email: $_email'),
-              const SizedBox(height: 8),
+              Text('${AppConstants.labelEmailWithColon}$_email'),
+              const SizedBox(height: AppSizes.activationSpacingSM),
             ],
 
-                    TextFormField(
-                      controller: _userNameCtl,
-                      decoration: const InputDecoration(labelText: 'Choose Username'),
-                      validator: (v) => v == null || v.isEmpty ? 'Enter username' : null,
-                    ),
-                    TextFormField(
-                      controller: _passwordCtl,
-                      obscureText: true,
-                      decoration: const InputDecoration(labelText: 'Password'),
-                      validator: (v) => v == null || v.length < 6 ? 'Min 6 chars' : null,
-                    ),
-                    TextFormField(
-                      controller: _confirmCtl,
-                      obscureText: true,
-                      decoration: const InputDecoration(labelText: 'Confirm Password'),
-                      validator: (v) => v != _passwordCtl.text ? 'Passwords do not match' : null,
-                    ),
-
-                    const SizedBox(height: 16),
-
-                   // ✅ Agreement Checkbox + Link
-Row(
-  crossAxisAlignment: CrossAxisAlignment.start,
-  children: [
-    Checkbox(
-      value: _agreed,
-      onChanged: (val) => setState(() => _agreed = val ?? false),
-    ),
-    Expanded(
-      child: GestureDetector(
-        onTap: () {
-          Navigator.pushNamed(context, AppRoutes.privacyPolicy);
-        },
-        child: const Text.rich(
-          TextSpan(
-            text: "I agree to the ",
-            children: [
-              TextSpan(
-                text: "Privacy Policy & Terms",
-                style: TextStyle(
-                  color: Colors.blue,
-                  decoration: TextDecoration.underline,
-                ),
+            TextFormField(
+              controller: _userNameCtl,
+              decoration: const InputDecoration(
+                labelText: AppConstants.labelChooseUsername,
               ),
-            ],
-          ),
+              validator: (v) => v == null || v.isEmpty 
+                  ? AppConstants.validationEnterUsername 
+                  : null,
+            ),
+            TextFormField(
+              controller: _passwordCtl,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: AppConstants.labelPassword,
+              ),
+              validator: (v) => v == null || v.length < AppSizes.activationPasswordMinLength 
+                  ? AppConstants.validationMinChars 
+                  : null,
+            ),
+            TextFormField(
+              controller: _confirmCtl,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: AppConstants.labelConfirmPassword,
+              ),
+              validator: (v) => v != _passwordCtl.text 
+                  ? AppConstants.validationPasswordsDoNotMatch 
+                  : null,
+            ),
+
+            const SizedBox(height: AppSizes.activationSpacingMD),
+
+            // ✅ Agreement Checkbox + Link
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Checkbox(
+                  value: _agreed,
+                  onChanged: (val) => setState(() => _agreed = val ?? false),
+                ),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () {
+                      Navigator.pushNamed(context, AppRoutes.privacyPolicy);
+                    },
+                    child: const Text.rich(
+                      TextSpan(
+                        text: AppConstants.labelAgreeToThe,
+                        children: [
+                          TextSpan(
+                            text: AppConstants.labelPrivacyPolicyTerms,
+                            style: TextStyle(
+                              color: AppColors.activationLinkColor,
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: AppSizes.activationSpacingLG),
+
+            ElevatedButton(
+              onPressed: (!_agreed || _loading) ? null : _submit,
+              child: _loading
+                  ? const CircularProgressIndicator()
+                  : const Text(AppConstants.labelActivateCreateAccount),
+            ),
+          ],
         ),
       ),
-    ),
-  ],
-),
-
-                    const SizedBox(height: 20),
-
-                    ElevatedButton(
-                      onPressed: (!_agreed || _loading) ? null : _submit,
-                      child: _loading
-                          ? const CircularProgressIndicator()
-                          : const Text('Activate & Create Account'),
-                    ),
-                  ],
-                ),
-              ),
-            );
-    
-  
+    );
   }
 }

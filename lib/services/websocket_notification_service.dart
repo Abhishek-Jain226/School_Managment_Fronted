@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:stomp_dart_client/stomp.dart';
 import 'package:stomp_dart_client/stomp_config.dart';
 import 'package:stomp_dart_client/stomp_frame.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../data/models/websocket_notification.dart';
 import '../config/app_config.dart';
+import '../utils/constants.dart';
 
 class WebSocketNotificationService {
   static final WebSocketNotificationService _instance = WebSocketNotificationService._internal();
@@ -48,18 +50,18 @@ class WebSocketNotificationService {
       await _loadUserData();
       await _connect();
     } catch (e) {
-      print('Error initializing WebSocket: $e');
+      debugPrint('${AppConstants.errorWebSocketInitialization}: $e');
     }
   }
 
   // Load user data from SharedPreferences
   Future<void> _loadUserData() async {
     final prefs = await SharedPreferences.getInstance();
-    _currentUserRole = prefs.getString('role');
-    _currentSchoolId = prefs.getInt('schoolId');
-    _currentUserId = prefs.getInt('userId');
+    _currentUserRole = prefs.getString(AppConstants.keyRole);
+    _currentSchoolId = prefs.getInt(AppConstants.keySchoolId);
+    _currentUserId = prefs.getInt(AppConstants.keyUserId);
     
-    print('WebSocket User Data: Role=$_currentUserRole, SchoolId=$_currentSchoolId, UserId=$_currentUserId');
+    debugPrint('${AppConstants.logWebSocketUserData}$_currentUserRole, SchoolId=$_currentSchoolId, UserId=$_currentUserId');
   }
 
   // Connect to WebSocket using STOMP
@@ -69,18 +71,18 @@ class WebSocketNotificationService {
     try {
       // WebSocket URL for STOMP with SockJS
       String wsUrl;
-      print('🔍 AppConfig.baseUrl: ${AppConfig.baseUrl}');
+      debugPrint('${AppConstants.logWebSocketBaseUrl}${AppConfig.baseUrl}');
       
-      if (AppConfig.baseUrl.contains('http://')) {
-        wsUrl = AppConfig.baseUrl.replaceFirst('http://', 'ws://') + '/ws/websocket';
-      } else if (AppConfig.baseUrl.contains('https://')) {
-        wsUrl = AppConfig.baseUrl.replaceFirst('https://', 'wss://') + '/ws/websocket';
+      if (AppConfig.baseUrl.contains(AppConstants.wsProtocolHttp)) {
+        wsUrl = AppConfig.baseUrl.replaceFirst(AppConstants.wsProtocolHttp, AppConstants.wsProtocolWs) + AppConstants.wsPath;
+      } else if (AppConfig.baseUrl.contains(AppConstants.wsProtocolHttps)) {
+        wsUrl = AppConfig.baseUrl.replaceFirst(AppConstants.wsProtocolHttps, AppConstants.wsProtocolWss) + AppConstants.wsPath;
       } else {
-        wsUrl = 'ws://' + AppConfig.baseUrl + '/ws/websocket';
+        wsUrl = AppConstants.wsProtocolWs + AppConfig.baseUrl + AppConstants.wsPath;
       }
       
-      print('🔍 Constructed WebSocket URL: $wsUrl');
-      print('Connecting to STOMP WebSocket: $wsUrl');
+      debugPrint('${AppConstants.logWebSocketConstructedUrl}$wsUrl');
+      debugPrint('${AppConstants.logWebSocketConnecting}$wsUrl');
 
       // Create STOMP configuration
       final config = StompConfig(
@@ -89,7 +91,7 @@ class WebSocketNotificationService {
         onWebSocketError: _onWebSocketError,
         onStompError: _onStompError,
         onDisconnect: _onDisconnect,
-        onDebugMessage: (String message) => print('STOMP Debug: $message'),
+        onDebugMessage: (String message) => debugPrint('${AppConstants.logWebSocketDebug}$message'),
       );
 
       // Create and activate STOMP client
@@ -97,51 +99,51 @@ class WebSocketNotificationService {
       _stompClient!.activate();
       
     } catch (e) {
-      print('Error connecting to STOMP WebSocket: $e');
+      debugPrint('${AppConstants.errorWebSocketConnection}: $e');
     }
   }
 
   // STOMP connection handler
   void _onStompConnect(StompFrame frame) {
-    print('STOMP connected successfully');
+    debugPrint(AppConstants.logWebSocketConnected);
     _isConnected = true;
     _subscribeToChannels();
   }
 
   // STOMP error handler
   void _onStompError(StompFrame frame) {
-    print('STOMP Error: ${frame.body}');
+    debugPrint('${AppConstants.logWebSocketStompError}${frame.body}');
     _isConnected = false;
   }
 
   // Handle incoming STOMP messages
   void _onStompMessage(StompFrame frame) {
     try {
-      print('STOMP message received: ${frame.body}');
+      debugPrint('${AppConstants.logWebSocketMessageReceived}${frame.body}');
 
       if (frame.body != null) {
         final Map<String, dynamic> jsonData = jsonDecode(frame.body!);
-        print('Parsed STOMP JSON message: $jsonData');
+        debugPrint('${AppConstants.logWebSocketParsedMessage}$jsonData');
         
         final notification = WebSocketNotification.fromJson(jsonData);
         _notificationController.add(notification);
         _routeNotificationToSpecificStreams(notification);
-        print('✅ STOMP notification processed successfully');
+        debugPrint(AppConstants.logWebSocketNotificationProcessed);
       }
     } catch (e) {
-      print('❌ Error processing STOMP message: $e');
+      debugPrint('❌ ${AppConstants.errorWebSocketMessage}: $e');
     }
   }
 
   // Handle disconnection
   void _onDisconnect(StompFrame frame) {
-    print('WebSocket disconnected');
+    debugPrint(AppConstants.logWebSocketDisconnected);
     _isConnected = false;
   }
 
   // Handle WebSocket errors
   void _onWebSocketError(dynamic error) {
-    print('WebSocket Error: $error');
+    debugPrint('${AppConstants.logWebSocketError}$error');
     _isConnected = false;
   }
 
@@ -153,39 +155,77 @@ class WebSocketNotificationService {
       // Subscribe to school-specific notifications
       if (_currentSchoolId != null) {
         _stompClient!.subscribe(
-          destination: '/topic/school/$_currentSchoolId',
+          destination: '${AppConstants.wsTopicSchool}/$_currentSchoolId',
           callback: _onStompMessage,
         );
-        print('Subscribed to school notifications: /topic/school/$_currentSchoolId');
+        debugPrint('${AppConstants.logWebSocketSubscribedSchool}${AppConstants.wsTopicSchool}/$_currentSchoolId');
       }
 
       // Subscribe to user-specific notifications
       if (_currentUserId != null) {
         _stompClient!.subscribe(
-          destination: '/user/queue/notifications',
+          destination: AppConstants.wsTopicUser,
           callback: _onStompMessage,
         );
-        print('Subscribed to user notifications: /user/queue/notifications');
+        debugPrint('${AppConstants.logWebSocketSubscribedUser}${AppConstants.wsTopicUser}');
       }
 
       // Subscribe to role-specific notifications
       if (_currentUserRole != null) {
         _stompClient!.subscribe(
-          destination: '/topic/role/${_currentUserRole!.toLowerCase()}',
+          destination: '${AppConstants.wsTopicRole}/${_currentUserRole!.toLowerCase()}',
           callback: _onStompMessage,
         );
-        print('Subscribed to role notifications: /topic/role/${_currentUserRole!.toLowerCase()}');
+        debugPrint('${AppConstants.logWebSocketSubscribedRole}${AppConstants.wsTopicRole}/${_currentUserRole!.toLowerCase()}');
       }
 
       // Subscribe to general notifications
       _stompClient!.subscribe(
-        destination: '/topic/all',
+        destination: AppConstants.wsTopicAll,
         callback: _onStompMessage,
       );
-      print('Subscribed to general notifications: /topic/all');
+      debugPrint('${AppConstants.logWebSocketSubscribedGeneral}${AppConstants.wsTopicAll}');
 
     } catch (e) {
-      print('Error subscribing to STOMP channels: $e');
+      debugPrint('${AppConstants.errorWebSocketSubscription}: $e');
+    }
+  }
+
+
+  // Public subscribe helpers used by BLoC
+  Future<void> subscribeToUserNotifications(String userId) async {
+    if (!_isConnected || _stompClient == null) return;
+    try {
+      _stompClient!.subscribe(
+        destination: AppConstants.wsTopicUser,
+        callback: _onStompMessage,
+      );
+    } catch (e) {
+      debugPrint('${AppConstants.errorWebSocketUserSubscription}: $e');
+    }
+  }
+
+  Future<void> subscribeToRoleNotifications(String role) async {
+    if (!_isConnected || _stompClient == null) return;
+    try {
+      _stompClient!.subscribe(
+        destination: '${AppConstants.wsTopicRole}/${role.toLowerCase()}',
+        callback: _onStompMessage,
+      );
+    } catch (e) {
+      debugPrint('${AppConstants.errorWebSocketRoleSubscription}: $e');
+    }
+  }
+
+  Future<void> subscribeToSchoolNotifications(int schoolId) async {
+    if (!_isConnected || _stompClient == null) return;
+    try {
+      _stompClient!.subscribe(
+        destination: '${AppConstants.wsTopicSchool}/$schoolId',
+        callback: _onStompMessage,
+      );
+    } catch (e) {
+      debugPrint('${AppConstants.errorWebSocketSchoolSubscription}: $e');
     }
   }
 
@@ -224,16 +264,16 @@ class WebSocketNotificationService {
   }
 
   // Send notification (for testing)
-  void sendNotification(Map<String, dynamic> notification) {
+  Future<void> sendNotification(Map<String, dynamic> notification) async {
     if (!_isConnected || _stompClient == null) return;
 
     try {
       _stompClient!.send(
-        destination: '/app/chat.sendMessage',
+        destination: AppConstants.wsDestinationSend,
         body: jsonEncode(notification),
       );
     } catch (e) {
-      print('Error sending STOMP notification: $e');
+      debugPrint('${AppConstants.errorWebSocketSendNotification}: $e');
     }
   }
 
@@ -241,18 +281,20 @@ class WebSocketNotificationService {
   Future<void> reconnect() async {
     if (_isConnected) return;
     
-    print('Attempting to reconnect...');
+    debugPrint(AppConstants.logWebSocketAttemptReconnect);
     await _connect();
   }
 
   // Disconnect
-  void disconnect() {
+  Future<void> disconnect() async {
     if (_stompClient != null) {
-      _stompClient!.deactivate();
+      try {
+        _stompClient!.deactivate();
+      } catch (_) {}
       _stompClient = null;
     }
     _isConnected = false;
-    print('STOMP WebSocket disconnected');
+    debugPrint(AppConstants.logWebSocketDisconnectedStomp);
   }
 
   // Update user data and resubscribe
@@ -265,6 +307,7 @@ class WebSocketNotificationService {
 
   // Dispose resources
   void dispose() {
+    // fire-and-forget; we don't await inside dispose
     disconnect();
     _notificationController.close();
     _tripUpdateController.close();

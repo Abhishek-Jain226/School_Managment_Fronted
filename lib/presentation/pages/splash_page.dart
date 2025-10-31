@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../app_routes.dart';
+import '../../utils/constants.dart';
 
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key});
@@ -50,7 +51,7 @@ class _SplashPageState extends State<SplashPage>
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFF36D1DC), Color(0xFF5B86E5)],
+            colors: AppConstants.splashGradientColors,
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -63,52 +64,52 @@ class _SplashPageState extends State<SplashPage>
               children: [
                 Container(
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
+                    color: AppConstants.splashIconBg,
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withOpacity(0.3),
-                        blurRadius: 10,
+                        blurRadius: AppConstants.splashCircleAvatarShadowBlur,
                         offset: const Offset(0, 5),
                       ),
                     ],
                   ),
-                  padding: const EdgeInsets.all(30),
+                  padding: const EdgeInsets.all(AppConstants.splashIconPadding),
                   child: const Icon(
                     Icons.school,
-                    size: 100,
-                    color: Colors.white,
+                    size: AppConstants.splashIconSize,
+                    color: AppConstants.splashTitleColor,
                   ),
                 ),
-                const SizedBox(height: 30),
+                const SizedBox(height: AppConstants.splashSpacingIconToTitle),
                 const Text(
-                  'School Tracker',
+                  AppConstants.labelSplashTitle,
                   style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                    letterSpacing: 1.2,
+                    fontSize: AppConstants.splashTitleFontSize,
+                    fontWeight: AppConstants.splashTitleFontWeight,
+                    color: AppConstants.splashTitleColor,
+                    letterSpacing: AppConstants.splashTitleLetterSpacing,
                     shadows: [
                       Shadow(
-                        color: Colors.black38,
-                        offset: Offset(1, 1),
-                        blurRadius: 5,
+                        color: AppConstants.splashTitleShadowColor,
+                        offset: AppConstants.splashTitleShadowOffset,
+                        blurRadius: AppConstants.splashTitleShadowBlur,
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 15),
+                const SizedBox(height: AppConstants.splashSpacingTitleToSubtitle),
                 const Text(
-                  'Track your school activities seamlessly',
+                  AppConstants.labelSplashSubtitle,
                   style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.white70,
+                    fontSize: AppConstants.splashSubtitleFontSize,
+                    color: AppConstants.splashSubtitleColor,
                     fontStyle: FontStyle.italic,
                   ),
                 ),
-                const SizedBox(height: 50),
+                const SizedBox(height: AppConstants.splashSpacingSubtitleToLoader),
                 const CircularProgressIndicator(
-                  strokeWidth: 3,
+                  strokeWidth: AppConstants.splashLoaderStrokeWidth,
                 ),
               ],
             ),

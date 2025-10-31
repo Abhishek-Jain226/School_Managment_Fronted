@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../data/models/bulk_student_import_request.dart';
 import '../data/models/bulk_import_result.dart';
+import '../utils/constants.dart';
 import 'auth_service.dart';
 import '../config/app_config.dart';
 
@@ -15,19 +16,19 @@ class BulkStudentImportService {
     try {
       // ✅ Pre-request validation
       if (request.students.isEmpty) {
-        throw Exception("No students provided for import");
+        throw Exception("${AppConstants.errorNoStudentsProvided} for import");
       }
       
       final token = await _auth.getToken();
       if (token == null || token.isEmpty) {
-        throw Exception("Authentication token not available");
+        throw Exception(AppConstants.errorAuthTokenNotAvailable);
       }
       
       final response = await http.post(
-        Uri.parse("$base/bulk-import"),
+        Uri.parse("$base${AppConstants.endpointBulkImport}"),
         headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer $token",
+          AppConstants.headerContentType: AppConstants.headerApplicationJson,
+          AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token",
         },
         body: jsonEncode(request.toJson()),
       );
@@ -38,19 +39,19 @@ class BulkStudentImportService {
       } else if (response.statusCode == 400) {
         // Bad request - validation errors
         final errorData = jsonDecode(response.body);
-        throw Exception("Validation failed: ${errorData['message'] ?? 'Invalid request data'}");
+        throw Exception("${AppConstants.errorValidationFailed}: ${errorData[AppConstants.keyMessage] ?? AppConstants.errorInvalidRequestData}");
       } else if (response.statusCode == 401) {
-        throw Exception("Authentication failed. Please login again.");
+        throw Exception(AppConstants.errorAuthenticationFailed);
       } else if (response.statusCode == 403) {
-        throw Exception("Access denied. You don't have permission to import students.");
+        throw Exception("${AppConstants.errorAccessDenied}. ${AppConstants.errorNoPermissionImport}.");
       } else {
-        throw Exception("Server error: ${response.statusCode}. Please try again later.");
+        throw Exception("${AppConstants.errorServerError}: ${response.statusCode}. ${AppConstants.errorTryAgainLater}.");
       }
     } catch (e) {
       if (e.toString().contains("Exception:")) {
         rethrow; // Re-throw our custom exceptions
       }
-      throw Exception("Network error: ${e.toString()}");
+      throw Exception("${AppConstants.errorNetworkError}: ${e.toString()}");
     }
   }
 
@@ -59,19 +60,19 @@ class BulkStudentImportService {
     try {
       // ✅ Pre-request validation
       if (request.students.isEmpty) {
-        throw Exception("No students provided for validation");
+        throw Exception("${AppConstants.errorNoStudentsProvided} for validation");
       }
       
       final token = await _auth.getToken();
       if (token == null || token.isEmpty) {
-        throw Exception("Authentication token not available");
+        throw Exception(AppConstants.errorAuthTokenNotAvailable);
       }
       
       final response = await http.post(
-        Uri.parse("$base/bulk-validate"),
+        Uri.parse("$base${AppConstants.endpointBulkValidate}"),
         headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer $token",
+          AppConstants.headerContentType: AppConstants.headerApplicationJson,
+          AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token",
         },
         body: jsonEncode(request.toJson()),
       );
@@ -82,19 +83,19 @@ class BulkStudentImportService {
       } else if (response.statusCode == 400) {
         // Bad request - validation errors
         final errorData = jsonDecode(response.body);
-        throw Exception("Validation failed: ${errorData['message'] ?? 'Invalid request data'}");
+        throw Exception("${AppConstants.errorValidationFailed}: ${errorData[AppConstants.keyMessage] ?? AppConstants.errorInvalidRequestData}");
       } else if (response.statusCode == 401) {
-        throw Exception("Authentication failed. Please login again.");
+        throw Exception(AppConstants.errorAuthenticationFailed);
       } else if (response.statusCode == 403) {
-        throw Exception("Access denied. You don't have permission to validate students.");
+        throw Exception("${AppConstants.errorAccessDenied}. ${AppConstants.errorNoPermissionValidate}.");
       } else {
-        throw Exception("Server error: ${response.statusCode}. Please try again later.");
+        throw Exception("${AppConstants.errorServerError}: ${response.statusCode}. ${AppConstants.errorTryAgainLater}.");
       }
     } catch (e) {
       if (e.toString().contains("Exception:")) {
         rethrow; // Re-throw our custom exceptions
       }
-      throw Exception("Network error: ${e.toString()}");
+      throw Exception("${AppConstants.errorNetworkError}: ${e.toString()}");
     }
   }
 }

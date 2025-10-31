@@ -1,3 +1,5 @@
+import '../../utils/constants.dart';
+
 class WebSocketNotification {
   final String id;
   final String type;
@@ -37,45 +39,45 @@ class WebSocketNotification {
 
   factory WebSocketNotification.fromJson(Map<String, dynamic> json) {
     return WebSocketNotification(
-      id: json['id'] ?? '',
-      type: json['type'] ?? '',
-      title: json['title'] ?? '',
-      message: json['message'] ?? '',
-      priority: json['priority'] ?? 'MEDIUM',
-      targetUser: json['targetUser'],
-      targetRole: json['targetRole'],
-      schoolId: json['schoolId'],
-      tripId: json['tripId'],
-      vehicleId: json['vehicleId'],
-      studentId: json['studentId'],
-      timestamp: json['timestamp'] != null 
-          ? DateTime.parse(json['timestamp']) 
+      id: json[AppConstants.keyId] ?? '',
+      type: json[AppConstants.keyType] ?? '',
+      title: json[AppConstants.keyTitle] ?? '',
+      message: json[AppConstants.keyMessage] ?? '',
+      priority: json[AppConstants.keyPriority] ?? 'MEDIUM',
+      targetUser: json[AppConstants.keyTargetUser],
+      targetRole: json[AppConstants.keyTargetRole],
+      schoolId: json[AppConstants.keySchoolId],
+      tripId: json[AppConstants.keyTripId],
+      vehicleId: json[AppConstants.keyVehicleId],
+      studentId: json[AppConstants.keyStudentId],
+      timestamp: json[AppConstants.keyTimestamp] != null 
+          ? DateTime.parse(json[AppConstants.keyTimestamp]) 
           : DateTime.now(),
-      isRead: json['isRead'] ?? false,
-      data: json['data'],
-      action: json['action'],
-      entityType: json['entityType'],
+      isRead: json[AppConstants.keyIsRead] ?? false,
+      data: json[AppConstants.keyData],
+      action: json[AppConstants.keyAction],
+      entityType: json[AppConstants.keyEntityType],
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'id': id,
-      'type': type,
-      'title': title,
-      'message': message,
-      'priority': priority,
-      'targetUser': targetUser,
-      'targetRole': targetRole,
-      'schoolId': schoolId,
-      'tripId': tripId,
-      'vehicleId': vehicleId,
-      'studentId': studentId,
-      'timestamp': timestamp.toIso8601String(),
-      'isRead': isRead,
-      'data': data,
-      'action': action,
-      'entityType': entityType,
+      AppConstants.keyId: id,
+      AppConstants.keyType: type,
+      AppConstants.keyTitle: title,
+      AppConstants.keyMessage: message,
+      AppConstants.keyPriority: priority,
+      AppConstants.keyTargetUser: targetUser,
+      AppConstants.keyTargetRole: targetRole,
+      AppConstants.keySchoolId: schoolId,
+      AppConstants.keyTripId: tripId,
+      AppConstants.keyVehicleId: vehicleId,
+      AppConstants.keyStudentId: studentId,
+      AppConstants.keyTimestamp: timestamp.toIso8601String(),
+      AppConstants.keyIsRead: isRead,
+      AppConstants.keyData: data,
+      AppConstants.keyAction: action,
+      AppConstants.keyEntityType: entityType,
     };
   }
 

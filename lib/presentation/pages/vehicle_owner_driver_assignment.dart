@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/vehicle_owner_service.dart';
-import '../../services/vehicle_service.dart';
-import '../../services/driver_service.dart';
 import '../../app_routes.dart';
+import '../../utils/constants.dart';
 
 class VehicleOwnerDriverAssignmentPage extends StatefulWidget {
   const VehicleOwnerDriverAssignmentPage({super.key});
@@ -14,8 +13,6 @@ class VehicleOwnerDriverAssignmentPage extends StatefulWidget {
 
 class _VehicleOwnerDriverAssignmentPageState extends State<VehicleOwnerDriverAssignmentPage> {
   final VehicleOwnerService _vehicleOwnerService = VehicleOwnerService();
-  final VehicleService _vehicleService = VehicleService();
-  final DriverService _driverService = DriverService();
   
   List<Map<String, dynamic>> _vehicles = [];
   List<Map<String, dynamic>> _drivers = [];
@@ -35,29 +32,29 @@ class _VehicleOwnerDriverAssignmentPageState extends State<VehicleOwnerDriverAss
     
     try {
       final prefs = await SharedPreferences.getInstance();
-      final userId = prefs.getInt("userId");
-      _currentSchoolId = prefs.getInt("currentSchoolId");
+      final userId = prefs.getInt(AppConstants.keyUserId);
+      _currentSchoolId = prefs.getInt(AppConstants.keyCurrentSchoolId);
       
       if (userId != null) {
         // Load owner data
         final ownerResponse = await _vehicleOwnerService.getOwnerByUserId(userId);
-        if (ownerResponse['success'] == true) {
-          _ownerData = ownerResponse['data'];
-          final ownerId = _ownerData!['ownerId'];
+        if (ownerResponse[AppConstants.keySuccess] == true) {
+          _ownerData = ownerResponse[AppConstants.keyData];
+          final ownerId = _ownerData![AppConstants.keyOwnerId];
           
           // Load vehicles, drivers, and assignments in parallel
-          print("🔍 _loadData: ownerId = $ownerId");
+          debugPrint("🔍 _loadData: ownerId = $ownerId");
           await Future.wait([
             _loadVehicles(ownerId),
             _loadDrivers(ownerId),
             _loadAssignments(ownerId),
           ]);
-          print("🔍 _loadData: After loading, _vehicles.length = ${_vehicles.length}");
+          debugPrint("🔍 _loadData: After loading, _vehicles.length = ${_vehicles.length}");
         }
       }
     } catch (e) {
-      print("Error loading data: $e");
-      _showError("Error loading data: $e");
+      debugPrint("Error loading data: $e");
+      _showError('${AppConstants.msgErrorLoadingData}: $e');
     } finally {
       setState(() => _isLoading = false);
     }
@@ -65,54 +62,54 @@ class _VehicleOwnerDriverAssignmentPageState extends State<VehicleOwnerDriverAss
 
   Future<void> _loadVehicles(int ownerId) async {
     try {
-      print("🔍 Loading vehicles for owner ID: $ownerId");
+      debugPrint("🔍 Loading vehicles for owner ID: $ownerId");
       final vehiclesResponse = await _vehicleOwnerService.getVehiclesByOwner(ownerId);
-      print("🔍 Vehicles response: $vehiclesResponse");
+      debugPrint("🔍 Vehicles response: $vehiclesResponse");
       
-      if (vehiclesResponse['success'] == true) {
-        final vehiclesData = vehiclesResponse['data'];
-        print("🔍 Vehicles data: $vehiclesData");
+      if (vehiclesResponse[AppConstants.keySuccess] == true) {
+        final vehiclesData = vehiclesResponse[AppConstants.keyData];
+        debugPrint("🔍 Vehicles data: $vehiclesData");
         
         setState(() {
-          _vehicles = List<Map<String, dynamic>>.from(vehiclesData['vehicles'] ?? []);
+          _vehicles = List<Map<String, dynamic>>.from(vehiclesData[AppConstants.keyVehicles] ?? []);
         });
-        print("🔍 Loaded ${_vehicles.length} vehicles");
-        print("🔍 _vehicles content: $_vehicles");
-        print("🔍 _vehicles.isEmpty: ${_vehicles.isEmpty}");
+        debugPrint("🔍 Loaded ${_vehicles.length} vehicles");
+        debugPrint("🔍 _vehicles content: $_vehicles");
+        debugPrint("🔍 _vehicles.isEmpty: ${_vehicles.isEmpty}");
       } else {
-        print("🔍 Failed to load vehicles: ${vehiclesResponse['message']}");
+        debugPrint("🔍 Failed to load vehicles: ${vehiclesResponse[AppConstants.keyMessage]}");
         setState(() {
           _vehicles = [];
         });
       }
     } catch (e) {
-      print("🔍 Error loading vehicles: $e");
+      debugPrint("🔍 Error loading vehicles: $e");
       setState(() {
         _vehicles = [];
       });
     }
-    print("🔍 _loadVehicles: Final _vehicles.length = ${_vehicles.length}");
+    debugPrint("🔍 _loadVehicles: Final _vehicles.length = ${_vehicles.length}");
   }
 
   Future<void> _loadDrivers(int ownerId) async {
     try {
       final driversResponse = await _vehicleOwnerService.getDriversByOwner(ownerId);
-      if (driversResponse['success'] == true) {
+      if (driversResponse[AppConstants.keySuccess] == true) {
         setState(() {
-          _drivers = List<Map<String, dynamic>>.from(driversResponse['data']['drivers'] ?? []);
+          _drivers = List<Map<String, dynamic>>.from(driversResponse[AppConstants.keyData][AppConstants.keyDrivers] ?? []);
         });
       }
     } catch (e) {
-      print("Error loading drivers: $e");
+      debugPrint("Error loading drivers: $e");
     }
   }
 
   Future<void> _loadAssignments(int ownerId) async {
     try {
       final assignmentsResponse = await _vehicleOwnerService.getDriverAssignments(ownerId);
-      if (assignmentsResponse['success'] == true) {
+      if (assignmentsResponse[AppConstants.keySuccess] == true) {
         setState(() {
-          _assignments = List<Map<String, dynamic>>.from(assignmentsResponse['data'] ?? []);
+          _assignments = List<Map<String, dynamic>>.from(assignmentsResponse[AppConstants.keyData] ?? []);
         });
       } else {
         setState(() {
@@ -120,7 +117,7 @@ class _VehicleOwnerDriverAssignmentPageState extends State<VehicleOwnerDriverAss
         });
       }
     } catch (e) {
-      print("Error loading assignments: $e");
+      debugPrint("Error loading assignments: $e");
       setState(() {
         _assignments = [];
       });
@@ -132,7 +129,7 @@ class _VehicleOwnerDriverAssignmentPageState extends State<VehicleOwnerDriverAss
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(message),
-          backgroundColor: Colors.red,
+          backgroundColor: AppColors.errorColor,
         ),
       );
     }
@@ -143,56 +140,56 @@ class _VehicleOwnerDriverAssignmentPageState extends State<VehicleOwnerDriverAss
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(message),
-          backgroundColor: Colors.green,
+          backgroundColor: AppColors.successColor,
         ),
       );
     }
   }
 
   Future<void> _showAssignDriverDialog() async {
-    print("🔍 _showAssignDriverDialog: Starting dialog");
-    print("🔍 _showAssignDriverDialog: _vehicles.length = ${_vehicles.length}");
-    print("🔍 _showAssignDriverDialog: _drivers.length = ${_drivers.length}");
-    print("🔍 _showAssignDriverDialog: _currentSchoolId = $_currentSchoolId");
-    print("🔍 _showAssignDriverDialog: _vehicles = $_vehicles");
-    print("🔍 _showAssignDriverDialog: _drivers = $_drivers");
+    debugPrint("🔍 _showAssignDriverDialog: Starting dialog");
+    debugPrint("🔍 _showAssignDriverDialog: _vehicles.length = ${_vehicles.length}");
+    debugPrint("🔍 _showAssignDriverDialog: _drivers.length = ${_drivers.length}");
+    debugPrint("🔍 _showAssignDriverDialog: _currentSchoolId = $_currentSchoolId");
+    debugPrint("🔍 _showAssignDriverDialog: _vehicles = $_vehicles");
+    debugPrint("🔍 _showAssignDriverDialog: _drivers = $_drivers");
     
     if (_vehicles.isEmpty) {
-      print("🔍 _showAssignDriverDialog: No vehicles available");
-      _showError("No vehicles available. Please register a vehicle first.");
+      debugPrint("🔍 _showAssignDriverDialog: No vehicles available");
+      _showError(AppConstants.msgNoVehiclesAvailableRegisterFirst);
       return;
     }
     
     if (_drivers.isEmpty) {
-      print("🔍 _showAssignDriverDialog: No drivers available");
-      _showError("No drivers available. Please register a driver first.");
+      debugPrint("🔍 _showAssignDriverDialog: No drivers available");
+      _showError(AppConstants.msgNoDriversAvailableRegisterFirst);
       return;
     }
 
     if (_currentSchoolId == null) {
-      print("🔍 _showAssignDriverDialog: No school selected");
-      _showError("No school selected. Please select a school first.");
+      debugPrint("🔍 _showAssignDriverDialog: No school selected");
+      _showError(AppConstants.msgNoSchoolSelected);
       return;
     }
 
-    print("🔍 _showAssignDriverDialog: All validations passed, showing dialog");
+    debugPrint("🔍 _showAssignDriverDialog: All validations passed, showing dialog");
 
     Map<String, dynamic>? selectedVehicle;
     Map<String, dynamic>? selectedDriver;
     bool isPrimary = false;
 
     try {
-      print("🔍 _showAssignDriverDialog: About to show dialog");
+      debugPrint("🔍 _showAssignDriverDialog: About to show dialog");
       
       // Test with a working dialog that has the actual functionality
       await showDialog(
         context: context,
         builder: (ctx) => StatefulBuilder(
           builder: (context, setDialogState) => AlertDialog(
-            title: const Text("Assign Driver to Vehicle"),
+            title: const Text(AppConstants.labelAssignDriverToVehicle),
             content: SizedBox(
               width: double.maxFinite,
-              height: 500, // Fixed height to prevent overflow
+              height: 500,
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -200,13 +197,13 @@ class _VehicleOwnerDriverAssignmentPageState extends State<VehicleOwnerDriverAss
                   // Vehicle Selection
                   DropdownButtonFormField<Map<String, dynamic>>(
                     decoration: const InputDecoration(
-                      labelText: "Select Vehicle",
+                      labelText: AppConstants.labelSelectVehicle,
                       border: OutlineInputBorder(),
                     ),
                     value: selectedVehicle,
                     items: _vehicles.map((vehicle) {
-                      final vehicleNumber = vehicle['vehicleNumber'] ?? 'Unknown';
-                      final vehicleType = vehicle['vehicleType'] ?? 'Unknown';
+                      final vehicleNumber = vehicle[AppConstants.keyVehicleNumber] ?? AppConstants.labelUnknown;
+                      final vehicleType = vehicle[AppConstants.keyVehicleType] ?? AppConstants.labelUnknown;
                       return DropdownMenuItem(
                         value: vehicle,
                         child: Text("$vehicleNumber ($vehicleType)"),
@@ -218,27 +215,20 @@ class _VehicleOwnerDriverAssignmentPageState extends State<VehicleOwnerDriverAss
                       });
                     },
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSizes.marginMD),
                   
                   // Driver Selection
-                  const Text(
-                    "Only drivers who have completed user activation are shown below:",
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey,
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
+                  const Text(AppConstants.textOnlyActivatedDriversShown, style: TextStyle(fontSize: AppSizes.textXS, color: AppColors.textSecondary, fontStyle: FontStyle.italic)),
+                  const SizedBox(height: AppSizes.marginSM),
                   DropdownButtonFormField<Map<String, dynamic>>(
                     decoration: const InputDecoration(
-                      labelText: "Select Driver",
+                      labelText: AppConstants.labelSelectDriver,
                       border: OutlineInputBorder(),
                     ),
                     value: selectedDriver,
                     items: _drivers.map((driver) {
-                      final driverName = driver['driverName'] ?? 'Unknown';
-                      final driverContact = driver['driverContactNumber'] ?? 'Unknown';
+                      final driverName = driver[AppConstants.keyDriverName] ?? AppConstants.labelUnknown;
+                      final driverContact = driver[AppConstants.keyDriverContact] ?? AppConstants.labelUnknown;
                       return DropdownMenuItem(
                         value: driver,
                         child: Text("$driverName ($driverContact)"),
@@ -250,12 +240,12 @@ class _VehicleOwnerDriverAssignmentPageState extends State<VehicleOwnerDriverAss
                       });
                     },
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSizes.marginMD),
                   
                   // Primary Driver Checkbox
                   CheckboxListTile(
-                    title: const Text("Primary Driver"),
-                    subtitle: const Text("Mark as primary driver for this vehicle"),
+                    title: const Text(AppConstants.labelPrimaryDriver),
+                    subtitle: const Text(AppConstants.labelMarkAsPrimaryDriver),
                     value: isPrimary,
                     onChanged: (value) {
                       setDialogState(() {
@@ -270,7 +260,7 @@ class _VehicleOwnerDriverAssignmentPageState extends State<VehicleOwnerDriverAss
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text("Cancel"),
+                child: const Text(AppConstants.actionCancel),
               ),
               ElevatedButton(
                 onPressed: selectedVehicle != null && selectedDriver != null
@@ -283,16 +273,16 @@ class _VehicleOwnerDriverAssignmentPageState extends State<VehicleOwnerDriverAss
                         );
                       }
                     : null,
-                child: const Text("Assign"),
+                child: const Text(AppConstants.actionAssign),
               ),
             ],
           ),
         ),
       );
-    print("🔍 _showAssignDriverDialog: Dialog closed");
+    debugPrint("🔍 _showAssignDriverDialog: Dialog closed");
     } catch (e) {
-      print("🔍 _showAssignDriverDialog: Error showing dialog: $e");
-      _showError("Error opening dialog: $e");
+      debugPrint("🔍 _showAssignDriverDialog: Error showing dialog: $e");
+      _showError('${AppConstants.msgErrorOpeningDialog}: $e');
     }
   }
 
@@ -304,52 +294,52 @@ class _VehicleOwnerDriverAssignmentPageState extends State<VehicleOwnerDriverAss
     try {
       // Validate required data
       if (_currentSchoolId == null) {
-        _showError("Please select a school first");
+        _showError(AppConstants.msgNoSchoolSelected);
         return;
       }
       
       if (_ownerData == null) {
-        _showError("Owner data not available");
+        _showError(AppConstants.msgOwnerDataNotAvailable);
         return;
       }
       
-      final createdBy = _ownerData!['name'] ?? 'Vehicle Owner';
+      final createdBy = _ownerData![AppConstants.keyName] ?? AppConstants.labelVehicleOwner;
       if (createdBy.length < 3) {
-        _showError("Owner name is too short");
+        _showError(AppConstants.msgOwnerNameTooShort);
         return;
       }
 
       final assignmentData = {
-        'vehicleId': vehicle['vehicleId'],
-        'driverId': driver['driverId'],
-        'schoolId': _currentSchoolId,
-        'isPrimary': isPrimary,
-        'isActive': true,
-        'createdBy': createdBy,
+        AppConstants.keyVehicleId: vehicle[AppConstants.keyVehicleId],
+        AppConstants.keyDriverId: driver[AppConstants.keyDriverId],
+        AppConstants.keySchoolId: _currentSchoolId,
+        AppConstants.keyIsPrimary: isPrimary,
+        AppConstants.keyIsActive: true,
+        AppConstants.keyCreatedBy: createdBy,
       };
 
-      print("🔍 _assignDriverToVehicle: assignmentData = $assignmentData");
-      print("🔍 _assignDriverToVehicle: vehicle = $vehicle");
-      print("🔍 _assignDriverToVehicle: driver = $driver");
-      print("🔍 _assignDriverToVehicle: _currentSchoolId = $_currentSchoolId");
-      print("🔍 _assignDriverToVehicle: createdBy = $createdBy");
+      debugPrint("🔍 _assignDriverToVehicle: assignmentData = $assignmentData");
+      debugPrint("🔍 _assignDriverToVehicle: vehicle = $vehicle");
+      debugPrint("🔍 _assignDriverToVehicle: driver = $driver");
+      debugPrint("🔍 _assignDriverToVehicle: _currentSchoolId = $_currentSchoolId");
+      debugPrint("🔍 _assignDriverToVehicle: createdBy = $createdBy");
 
       final response = await _vehicleOwnerService.assignDriverToVehicle(assignmentData);
-      print("🔍 _assignDriverToVehicle: response = $response");
+      debugPrint("🔍 _assignDriverToVehicle: response = $response");
       
-      if (response['success'] == true) {
-        _showSuccess("Driver assigned to vehicle successfully!");
+      if (response[AppConstants.keySuccess] == true) {
+        _showSuccess(AppConstants.msgDriverAssignedSuccess);
       } else {
-        _showError("Failed to assign driver: ${response['message']}");
+        _showError('${AppConstants.msgFailedToAssignDriver}: ${response[AppConstants.keyMessage]}');
       }
       
       // Reload assignments
       if (_ownerData != null) {
-        await _loadAssignments(_ownerData!['ownerId']);
+        await _loadAssignments(_ownerData![AppConstants.keyOwnerId]);
       }
     } catch (e) {
-      print("🔍 _assignDriverToVehicle: error = $e");
-      _showError("Failed to assign driver: $e");
+      debugPrint("🔍 _assignDriverToVehicle: error = $e");
+      _showError('${AppConstants.msgFailedToAssignDriver}: $e');
     }
   }
 
@@ -357,17 +347,17 @@ class _VehicleOwnerDriverAssignmentPageState extends State<VehicleOwnerDriverAss
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text("Remove Assignment"),
-        content: Text("Are you sure you want to remove this driver assignment?"),
+        title: const Text(AppConstants.titleRemoveAssignment),
+        content: Text(AppConstants.msgConfirmRemoveAssignment),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text("Cancel"),
+            child: const Text(AppConstants.actionCancel),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.errorColor),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text("Remove"),
+            child: const Text(AppConstants.actionRemove),
           ),
         ],
       ),
@@ -375,20 +365,20 @@ class _VehicleOwnerDriverAssignmentPageState extends State<VehicleOwnerDriverAss
 
     if (confirmed == true) {
       try {
-        final assignmentId = assignment['vehicleDriverId'];
+        final assignmentId = assignment[AppConstants.keyVehicleDriverId];
         final response = await _vehicleOwnerService.removeDriverAssignment(assignmentId);
-        if (response['success'] == true) {
-          _showSuccess("Assignment removed successfully!");
+        if (response[AppConstants.keySuccess] == true) {
+          _showSuccess(AppConstants.msgAssignmentRemovedSuccess);
         } else {
-          _showError("Failed to remove assignment: ${response['message']}");
+          _showError('${AppConstants.msgFailedToRemoveAssignment}: ${response[AppConstants.keyMessage]}');
         }
         
         // Reload assignments
         if (_ownerData != null) {
-          await _loadAssignments(_ownerData!['ownerId']);
+          await _loadAssignments(_ownerData![AppConstants.keyOwnerId]);
         }
       } catch (e) {
-        _showError("Failed to remove assignment: $e");
+        _showError('${AppConstants.msgFailedToRemoveAssignment}: $e');
       }
     }
   }
@@ -397,7 +387,7 @@ class _VehicleOwnerDriverAssignmentPageState extends State<VehicleOwnerDriverAss
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Driver Assignment"),
+        title: const Text(AppConstants.labelDriverAssignment),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -408,7 +398,7 @@ class _VehicleOwnerDriverAssignmentPageState extends State<VehicleOwnerDriverAss
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(AppSizes.paddingMD),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -417,99 +407,90 @@ class _VehicleOwnerDriverAssignmentPageState extends State<VehicleOwnerDriverAss
                     children: [
                       Expanded(
                         child: _buildSummaryCard(
-                          "Vehicles",
+                          AppConstants.labelVehicles,
                           _vehicles.length.toString(),
                           Icons.directions_bus,
-                          Colors.blue,
+                          AppColors.primaryColor,
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: AppSizes.marginSM),
                       Expanded(
                         child: _buildSummaryCard(
-                          "Activated Drivers",
+                          AppConstants.labelActivatedDrivers,
                           _drivers.length.toString(),
                           Icons.person,
-                          Colors.green,
+                          AppColors.successColor,
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: AppSizes.marginSM),
                       Expanded(
                         child: _buildSummaryCard(
-                          "Assignments",
+                          AppConstants.labelAssignments,
                           _assignments.length.toString(),
                           Icons.assignment_ind,
-                          Colors.orange,
+                          AppColors.warningColor,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: AppSizes.marginLG),
 
                   // Quick Actions
                   Card(
                     elevation: 2,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(AppSizes.radiusMD),
                     ),
                     child: Padding(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(AppSizes.paddingMD),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            "Quick Actions",
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
+                          const Text(AppConstants.labelQuickActions, style: TextStyle(fontSize: AppSizes.textXL, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: AppSizes.marginSM),
                           Container(
-                            padding: const EdgeInsets.all(12),
+                            padding: const EdgeInsets.all(AppSizes.paddingSM),
                             decoration: BoxDecoration(
-                              color: Colors.blue.shade50,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.blue.shade200),
+                              color: AppColors.primaryLight,
+                              borderRadius: BorderRadius.circular(AppSizes.radiusSM),
+                              border: Border.all(color: AppColors.primaryLight),
                             ),
                             child: Row(
                               children: [
-                                Icon(Icons.info_outline, color: Colors.blue.shade600, size: 20),
-                                const SizedBox(width: 8),
+                                const Icon(Icons.info_outline, color: AppColors.primaryDark, size: AppSizes.iconSM),
+                                const SizedBox(width: AppSizes.marginSM),
                                 Expanded(
                                   child: Text(
-                                    "Only drivers who have completed user activation can be assigned to vehicles.",
-                                    style: TextStyle(
-                                      color: Colors.blue.shade700,
-                                      fontSize: 12,
-                                    ),
+                                    AppConstants.textOnlyActivatedDriversAssign,
+                                    style: const TextStyle(color: AppColors.primaryDark, fontSize: AppSizes.textXS),
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: AppSizes.marginSM),
                           Row(
                             children: [
                               Expanded(
                                 child: ElevatedButton.icon(
                                   onPressed: () {
-                                    print("🔍 Assign Driver button clicked");
+                                    debugPrint("🔍 Assign Driver button clicked");
                                     _showAssignDriverDialog();
                                   },
                                   icon: const Icon(Icons.assignment_ind),
-                                  label: const Text("Assign Driver"),
+                                  label: const Text(AppConstants.labelAssignDriver),
                                 ),
                               ),
-                              const SizedBox(width: 12),
+                              const SizedBox(width: AppSizes.marginSM),
                               Expanded(
                                 child: ElevatedButton.icon(
                                   onPressed: () {
                                     Navigator.pushNamed(context, AppRoutes.registerDriver);
                                   },
                                   icon: const Icon(Icons.person_add),
-                                  label: const Text("Add Driver"),
+                                  label: const Text(AppConstants.labelAddDriver),
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.green,
+                                    backgroundColor: AppColors.successColor,
                                   ),
                                 ),
                               ),
@@ -519,39 +500,26 @@ class _VehicleOwnerDriverAssignmentPageState extends State<VehicleOwnerDriverAss
                       ),
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: AppSizes.marginLG),
 
                   // Current Assignments
                   Card(
                     elevation: 2,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(AppSizes.radiusMD),
                     ),
                     child: Padding(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(AppSizes.paddingMD),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            "Current Assignments",
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
+                          const Text(AppConstants.labelCurrentAssignments, style: TextStyle(fontSize: AppSizes.textXL, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: AppSizes.marginSM),
                           if (_assignments.isEmpty)
                             const Padding(
-                              padding: EdgeInsets.all(20),
+                              padding: EdgeInsets.all(AppSizes.paddingLG),
                               child: Center(
-                                child: Text(
-                                  "No assignments found.\nAssign drivers to vehicles to get started.",
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    color: Colors.grey,
-                                    fontSize: 16,
-                                  ),
-                                ),
+                                child: Text(AppConstants.emptyStateNoAssignments, textAlign: TextAlign.center, style: TextStyle(color: AppColors.textSecondary, fontSize: AppSizes.textMD)),
                               ),
                             )
                           else
@@ -570,28 +538,25 @@ class _VehicleOwnerDriverAssignmentPageState extends State<VehicleOwnerDriverAss
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSizes.radiusMD),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSizes.paddingMD),
         child: Column(
           children: [
-            Icon(icon, color: color, size: 32),
-            const SizedBox(height: 8),
+            Icon(icon, color: color, size: AppSizes.iconLG),
+            const SizedBox(height: AppSizes.marginSM),
             Text(
               value,
               style: TextStyle(
-                fontSize: 24,
+                fontSize: AppSizes.textXXL,
                 fontWeight: FontWeight.bold,
                 color: color,
               ),
             ),
             Text(
               title,
-              style: const TextStyle(
-                fontSize: 14,
-                color: Colors.grey,
-              ),
+              style: const TextStyle(fontSize: AppSizes.textSM, color: AppColors.textSecondary),
             ),
           ],
         ),
@@ -602,35 +567,29 @@ class _VehicleOwnerDriverAssignmentPageState extends State<VehicleOwnerDriverAss
   Widget _buildAssignmentCard(Map<String, dynamic> assignment) {
     return Card(
       elevation: 1,
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: AppSizes.marginSM),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(AppSizes.radiusSM),
       ),
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: assignment['isPrimary'] == true ? Colors.orange : Colors.blue,
+          backgroundColor: assignment[AppConstants.keyIsPrimary] == true ? AppColors.warningColor : AppColors.primaryColor,
           child: Icon(
-            assignment['isPrimary'] == true ? Icons.star : Icons.person,
-            color: Colors.white,
+            assignment[AppConstants.keyIsPrimary] == true ? Icons.star : Icons.person,
+            color: AppColors.textWhite,
           ),
         ),
         title: Text(
-          assignment['driverName'] ?? 'Unknown Driver',
+          assignment[AppConstants.keyDriverName] ?? AppConstants.labelUnknownDriver,
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("Vehicle: ${assignment['vehicleNumber'] ?? 'Unknown'}"),
-            Text("Status: ${assignment['isActive'] == true ? 'Active' : 'Inactive'}"),
-            if (assignment['isPrimary'] == true)
-              const Text(
-                "Primary Driver",
-                style: TextStyle(
-                  color: Colors.orange,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+            Text('${AppConstants.labelVehiclePrefix}${assignment[AppConstants.keyVehicleNumber] ?? AppConstants.labelUnknown}'),
+            Text('${AppConstants.labelStatus}: ${assignment[AppConstants.keyIsActive] == true ? AppConstants.labelActive : AppConstants.labelInactive}'),
+            if (assignment[AppConstants.keyIsPrimary] == true)
+              const Text(AppConstants.labelPrimaryDriver, style: TextStyle(color: AppColors.warningColor, fontWeight: FontWeight.bold)),
           ],
         ),
         trailing: PopupMenuButton(
@@ -639,9 +598,9 @@ class _VehicleOwnerDriverAssignmentPageState extends State<VehicleOwnerDriverAss
               value: 'remove',
               child: Row(
                 children: [
-                  Icon(Icons.delete, color: Colors.red),
-                  SizedBox(width: 8),
-                  Text('Remove Assignment'),
+                  Icon(Icons.delete, color: AppColors.errorColor),
+                  SizedBox(width: AppSizes.marginSM),
+                  Text(AppConstants.actionRemoveAssignment),
                 ],
               ),
             ),

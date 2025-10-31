@@ -1,458 +1,231 @@
 // lib/services/driver_service.dart
-import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'package:flutter/foundation.dart';
 import '../data/models/driver_request.dart';
 import '../data/models/driver_dashboard.dart';
 import '../data/models/driver_profile.dart';
 import '../data/models/driver_reports.dart';
-import '../data/models/time_based_trips.dart';
 import '../data/models/trip.dart';
 import '../data/models/student_attendance.dart';
 import '../data/models/notification_request.dart';
-import 'auth_service.dart';
+import 'base_http_service.dart';
 import '../config/app_config.dart';
+import '../utils/constants.dart';
 
-class DriverService {
+class DriverService extends BaseHttpService {
   // 🔹 Using centralized configuration
   static String get base => AppConfig.driversUrl;
-  final AuthService _auth = AuthService();
 
   Future<Map<String, dynamic>> createDriver(DriverRequest req) async {
-    final token = await _auth.getToken();
-
-    final url = Uri.parse("$base/create");
-    print("🔍 DriverService: createDriver URL: $url");
-    print("🔍 DriverService: createDriver request: ${req.toJson()}");
-    
-    final headers = {
-      "Content-Type": "application/json",
-      if (token != null) "Authorization": "Bearer $token",
-    };
-
-    final body = jsonEncode(req.toJson());
-    final resp = await http.post(url, headers: headers, body: body);
-    
-    print("🔍 DriverService: createDriver response status: ${resp.statusCode}");
-    print("🔍 DriverService: createDriver response body: ${resp.body}");
-
-    if (resp.statusCode == 200 || resp.statusCode == 201) {
-      return jsonDecode(resp.body) as Map<String, dynamic>;
-    } else {
-      throw Exception("Driver create failed: ${resp.statusCode} ${resp.body}");
+    try {
+      final response = await post("$base/create", body: req.toJson());
+      return handleResponse(response, operation: 'Create driver');
+    } catch (e) {
+      throw Exception(createErrorMessage('Create driver', e));
     }
   }
 
   // Get driver by userId
   Future<Map<String, dynamic>> getDriverByUserId(int userId) async {
-    final token = await _auth.getToken();
-
-    final url = Uri.parse("$base/user/$userId");
-    print("🔍 DriverService: getDriverByUserId URL: $url");
-    
-    final headers = {
-      if (token != null) "Authorization": "Bearer $token",
-    };
-
-    final resp = await http.get(url, headers: headers);
-    print("🔍 DriverService: getDriverByUserId response status: ${resp.statusCode}");
-    print("🔍 DriverService: getDriverByUserId response body: ${resp.body}");
-
-    if (resp.statusCode == 200) {
-      return jsonDecode(resp.body) as Map<String, dynamic>;
-    } else {
-      throw Exception("Failed to get driver by userId: ${resp.statusCode} ${resp.body}");
+    try {
+      final response = await get("$base/user/$userId");
+      return handleResponse(response, operation: 'Get driver by userId');
+    } catch (e) {
+      throw Exception(createErrorMessage('Get driver by userId', e));
     }
   }
 
   // Get driver dashboard data
   Future<DriverDashboard> getDriverDashboard(int driverId) async {
-    final token = await _auth.getToken();
-    
-    final url = Uri.parse("$base/dashboard/$driverId");
-    print("🔍 DriverService: getDriverDashboard URL: $url");
-    print("🔍 DriverService: getDriverDashboard driverId: $driverId");
-    
-    final headers = {
-      "Content-Type": "application/json",
-      if (token != null) "Authorization": "Bearer $token",
-    };
-
-    final resp = await http.get(url, headers: headers);
-    print("🔍 DriverService: getDriverDashboard response status: ${resp.statusCode}");
-    print("🔍 DriverService: getDriverDashboard response body: ${resp.body}");
-
-    if (resp.statusCode == 200) {
-      final responseData = jsonDecode(resp.body) as Map<String, dynamic>;
-      print("🔍 DriverService: getDriverDashboard responseData: $responseData");
-      
-      if (responseData['success'] == true && responseData['data'] != null) {
-        return DriverDashboard.fromJson(responseData['data']);
-      } else {
-        throw Exception("Failed to get driver dashboard: ${responseData['message']}");
-      }
-    } else {
-      throw Exception("Driver dashboard request failed: ${resp.statusCode} ${resp.body}");
+    try {
+      final response = await get("$base/dashboard/$driverId");
+      final data = handleResponse(response, operation: 'Get driver dashboard');
+      return DriverDashboard.fromJson(data[AppConstants.keyData]);
+    } catch (e) {
+      throw Exception(createErrorMessage('Get driver dashboard', e));
     }
   }
 
   // Get assigned trips for driver
   Future<List<Trip>> getAssignedTrips(int driverId) async {
-    final token = await _auth.getToken();
-    
-    final url = Uri.parse("$base/$driverId/trips");
-    print("🔍 DriverService: getAssignedTrips URL: $url");
-    print("🔍 DriverService: getAssignedTrips driverId: $driverId");
-    
-    final headers = {
-      "Content-Type": "application/json",
-      if (token != null) "Authorization": "Bearer $token",
-    };
-
-    final resp = await http.get(url, headers: headers);
-    print("🔍 DriverService: getAssignedTrips response status: ${resp.statusCode}");
-    print("🔍 DriverService: getAssignedTrips response body: ${resp.body}");
-
-    if (resp.statusCode == 200) {
-      final responseData = jsonDecode(resp.body) as Map<String, dynamic>;
-      print("🔍 DriverService: getAssignedTrips responseData: $responseData");
-      
-      if (responseData['success'] == true && responseData['data'] != null) {
-        final List<dynamic> tripsJson = responseData['data'];
-        print("🔍 DriverService: getAssignedTrips tripsJson: $tripsJson");
-        return tripsJson.map((tripJson) => Trip.fromJson(tripJson)).toList();
-      } else {
-        print("🔍 DriverService: getAssignedTrips failed: ${responseData['message']}");
-        throw Exception("Failed to get assigned trips: ${responseData['message']}");
-      }
-    } else {
-      print("🔍 DriverService: getAssignedTrips request failed: ${resp.statusCode} ${resp.body}");
-      throw Exception("Assigned trips request failed: ${resp.statusCode} ${resp.body}");
+    try {
+      final response = await get("$base/$driverId/trips");
+      final data = handleResponse(response, operation: 'Get assigned trips');
+      final tripsList = data[AppConstants.keyData] as List;
+      return tripsList.map((trip) => Trip.fromJson(trip)).toList();
+    } catch (e) {
+      throw Exception(createErrorMessage('Get assigned trips', e));
     }
   }
 
   // Get students for a specific trip
   Future<Trip> getTripStudents(int driverId, int tripId) async {
-    final token = await _auth.getToken();
-    
-    final url = Uri.parse("$base/$driverId/trip/$tripId/students");
-    final headers = {
-      "Content-Type": "application/json",
-      if (token != null) "Authorization": "Bearer $token",
-    };
-
-    final resp = await http.get(url, headers: headers);
-
-    if (resp.statusCode == 200) {
-      final responseData = jsonDecode(resp.body) as Map<String, dynamic>;
-      if (responseData['success'] == true && responseData['data'] != null) {
-        return Trip.fromJson(responseData['data']);
-      } else {
-        throw Exception("Failed to get trip students: ${responseData['message']}");
-      }
-    } else {
-      throw Exception("Trip students request failed: ${resp.statusCode} ${resp.body}");
+    try {
+      final response = await get("$base/$driverId/trip/$tripId/students");
+      final data = handleResponse(response, operation: 'Get trip students');
+      return Trip.fromJson(data[AppConstants.keyData]);
+    } catch (e) {
+      throw Exception(createErrorMessage('Get trip students', e));
     }
   }
 
   // Mark student attendance
   Future<StudentAttendanceResponse> markAttendance(int driverId, StudentAttendanceRequest attendanceData) async {
-    final token = await _auth.getToken();
-    
-    final url = Uri.parse("$base/$driverId/attendance");
-    final headers = {
-      "Content-Type": "application/json",
-      if (token != null) "Authorization": "Bearer $token",
-    };
-
-    final body = jsonEncode(attendanceData.toJson());
-    print("🔍 DriverService: markAttendance URL: $url");
-    print("🔍 DriverService: markAttendance body: $body");
-    
-    final resp = await http.post(url, headers: headers, body: body);
-    print("🔍 DriverService: markAttendance response status: ${resp.statusCode}");
-    print("🔍 DriverService: markAttendance response body: ${resp.body}");
-
-    if (resp.statusCode == 200) {
-      final responseData = jsonDecode(resp.body) as Map<String, dynamic>;
-      return StudentAttendanceResponse.fromJson(responseData);
-    } else {
-      throw Exception("Mark attendance failed: ${resp.statusCode} ${resp.body}");
+    try {
+      final response = await post("$base/$driverId/attendance", body: attendanceData.toJson());
+      final data = handleResponse(response, operation: 'Mark attendance');
+      return StudentAttendanceResponse.fromJson(data);
+    } catch (e) {
+      throw Exception(createErrorMessage('Mark attendance', e));
     }
   }
 
-
-  // Start trip
-  Future<Map<String, dynamic>> startTrip(int driverId, int tripId) async {
-    final token = await _auth.getToken();
-    
-    final url = Uri.parse("$base/$driverId/trip/$tripId/start");
-    final headers = {
-      "Content-Type": "application/json",
-      if (token != null) "Authorization": "Bearer $token",
-    };
-
-    final resp = await http.post(url, headers: headers);
-
-    if (resp.statusCode == 200) {
-      return jsonDecode(resp.body) as Map<String, dynamic>;
-    } else {
-      throw Exception("Start trip failed: ${resp.statusCode} ${resp.body}");
+  // Send notification to parents
+  Future<Map<String, dynamic>> sendNotification(int driverId, NotificationRequest notificationData) async {
+    try {
+      final response = await post("$base/$driverId/notify-parents", body: notificationData.toJson());
+      return handleResponse(response, operation: 'Send notification');
+    } catch (e) {
+      throw Exception(createErrorMessage('Send notification', e));
     }
   }
 
-
-
-
-  // Send notification to parents (CRITICAL FIX)
-  Future<NotificationResponse> sendNotification(int driverId, NotificationRequest request) async {
-    final token = await _auth.getToken();
-    
-    final url = Uri.parse("$base/$driverId/notify-parents");
-    final headers = {
-      "Content-Type": "application/json",
-      if (token != null) "Authorization": "Bearer $token",
-    };
-
-    final body = jsonEncode(request.toJson());
-    final resp = await http.post(url, headers: headers, body: body);
-
-    if (resp.statusCode == 200) {
-      final responseData = jsonDecode(resp.body) as Map<String, dynamic>;
-      return NotificationResponse.fromJson(responseData);
-    } else {
-      throw Exception("Send notification failed: ${resp.statusCode} ${resp.body}");
-    }
-  }
-
-  // ================ ENHANCED DRIVER DASHBOARD METHODS ================
-
-  // Get time-based filtered trips
-  Future<TimeBasedTrips> getTimeBasedTrips(int driverId) async {
-    final token = await _auth.getToken();
-    final url = Uri.parse("$base/$driverId/trips/time-based");
-    
-    print("🔍 DriverService: getTimeBasedTrips URL: $url");
-    
-    final headers = {
-      if (token != null) "Authorization": "Bearer $token",
-    };
-
-    final resp = await http.get(url, headers: headers);
-    print("🔍 DriverService: getTimeBasedTrips response status: ${resp.statusCode}");
-    print("🔍 DriverService: getTimeBasedTrips response body: ${resp.body}");
-
-    if (resp.statusCode == 200) {
-      final responseData = jsonDecode(resp.body) as Map<String, dynamic>;
-      if (responseData['success'] == true && responseData['data'] != null) {
-        return TimeBasedTrips.fromJson(responseData['data']);
-      } else {
-        throw Exception("Failed to get time-based trips: ${responseData['message']}");
-      }
-    } else {
-      throw Exception("Get time-based trips failed: ${resp.statusCode} ${resp.body}");
+  // Get time-based trips
+  Future<Map<String, dynamic>> getTimeBasedTrips(int driverId) async {
+    try {
+      final response = await get("$base/$driverId/trips/time-based");
+      return handleResponse(response, operation: 'Get time-based trips');
+    } catch (e) {
+      throw Exception(createErrorMessage('Get time-based trips', e));
     }
   }
 
   // Get driver profile
-  Future<DriverProfile> getDriverProfile(int driverId) async {
-    final token = await _auth.getToken();
-    final url = Uri.parse("$base/$driverId/profile");
-    
-    print("🔍 DriverService: getDriverProfile URL: $url");
-    
-    final headers = {
-      if (token != null) "Authorization": "Bearer $token",
-    };
-
-    final resp = await http.get(url, headers: headers);
-    print("🔍 DriverService: getDriverProfile response status: ${resp.statusCode}");
-    print("🔍 DriverService: getDriverProfile response body: ${resp.body}");
-
-    if (resp.statusCode == 200) {
-      final responseData = jsonDecode(resp.body) as Map<String, dynamic>;
-      if (responseData['success'] == true && responseData['data'] != null) {
-        return DriverProfile.fromJson(responseData['data']);
-      } else {
-        throw Exception("Failed to get driver profile: ${responseData['message']}");
+  Future<DriverProfile?> getDriverProfile(int driverId) async {
+    try {
+      final response = await get("$base/$driverId/profile");
+      final data = handleResponse(response, operation: 'Get driver profile');
+      
+      if (data[AppConstants.keyData] == null) {
+        debugPrint('⚠️ Driver profile data is null - driver may not be activated or no vehicle assigned');
+        return null;
       }
-    } else {
-      throw Exception("Get driver profile failed: ${resp.statusCode} ${resp.body}");
+      
+      return DriverProfile.fromJson(data[AppConstants.keyData]);
+    } catch (e) {
+      debugPrint('❌ Error getting driver profile: $e');
+      throw Exception(createErrorMessage('Get driver profile', e));
     }
   }
 
   // Update driver profile
-  Future<Map<String, dynamic>> updateDriverProfile(int driverId, DriverRequest request) async {
-    final token = await _auth.getToken();
-    final url = Uri.parse("$base/$driverId/profile");
-    
-    print("🔍 DriverService: updateDriverProfile URL: $url");
-    print("🔍 DriverService: updateDriverProfile request: ${request.toJson()}");
-    
-    final headers = {
-      "Content-Type": "application/json",
-      if (token != null) "Authorization": "Bearer $token",
-    };
-
-    final body = jsonEncode(request.toJson());
-    final resp = await http.put(url, headers: headers, body: body);
-    print("🔍 DriverService: updateDriverProfile response status: ${resp.statusCode}");
-    print("🔍 DriverService: updateDriverProfile response body: ${resp.body}");
-
-    if (resp.statusCode == 200) {
-      return jsonDecode(resp.body) as Map<String, dynamic>;
-    } else {
-      throw Exception("Update driver profile failed: ${resp.statusCode} ${resp.body}");
+  Future<Map<String, dynamic>> updateDriverProfile(int driverId, DriverRequest profileData) async {
+    try {
+      final response = await put("$base/$driverId/profile", body: profileData.toJson());
+      return handleResponse(response, operation: 'Update driver profile');
+    } catch (e) {
+      throw Exception(createErrorMessage('Update driver profile', e));
     }
   }
 
   // Get driver reports
-  Future<DriverReports> getDriverReports(int driverId) async {
-    final token = await _auth.getToken();
-    final url = Uri.parse("$base/$driverId/reports");
-    
-    print("🔍 DriverService: getDriverReports URL: $url");
-    
-    final headers = {
-      if (token != null) "Authorization": "Bearer $token",
-    };
-
-    final resp = await http.get(url, headers: headers);
-    print("🔍 DriverService: getDriverReports response status: ${resp.statusCode}");
-    print("🔍 DriverService: getDriverReports response body: ${resp.body}");
-
-    if (resp.statusCode == 200) {
-      final responseData = jsonDecode(resp.body) as Map<String, dynamic>;
-      if (responseData['success'] == true && responseData['data'] != null) {
-        return DriverReports.fromJson(responseData['data']);
-      } else {
-        throw Exception("Failed to get driver reports: ${responseData['message']}");
+  Future<DriverReports?> getDriverReports(int driverId) async {
+    try {
+      final response = await get("$base/$driverId/reports");
+      final data = handleResponse(response, operation: 'Get driver reports');
+      
+      if (data[AppConstants.keyData] == null) {
+        debugPrint('⚠️ Driver reports data is null - returning empty reports');
+        return null;
       }
-    } else {
-      throw Exception("Get driver reports failed: ${resp.statusCode} ${resp.body}");
+      
+      return DriverReports.fromJson(data[AppConstants.keyData]);
+    } catch (e) {
+      debugPrint('❌ Error getting driver reports: $e');
+      throw Exception(createErrorMessage('Get driver reports', e));
     }
   }
 
   // Send 5-minute alert
   Future<Map<String, dynamic>> send5MinuteAlert(int driverId, int tripId) async {
-    final token = await _auth.getToken();
-    final url = Uri.parse("$base/$driverId/trip/$tripId/alert-5min");
-    
-    print("🔍 DriverService: send5MinuteAlert URL: $url");
-    
-    final headers = {
-      if (token != null) "Authorization": "Bearer $token",
-    };
-
-    final resp = await http.post(url, headers: headers);
-    print("🔍 DriverService: send5MinuteAlert response status: ${resp.statusCode}");
-    print("🔍 DriverService: send5MinuteAlert response body: ${resp.body}");
-
-    if (resp.statusCode == 200) {
-      return jsonDecode(resp.body) as Map<String, dynamic>;
-    } else {
-      throw Exception("Send 5-minute alert failed: ${resp.statusCode} ${resp.body}");
+    try {
+      final response = await post("$base/$driverId/trip/$tripId/alert-5min");
+      return handleResponse(response, operation: 'Send 5-minute alert');
+    } catch (e) {
+      throw Exception(createErrorMessage('Send 5-minute alert', e));
     }
   }
 
-  // ================ CONTEXT-SENSITIVE STUDENT ACTIONS ================
-
-  // Mark pickup from home (Morning Trip)
+  // Mark pickup from home
   Future<Map<String, dynamic>> markPickupFromHome(int driverId, int tripId, int studentId) async {
-    return _markStudentAction(driverId, tripId, studentId, 'pickup-home');
+    try {
+      final response = await post("$base/$driverId/trip/$tripId/student/$studentId/pickup-home");
+      return handleResponse(response, operation: 'Mark pickup from home');
+    } catch (e) {
+      throw Exception(createErrorMessage('Mark pickup from home', e));
+    }
   }
 
-  // Mark drop to school (Morning Trip)
+  // Mark drop to school
   Future<Map<String, dynamic>> markDropToSchool(int driverId, int tripId, int studentId) async {
-    return _markStudentAction(driverId, tripId, studentId, 'drop-school');
+    try {
+      final response = await post("$base/$driverId/trip/$tripId/student/$studentId/drop-school");
+      return handleResponse(response, operation: 'Mark drop to school');
+    } catch (e) {
+      throw Exception(createErrorMessage('Mark drop to school', e));
+    }
   }
 
-  // Mark pickup from school (Afternoon Trip)
+  // Mark pickup from school
   Future<Map<String, dynamic>> markPickupFromSchool(int driverId, int tripId, int studentId) async {
-    return _markStudentAction(driverId, tripId, studentId, 'pickup-school');
+    try {
+      final response = await post("$base/$driverId/trip/$tripId/student/$studentId/pickup-school");
+      return handleResponse(response, operation: 'Mark pickup from school');
+    } catch (e) {
+      throw Exception(createErrorMessage('Mark pickup from school', e));
+    }
   }
 
-  // Mark drop to home (Afternoon Trip)
+  // Mark drop to home
   Future<Map<String, dynamic>> markDropToHome(int driverId, int tripId, int studentId) async {
-    return _markStudentAction(driverId, tripId, studentId, 'drop-home');
-  }
-
-  // Helper method for context-sensitive student actions
-  Future<Map<String, dynamic>> _markStudentAction(int driverId, int tripId, int studentId, String action) async {
-    final token = await _auth.getToken();
-    final url = Uri.parse("$base/$driverId/trip/$tripId/student/$studentId/$action");
-    
-    print("🔍 DriverService: _markStudentAction URL: $url");
-    print("🔍 DriverService: _markStudentAction - driverId: $driverId, tripId: $tripId, studentId: $studentId, action: $action");
-    
-    final headers = {
-      if (token != null) "Authorization": "Bearer $token",
-    };
-
-    final resp = await http.post(url, headers: headers);
-    print("🔍 DriverService: _markStudentAction response status: ${resp.statusCode}");
-    print("🔍 DriverService: _markStudentAction response body: ${resp.body}");
-
-    if (resp.statusCode == 200) {
-      return jsonDecode(resp.body) as Map<String, dynamic>;
-    } else {
-      throw Exception("Mark student action failed: ${resp.statusCode} ${resp.body}");
+    try {
+      final response = await post("$base/$driverId/trip/$tripId/student/$studentId/drop-home");
+      return handleResponse(response, operation: 'Mark drop to home');
+    } catch (e) {
+      throw Exception(createErrorMessage('Mark drop to home', e));
     }
   }
-
-  // ================ TRIP MANAGEMENT METHODS ================
-
-  // End trip
-  Future<Map<String, dynamic>> endTrip(int driverId, int tripId) async {
-    final token = await _auth.getToken();
-    final url = Uri.parse("$base/$driverId/trip/$tripId/end");
-    
-    print("🔍 DriverService: endTrip URL: $url");
-    print("🔍 DriverService: endTrip - driverId: $driverId, tripId: $tripId");
-    
-    final headers = {
-      if (token != null) "Authorization": "Bearer $token",
-    };
-
-    final resp = await http.post(url, headers: headers);
-    print("🔍 DriverService: endTrip response status: ${resp.statusCode}");
-    print("🔍 DriverService: endTrip response body: ${resp.body}");
-
-    if (resp.statusCode == 200) {
-      return jsonDecode(resp.body) as Map<String, dynamic>;
-    } else {
-      throw Exception("End trip failed: ${resp.statusCode} ${resp.body}");
-    }
-  }
-
-  // ================ LOCATION TRACKING METHODS ================
 
   // Update driver location
   Future<Map<String, dynamic>> updateDriverLocation(int driverId, double latitude, double longitude) async {
-    final token = await _auth.getToken();
-    final url = Uri.parse("$base/$driverId/location");
-    
-    print("🔍 DriverService: updateDriverLocation URL: $url");
-    print("🔍 DriverService: updateDriverLocation - driverId: $driverId, lat: $latitude, lng: $longitude");
-    
-    final headers = {
-      "Content-Type": "application/json",
-      if (token != null) "Authorization": "Bearer $token",
-    };
+    try {
+      final body = {
+        AppConstants.keyLatitude: latitude,
+        AppConstants.keyLongitude: longitude,
+      };
+      final response = await post("$base/$driverId/location", body: body);
+      return handleResponse(response, operation: 'Update driver location');
+    } catch (e) {
+      throw Exception(createErrorMessage('Update driver location', e));
+    }
+  }
 
-    final body = jsonEncode({
-      'latitude': latitude,
-      'longitude': longitude,
-      'timestamp': DateTime.now().toIso8601String(),
-    });
+  // Get driver location
+  Future<Map<String, dynamic>> getDriverLocation(int driverId) async {
+    try {
+      final response = await get("$base/$driverId/location");
+      return handleResponse(response, operation: 'Get driver location');
+    } catch (e) {
+      throw Exception(createErrorMessage('Get driver location', e));
+    }
+  }
 
-    final resp = await http.post(url, headers: headers, body: body);
-    print("🔍 DriverService: updateDriverLocation response status: ${resp.statusCode}");
-    print("🔍 DriverService: updateDriverLocation response body: ${resp.body}");
-
-    if (resp.statusCode == 200) {
-      return jsonDecode(resp.body) as Map<String, dynamic>;
-    } else {
-      throw Exception("Update driver location failed: ${resp.statusCode} ${resp.body}");
+  // End trip
+  Future<Map<String, dynamic>> endTrip(int driverId, int tripId) async {
+    try {
+      final response = await post("$base/$driverId/trip/$tripId/end");
+      return handleResponse(response, operation: 'End trip');
+    } catch (e) {
+      throw Exception(createErrorMessage('End trip', e));
     }
   }
 }

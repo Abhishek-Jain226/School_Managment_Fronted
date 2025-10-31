@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../utils/constants.dart';
 import '../../app_routes.dart';
 import '../../data/models/school_request.dart';
 import '../../services/school_service.dart';
@@ -18,7 +19,6 @@ class _RegisterSchoolScreenState extends State<RegisterSchoolScreen> {
   final _formKey = GlobalKey<FormState>();
   final _service = SchoolService();
   bool _isLoading = false;
-  bool _isSubmitted = false;
 
   // Controllers
   final TextEditingController _schoolName = TextEditingController();
@@ -42,6 +42,10 @@ class _RegisterSchoolScreenState extends State<RegisterSchoolScreen> {
   // Pincode auto-fill state
   bool _isLoadingPincode = false;
   bool _isPincodeAutoFilled = false;
+  
+  // City dropdown state
+  List<String> _availableCities = [];
+  String? _selectedCity;
 
   Future<void> _pickImage(ImageSource source) async {
     final picked = await _picker.pickImage(source: source);
@@ -58,6 +62,8 @@ class _RegisterSchoolScreenState extends State<RegisterSchoolScreen> {
       setState(() {
         _isPincodeAutoFilled = false;
         _isLoadingPincode = false;
+        _availableCities = [];
+        _selectedCity = null;
       });
       return;
     }
@@ -67,37 +73,89 @@ class _RegisterSchoolScreenState extends State<RegisterSchoolScreen> {
     });
 
     try {
+      debugPrint('🔍 Fetching location for pincode: $pincode');
       final locationData = await PincodeService.getLocationByPincode(pincode);
+      debugPrint('🔍 Location data received: $locationData');
       
       if (locationData != null) {
-        setState(() {
-          _city.text = locationData['city'] ?? '';
-          _district.text = locationData['district'] ?? '';
-          _state.text = locationData['state'] ?? '';
-          _isPincodeAutoFilled = true;
-        });
+        // Safely extract cities list with proper type checking
+        List<String> cities = [];
+        final citiesData = locationData[AppConstants.keyCities];
+        debugPrint('🔍 Cities data from response: $citiesData (type: ${citiesData.runtimeType})');
         
-        // Show success message
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Location auto-filled: ${locationData['city']}, ${locationData['district']}, ${locationData['state']}'),
-              backgroundColor: Colors.green,
-              duration: const Duration(seconds: 3),
-            ),
-          );
+        if (citiesData != null) {
+          if (citiesData is List) {
+            cities = citiesData.map((e) => e?.toString() ?? '').where((e) => e.isNotEmpty).toList().cast<String>();
+          } else if (citiesData is Set) {
+            cities = citiesData.map((e) => e?.toString() ?? '').where((e) => e.isNotEmpty).toList().cast<String>();
+          } else {
+            // Try to convert any other type
+            try {
+              final converted = List<String>.from(citiesData.map((e) => e.toString()));
+              cities = converted.where((e) => e.isNotEmpty).toList();
+            } catch (e) {
+              debugPrint('⚠️ Failed to convert cities data: $e');
+            }
+          }
+        }
+        
+        debugPrint('🔍 Extracted cities list: $cities (count: ${cities.length})');
+        
+        // Only auto-fill if we have valid city data
+        if (cities.isNotEmpty) {
+          setState(() {
+            _availableCities = cities;
+            _selectedCity = cities[0]; // Auto-select first city
+            _district.text = locationData[AppConstants.keyDistrict] ?? '';
+            _state.text = locationData[AppConstants.keyState] ?? '';
+            _isPincodeAutoFilled = true;
+          });
+          
+          // Show success message
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  cities.length > 1
+                    ? AppConstants.msgFoundLocationsSelect.replaceFirst('%d', cities.length.toString())
+                    : '${AppConstants.msgLocationAutoFilledPrefix}${cities[0]}, ${locationData[AppConstants.keyDistrict] ?? ''}, ${locationData[AppConstants.keyState] ?? ''}'
+                ),
+                backgroundColor: cities.length > 1 ? Colors.blue : Colors.green,
+                duration: Duration(seconds: cities.length > 1 ? AppSizes.registerSchoolSnackBarDuration : AppSizes.registerSchoolSnackBarDurationShort),
+              ),
+            );
+          }
+        } else {
+          // No cities found in response
+          setState(() {
+            _isPincodeAutoFilled = false;
+            _availableCities = [];
+            _selectedCity = null;
+          });
+          
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(AppConstants.msgPincodeNotFoundManual),
+                backgroundColor: Colors.orange,
+                duration: Duration(seconds: AppSizes.registerSchoolSnackBarDurationShort),
+              ),
+            );
+          }
         }
       } else {
         setState(() {
           _isPincodeAutoFilled = false;
+          _availableCities = [];
+          _selectedCity = null;
         });
         
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Pincode not found. Please enter location manually.'),
+              content: Text(AppConstants.msgPincodeNotFoundManual),
               backgroundColor: Colors.orange,
-              duration: Duration(seconds: 3),
+              duration: Duration(seconds: AppSizes.registerSchoolSnackBarDurationShort),
             ),
           );
         }
@@ -105,14 +163,16 @@ class _RegisterSchoolScreenState extends State<RegisterSchoolScreen> {
     } catch (e) {
       setState(() {
         _isPincodeAutoFilled = false;
+        _availableCities = [];
+        _selectedCity = null;
       });
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error fetching location: $e'),
+            content: Text('${AppConstants.msgErrorFetchingLocation}$e'),
             backgroundColor: Colors.red,
-            duration: const Duration(seconds: 3),
+            duration: const Duration(seconds: AppSizes.registerSchoolSnackBarDurationShort),
           ),
         );
       }
@@ -127,7 +187,26 @@ class _RegisterSchoolScreenState extends State<RegisterSchoolScreen> {
   void _enableManualEdit() {
     setState(() {
       _isPincodeAutoFilled = false;
+      _availableCities = [];
+      _selectedCity = null;
+      // Clear the city text field when enabling manual edit
+      _city.clear();
     });
+  }
+
+  @override
+  void dispose() {
+    // Dispose all controllers to prevent memory leaks
+    _schoolName.dispose();
+    _registrationNumber.dispose();
+    _address.dispose();
+    _city.dispose();
+    _district.dispose();
+    _state.dispose();
+    _pincode.dispose();
+    _contactNo.dispose();
+    _email.dispose();
+    super.dispose();
   }
 
   Future<void> _submitForm() async {
@@ -136,9 +215,12 @@ class _RegisterSchoolScreenState extends State<RegisterSchoolScreen> {
     setState(() => _isLoading = true);
 
     try {
+      debugPrint('🔹 Starting school registration for: ${_schoolName.text}');
+      
       String? base64Photo;
       if (_selectedImage != null) {
         base64Photo = base64Encode(await _selectedImage!.readAsBytes());
+        debugPrint('🔹 Photo encoded, size: ${base64Photo.length} characters');
       }
 
       final request = SchoolRequest(
@@ -147,29 +229,43 @@ class _RegisterSchoolScreenState extends State<RegisterSchoolScreen> {
         affiliationBoard: _affiliationBoard!,
         registrationNumber: _registrationNumber.text,
         address: _address.text,
-        city: _city.text,
+        city: _selectedCity ?? _city.text, // Use selected city from dropdown or manual input
         district: _district.text,
         state: _state.text,
         pincode: _pincode.text,
         contactNo: _contactNo.text,
         email: _email.text,
         schoolPhoto: base64Photo,
-        createdBy: "SYSTEM",
+        createdBy: AppConstants.registerSchoolCreatedBy,
       );
 
+      debugPrint('🔹 Sending registration request to backend...');
       final response = await _service.registerSchool(request);
       
+      debugPrint('🔹 Registration response: $response');
+      
       if (mounted) {
-        if (response["success"] == true) {
-          setState(() => _isSubmitted = true);
+        if (response[AppConstants.keySuccess] == true) {
+          debugPrint('✅ School registered successfully!');
           _showSuccessDialog();
         } else {
-          _showErrorSnackBar(response["message"] ?? "Registration failed");
+          debugPrint('❌ Registration failed: ${response[AppConstants.keyMessage]}');
+          _showErrorSnackBar(response[AppConstants.keyMessage] ?? AppConstants.msgRegistrationFailed);
         }
       }
     } catch (e) {
+      debugPrint('❌ Exception during registration: $e');
       if (mounted) {
-        _showErrorSnackBar("Error: $e");
+        String errorMessage = AppConstants.msgFailedToRegisterSchool;
+        
+        // Extract specific error message if available
+        if (e.toString().contains(AppConstants.msgFailedToRegisterSchool)) {
+          errorMessage = e.toString().replaceAll('${AppConstants.labelException}: ', '');
+        } else {
+          errorMessage = '${AppConstants.labelError}: ${e.toString()}';
+        }
+        
+        _showErrorSnackBar(errorMessage);
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -181,19 +277,15 @@ class _RegisterSchoolScreenState extends State<RegisterSchoolScreen> {
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        title: const Text("Registration Successful!"),
-        content: const Text(
-          "Your school has been registered successfully. "
-          "Please check your email for the activation link. "
-          "The link is valid for 24 hours."
-        ),
+        title: const Text(AppConstants.msgRegistrationSuccessful),
+        content: const Text(AppConstants.msgSchoolRegisteredSuccess),
         actions: [
           TextButton(
             onPressed: () {
               Navigator.of(ctx).pop();
               Navigator.of(context).pushReplacementNamed(AppRoutes.login);
             },
-            child: const Text("Go to Login"),
+            child: const Text(AppConstants.labelGoToLogin),
           ),
         ],
       ),
@@ -205,7 +297,7 @@ class _RegisterSchoolScreenState extends State<RegisterSchoolScreen> {
       SnackBar(
         content: Text(message),
         backgroundColor: Colors.red,
-        duration: const Duration(seconds: 5),
+        duration: const Duration(seconds: AppSizes.registerSchoolSnackBarDuration),
       ),
     );
   }
@@ -213,9 +305,9 @@ class _RegisterSchoolScreenState extends State<RegisterSchoolScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("School Registration")),
+      appBar: AppBar(title: const Text(AppConstants.labelSchoolRegistration)),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSizes.registerSchoolPadding),
         child: Form(
           key: _formKey,
           child: Column(
@@ -224,47 +316,51 @@ class _RegisterSchoolScreenState extends State<RegisterSchoolScreen> {
               TextFormField(
                 controller: _schoolName,
                 decoration: const InputDecoration(
-                  labelText: "School Name",
-                  hintText: "Enter school name",
+                  labelText: AppConstants.labelSchoolName,
+                  hintText: AppConstants.hintSchoolName,
                 ),
                 validator: (v) {
-                  if (v == null || v.isEmpty) return "Enter school name";
-                  if (v.length < 2) return "School name must be at least 2 characters";
-                  if (v.length > 200) return "School name must not exceed 200 characters";
+                  if (v == null || v.isEmpty) return AppConstants.msgEnterSchoolName;
+                  if (v.length < AppSizes.registerSchoolNameMinLength) return AppConstants.msgSchoolNameMinChars;
+                  if (v.length > AppSizes.registerSchoolNameMaxLength) return AppConstants.msgSchoolNameMaxChars;
                   return null;
                 },
               ),
 
               DropdownButtonFormField<String>(
                 value: _schoolType,
-                items: ["Private", "Government", "International"]
-                    .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                    .toList(),
+                items: [
+                  AppConstants.schoolTypePrivate,
+                  AppConstants.schoolTypeGovernment,
+                  AppConstants.schoolTypeInternational
+                ].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
                 onChanged: (val) => setState(() => _schoolType = val),
-                decoration: const InputDecoration(labelText: "School Type"),
-                validator: (v) => v == null ? "Select school type" : null,
+                decoration: const InputDecoration(labelText: AppConstants.labelSchoolType),
+                validator: (v) => v == null ? AppConstants.msgSelectSchoolType : null,
               ),
 
               DropdownButtonFormField<String>(
                 value: _affiliationBoard,
-                items: ["CBSE", "ICSE", "State Board"]
-                    .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                    .toList(),
+                items: [
+                  AppConstants.affiliationBoardCBSE,
+                  AppConstants.affiliationBoardICSE,
+                  AppConstants.affiliationBoardStateBoard
+                ].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
                 onChanged: (val) => setState(() => _affiliationBoard = val),
-                decoration: const InputDecoration(labelText: "Affiliation Board"),
-                validator: (v) => v == null ? "Select affiliation board" : null,
+                decoration: const InputDecoration(labelText: AppConstants.labelAffiliationBoard),
+                validator: (v) => v == null ? AppConstants.msgSelectAffiliationBoard : null,
               ),
 
               TextFormField(
                 controller: _registrationNumber,
                 decoration: const InputDecoration(
-                  labelText: "Registration Number",
-                  hintText: "Enter school registration number",
+                  labelText: AppConstants.labelRegistrationNumber,
+                  hintText: AppConstants.hintRegistrationNumber,
                 ),
                 validator: (v) {
-                  if (v == null || v.isEmpty) return "Enter registration number";
-                  if (v.length < 3) return "Registration number must be at least 3 characters";
-                  if (v.length > 100) return "Registration number must not exceed 100 characters";
+                  if (v == null || v.isEmpty) return AppConstants.msgEnterRegistrationNumber;
+                  if (v.length < AppSizes.registerSchoolRegNumberMinLength) return AppConstants.msgRegistrationNumberMinChars;
+                  if (v.length > AppSizes.registerSchoolRegNumberMaxLength) return AppConstants.msgRegistrationNumberMaxChars;
                   return null;
                 },
               ),
@@ -272,15 +368,15 @@ class _RegisterSchoolScreenState extends State<RegisterSchoolScreen> {
               TextFormField(
                 controller: _pincode,
                 decoration: InputDecoration(
-                  labelText: "Pincode",
-                  hintText: "Enter 6-digit pincode",
+                  labelText: AppConstants.labelPincode,
+                  hintText: AppConstants.hintPincode6Digit,
                   suffixIcon: _isLoadingPincode 
                     ? const SizedBox(
-                        width: 20,
-                        height: 20,
+                        width: AppSizes.registerSchoolLoaderSize,
+                        height: AppSizes.registerSchoolLoaderSize,
                         child: Padding(
-                          padding: EdgeInsets.all(12.0),
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                          padding: EdgeInsets.all(AppSizes.registerSchoolLoaderPadding),
+                          child: CircularProgressIndicator(strokeWidth: AppSizes.registerSchoolLoaderStroke),
                         ),
                       )
                     : _isPincodeAutoFilled
@@ -288,7 +384,7 @@ class _RegisterSchoolScreenState extends State<RegisterSchoolScreen> {
                         : null,
                 ),
                 keyboardType: TextInputType.number,
-                maxLength: 6,
+                maxLength: AppSizes.registerSchoolPincodeLength,
                 onChanged: (value) {
                   // Reset auto-fill status when pincode changes
                   if (_isPincodeAutoFilled) {
@@ -298,71 +394,99 @@ class _RegisterSchoolScreenState extends State<RegisterSchoolScreen> {
                   }
                   
                   // Auto-fill when 6 digits are entered
-                  if (value.length == 6) {
+                  if (value.length == AppSizes.registerSchoolPincodeLength) {
                     _autoFillLocationFromPincode(value);
                   }
                 },
                 validator: (v) {
-                  if (v == null || v.isEmpty) return "Enter pincode";
-                  if (v.length != 6) return "Pincode must be 6 digits";
-                  if (!RegExp(r'^[0-9]{6}$').hasMatch(v)) return "Pincode must contain only numbers";
+                  if (v == null || v.isEmpty) return AppConstants.msgEnterPincode;
+                  if (v.length != AppSizes.registerSchoolPincodeLength) return AppConstants.msgPincodeMustBe6Digits;
+                  if (!RegExp(r'^[0-9]{6}$').hasMatch(v)) return AppConstants.msgPincodeOnlyNumbers;
                   return null;
                 },
               ),
 
-              TextFormField(
-                controller: _city,
-                decoration: InputDecoration(
-                  labelText: "City",
-                  suffixIcon: _isPincodeAutoFilled 
-                    ? const Icon(Icons.auto_awesome, color: Colors.blue, size: 20)
-                    : null,
+              // City Dropdown (when auto-filled) or Text Field (manual entry)
+              if (_isPincodeAutoFilled && _availableCities.isNotEmpty)
+                DropdownButtonFormField<String>(
+                  value: _selectedCity,
+                  decoration: InputDecoration(
+                    labelText: AppConstants.labelCity,
+                    suffixIcon: const Icon(Icons.auto_awesome, color: Colors.blue, size: AppSizes.registerSchoolInfoIconSize2),
+                    helperText: _availableCities.length > 1 
+                      ? '${_availableCities.length}${AppConstants.helperMultipleLocations}'
+                      : null,
+                  ),
+                  items: _availableCities
+                      .map((city) => DropdownMenuItem(
+                            value: city,
+                            child: Text(city),
+                          ))
+                      .toList(),
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedCity = value;
+                    });
+                  },
+                  validator: (v) => v == null || v.isEmpty ? AppConstants.msgSelectCity : null,
+                )
+              else
+                TextFormField(
+                  controller: _city,
+                  decoration: const InputDecoration(
+                    labelText: AppConstants.labelCity,
+                    hintText: AppConstants.hintCityName,
+                  ),
+                  validator: (v) => v!.isEmpty ? AppConstants.msgEnterCity : null,
+                  onChanged: (value) {
+                    // Clear selected city when manually editing
+                    setState(() {
+                      _selectedCity = null;
+                    });
+                  },
                 ),
-                readOnly: _isPincodeAutoFilled,
-                validator: (v) => v!.isEmpty ? "Enter city" : null,
-              ),
 
               TextFormField(
                 controller: _district,
                 decoration: InputDecoration(
-                  labelText: "District",
+                  labelText: AppConstants.labelDistrict,
                   suffixIcon: _isPincodeAutoFilled 
-                    ? const Icon(Icons.auto_awesome, color: Colors.blue, size: 20)
+                    ? const Icon(Icons.auto_awesome, color: Colors.blue, size: AppSizes.registerSchoolInfoIconSize2)
                     : null,
                 ),
                 readOnly: _isPincodeAutoFilled,
-                validator: (v) => v!.isEmpty ? "Enter district" : null,
+                validator: (v) => v!.isEmpty ? AppConstants.msgEnterDistrict : null,
               ),
 
               TextFormField(
                 controller: _state,
                 decoration: InputDecoration(
-                  labelText: "State",
+                  labelText: AppConstants.labelState,
                   suffixIcon: _isPincodeAutoFilled 
-                    ? const Icon(Icons.auto_awesome, color: Colors.blue, size: 20)
+                    ? const Icon(Icons.auto_awesome, color: Colors.blue, size: AppSizes.registerSchoolInfoIconSize2)
                     : null,
                 ),
                 readOnly: _isPincodeAutoFilled,
-                validator: (v) => v!.isEmpty ? "Enter state" : null,
+                validator: (v) => v!.isEmpty ? AppConstants.msgEnterState : null,
               ),
 
               // Manual Edit Button (shown when auto-filled)
               if (_isPincodeAutoFilled)
                 Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                  padding: const EdgeInsets.symmetric(vertical: AppSizes.registerSchoolInfoPadding),
                   child: Row(
                     children: [
-                      const Icon(Icons.info_outline, color: Colors.blue, size: 16),
-                      const SizedBox(width: 8),
+                      const Icon(Icons.info_outline, color: Colors.blue, size: AppSizes.registerSchoolInfoIconSize),
+                      const SizedBox(width: AppSizes.registerSchoolInfoPadding),
                       const Expanded(
                         child: Text(
-                          "Location auto-filled from pincode",
-                          style: TextStyle(color: Colors.blue, fontSize: 12),
+                          AppConstants.infoLocationAutoFilled,
+                          style: TextStyle(color: Colors.blue, fontSize: AppSizes.registerSchoolInfoFontSize),
                         ),
                       ),
                       TextButton(
                         onPressed: _enableManualEdit,
-                        child: const Text("Edit Manually", style: TextStyle(fontSize: 12)),
+                        child: const Text(AppConstants.labelEditManually, style: TextStyle(fontSize: AppSizes.registerSchoolInfoFontSize)),
                       ),
                     ],
                   ),
@@ -370,22 +494,22 @@ class _RegisterSchoolScreenState extends State<RegisterSchoolScreen> {
 
               TextFormField(
                 controller: _address,
-                decoration: const InputDecoration(labelText: "Address"),
-                validator: (v) => v!.isEmpty ? "Enter address" : null,
+                decoration: const InputDecoration(labelText: AppConstants.labelAddress),
+                validator: (v) => v!.isEmpty ? AppConstants.msgEnterAddress : null,
               ),
 
               TextFormField(
                 controller: _contactNo,
                 decoration: const InputDecoration(
-                  labelText: "Contact Number",
-                  hintText: "Enter 10-digit mobile number",
+                  labelText: AppConstants.labelContactNumber,
+                  hintText: AppConstants.hintMobileNumber,
                 ),
                 keyboardType: TextInputType.phone,
-                maxLength: 10,
+                maxLength: AppSizes.registerSchoolContactLength,
                 validator: (v) {
-                  if (v == null || v.isEmpty) return "Enter contact number";
-                  if (v.length != 10) return "Contact number must be 10 digits";
-                  if (!RegExp(r'^[0-9]{10}$').hasMatch(v)) return "Contact number must contain only numbers";
+                  if (v == null || v.isEmpty) return AppConstants.msgEnterContactNumber;
+                  if (v.length != AppSizes.registerSchoolContactLength) return AppConstants.msgContactNumberMustBe10DigitsOnly;
+                  if (!RegExp(r'^[0-9]{10}$').hasMatch(v)) return AppConstants.msgContactNumberOnlyNumbers;
                   return null;
                 },
               ),
@@ -393,21 +517,21 @@ class _RegisterSchoolScreenState extends State<RegisterSchoolScreen> {
               TextFormField(
                 controller: _email,
                 decoration: const InputDecoration(
-                  labelText: "Email",
-                  hintText: "Enter school email address",
+                  labelText: AppConstants.labelEmail,
+                  hintText: AppConstants.hintSchoolEmailAddress,
                 ),
                 keyboardType: TextInputType.emailAddress,
                 validator: (v) {
-                  if (v == null || v.isEmpty) return "Enter email";
-                  if (v.length > 150) return "Email must not exceed 150 characters";
+                  if (v == null || v.isEmpty) return AppConstants.msgEnterEmailAddress;
+                  if (v.length > AppSizes.registerSchoolEmailMaxLength) return AppConstants.msgEmailMustNotExceed150Chars;
                   if (!RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$').hasMatch(v)) {
-                    return "Please enter a valid email address";
+                    return AppConstants.msgPleaseEnterValidEmailAddress;
                   }
                   return null;
                 },
               ),
 
-              const SizedBox(height: 20),
+              const SizedBox(height: AppSizes.registerSchoolSpacingLG),
 
               // ---------- Photo Section (Bottom) ----------
               Column(
@@ -415,37 +539,37 @@ class _RegisterSchoolScreenState extends State<RegisterSchoolScreen> {
                   GestureDetector(
                     onTap: () => _pickImage(ImageSource.gallery),
                     child: CircleAvatar(
-                      radius: 50,
+                      radius: AppSizes.registerSchoolAvatarRadius,
                       backgroundColor: Colors.grey[300],
                       backgroundImage:
                           _selectedImage != null ? FileImage(_selectedImage!) : null,
                       child: _selectedImage == null
                           ? const Icon(Icons.add_a_photo,
-                              size: 40, color: Colors.black54)
+                              size: AppSizes.registerSchoolIconSize, color: Colors.black54)
                           : null,
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppSizes.registerSchoolSpacing),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       ElevatedButton.icon(
                         onPressed: () => _pickImage(ImageSource.gallery),
                         icon: const Icon(Icons.photo),
-                        label: const Text("Gallery"),
+                        label: const Text(AppConstants.labelGallery),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: AppSizes.registerSchoolSpacing),
                       ElevatedButton.icon(
                         onPressed: () => _pickImage(ImageSource.camera),
                         icon: const Icon(Icons.camera_alt),
-                        label: const Text("Camera"),
+                        label: const Text(AppConstants.labelCamera),
                       ),
                     ],
                   ),
                 ],
               ),
 
-              const SizedBox(height: 20),
+              const SizedBox(height: AppSizes.registerSchoolSpacingLG),
 
               // ---------- Submit ----------
               SizedBox(
@@ -453,22 +577,22 @@ class _RegisterSchoolScreenState extends State<RegisterSchoolScreen> {
                 child: ElevatedButton(
                   onPressed: _isLoading ? null : _submitForm,
                   style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    padding: const EdgeInsets.symmetric(vertical: AppSizes.registerSchoolButtonPadding),
                   ),
                   child: _isLoading
                       ? const Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
+                              width: AppSizes.registerSchoolLoaderSize,
+                              height: AppSizes.registerSchoolLoaderSize,
+                              child: CircularProgressIndicator(strokeWidth: AppSizes.registerSchoolLoaderStroke),
                             ),
-                            SizedBox(width: 12),
-                            Text("Registering..."),
+                            SizedBox(width: AppSizes.registerSchoolSpacing),
+                            Text(AppConstants.labelRegistering),
                           ],
                         )
-                      : const Text("Register School"),
+                      : const Text(AppConstants.labelRegisterSchool),
                 ),
               ),
             ],

@@ -1,3 +1,5 @@
+import '../../utils/constants.dart';
+
 class VehicleResponse {
   final int? vehicleId;
   final String? vehicleNumber;
@@ -29,35 +31,35 @@ class VehicleResponse {
 
   factory VehicleResponse.fromJson(Map<String, dynamic> json) {
     return VehicleResponse(
-      vehicleId: json['vehicleId'],
-      vehicleNumber: json['vehicleNumber'],
-      registrationNumber: json['registrationNumber'],
-      vehicleType: json['vehicleType'],
-      isActive: json['isActive'],
-      ownerName: json['ownerName'],
-      driverName: json['driverName'],
-      capacity: json['capacity'],
-      createdBy: json['createdBy'],
-      createdDate: json['createdDate'],
-      updatedBy: json['updatedBy'],
-      updatedDate: json['updatedDate'],
+      vehicleId: json[AppConstants.keyVehicleId],
+      vehicleNumber: json[AppConstants.keyVehicleNumber],
+      registrationNumber: json[AppConstants.keyRegistrationNumber],
+      vehicleType: json[AppConstants.keyVehicleType],
+      isActive: json[AppConstants.keyIsActive],
+      ownerName: json[AppConstants.keyOwnerName],
+      driverName: json[AppConstants.keyDriverName],
+      capacity: json[AppConstants.keyCapacity],
+      createdBy: json[AppConstants.keyCreatedBy],
+      createdDate: json[AppConstants.keyCreatedDate],
+      updatedBy: json[AppConstants.keyUpdatedBy],
+      updatedDate: json[AppConstants.keyUpdatedDate],
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'vehicleId': vehicleId,
-      'vehicleNumber': vehicleNumber,
-      'registrationNumber': registrationNumber,
-      'vehicleType': vehicleType,
-      'isActive': isActive,
-      'ownerName': ownerName,
-      'driverName': driverName,
-      'capacity': capacity,
-      'createdBy': createdBy,
-      'createdDate': createdDate,
-      'updatedBy': updatedBy,
-      'updatedDate': updatedDate,
+      AppConstants.keyVehicleId: vehicleId,
+      AppConstants.keyVehicleNumber: vehicleNumber,
+      AppConstants.keyRegistrationNumber: registrationNumber,
+      AppConstants.keyVehicleType: vehicleType,
+      AppConstants.keyIsActive: isActive,
+      AppConstants.keyOwnerName: ownerName,
+      AppConstants.keyDriverName: driverName,
+      AppConstants.keyCapacity: capacity,
+      AppConstants.keyCreatedBy: createdBy,
+      AppConstants.keyCreatedDate: createdDate,
+      AppConstants.keyUpdatedBy: updatedBy,
+      AppConstants.keyUpdatedDate: updatedDate,
     };
   }
 }

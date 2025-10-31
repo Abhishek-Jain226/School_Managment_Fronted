@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../utils/constants.dart';
 import '../../data/models/vehicle_owner_request.dart';
 import '../../services/vehicle_owner_service.dart';
 
@@ -36,31 +37,31 @@ class _RegisterVehicleOwnerScreenState extends State<RegisterVehicleOwnerScreen>
   }
 
   String? _validateName(String? v) {
-    if (v == null || v.trim().isEmpty) return 'Enter owner name';
-    if (v.trim().length < 3) return 'Name must be at least 3 characters';
-    if (v.trim().length > 150) return 'Name must not exceed 150 characters';
+    if (v == null || v.trim().isEmpty) return AppConstants.msgEnterOwnerName;
+    if (v.trim().length < 3) return AppConstants.msgOwnerNameMin3;
+    if (v.trim().length > 150) return AppConstants.msgOwnerNameMax150;
     return null;
   }
   
   String? _validateEmail(String? v) {
-    if (v == null || v.trim().isEmpty) return 'Enter email address';
-    if (v.trim().length > 150) return 'Email must not exceed 150 characters';
+    if (v == null || v.trim().isEmpty) return AppConstants.msgEnterEmailAddressGeneric;
+    if (v.trim().length > AppConstants.registerOwnerEmailMaxLength) return AppConstants.msgEmailMax150Generic;
     final emailRegex = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
-    return emailRegex.hasMatch(v.trim()) ? null : 'Enter valid email address';
+    return emailRegex.hasMatch(v.trim()) ? null : AppConstants.msgEnterValidEmailGeneric;
   }
 
   String? _validateContact(String? v) {
-    if (v == null || v.trim().isEmpty) return 'Enter contact number';
+    if (v == null || v.trim().isEmpty) return AppConstants.msgEnterContactNumberGeneric;
     final digits = v.replaceAll(RegExp(r'\D'), '');
-    if (digits.length != 10) return 'Contact number must be 10 digits';
-    if (!RegExp(r'^[6-9]\d{9}$').hasMatch(digits)) return 'Enter valid Indian mobile number';
+    if (digits.length != AppConstants.registerOwnerContactLength) return AppConstants.msgContactNumberMustBe10DigitsGeneric;
+    if (!RegExp(r'^[6-9]\d{9}$').hasMatch(digits)) return AppConstants.msgEnterValidIndianMobileGeneric;
     return null;
   }
 
   String? _validateAddress(String? v) {
-    if (v == null || v.trim().isEmpty) return 'Enter address';
-    if (v.trim().length < 5) return 'Address must be at least 5 characters';
-    if (v.trim().length > 255) return 'Address must not exceed 255 characters';
+    if (v == null || v.trim().isEmpty) return AppConstants.msgEnterAddressGeneric;
+    if (v.trim().length < 5) return AppConstants.msgAddressMin5;
+    if (v.trim().length > 255) return AppConstants.msgAddressMax255;
     return null;
   }
 
@@ -81,13 +82,13 @@ class _RegisterVehicleOwnerScreenState extends State<RegisterVehicleOwnerScreen>
           });
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Selected image file not found")),
+            const SnackBar(content: Text(AppConstants.msgSelectedImageNotFound)),
           );
         }
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error picking image: $e")),
+        SnackBar(content: Text('${AppConstants.msgErrorPickingImage}$e')),
       );
     }
   }
@@ -109,13 +110,13 @@ class _RegisterVehicleOwnerScreenState extends State<RegisterVehicleOwnerScreen>
           });
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Captured image file not found")),
+            const SnackBar(content: Text(AppConstants.msgCapturedImageNotFound)),
           );
         }
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error taking photo: $e")),
+        SnackBar(content: Text('${AppConstants.msgErrorTakingPhoto}$e')),
       );
     }
   }
@@ -125,26 +126,26 @@ class _RegisterVehicleOwnerScreenState extends State<RegisterVehicleOwnerScreen>
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text("Select Image Source"),
-          content: const Text("Choose how you want to select the image"),
+          title: const Text(AppConstants.labelSelectImageSource),
+          content: const Text(AppConstants.labelChooseHowToSelect),
           actions: [
             TextButton(
               onPressed: () {
                 Navigator.pop(context);
                 _pickImage();
               },
-              child: const Text("Gallery"),
+              child: const Text(AppConstants.labelGallery),
             ),
             TextButton(
               onPressed: () {
                 Navigator.pop(context);
                 _takePhoto();
               },
-              child: const Text("Camera"),
+              child: const Text(AppConstants.labelCamera),
             ),
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text("Cancel"),
+              child: const Text(AppConstants.labelCancel),
             ),
           ],
         );
@@ -158,7 +159,7 @@ class _RegisterVehicleOwnerScreenState extends State<RegisterVehicleOwnerScreen>
     setState(() => _loading = true);
     try {
       final prefs = await SharedPreferences.getInstance();
-      final String createdBy = prefs.getString('userName') ?? '';
+      final String createdBy = prefs.getString(AppConstants.keyUserName) ?? '';
 
       String? photoBase64;
       if (_selectedImage != null) {
@@ -176,22 +177,22 @@ class _RegisterVehicleOwnerScreenState extends State<RegisterVehicleOwnerScreen>
       );
 
       final res = await _service.registerVehicleOwner(req);
-      if (res['success'] == true) {
+      if (res[AppConstants.keySuccess] == true) {
         // server should have sent activation link; show success and go back
         if (!mounted) return;
-        _showSuccessDialog(res['message'] ?? 'Vehicle owner registered successfully');
+        _showSuccessDialog(res[AppConstants.keyMessage] ?? AppConstants.labelOwnerRegisteredSuccess);
       } else {
         if (!mounted) return;
         // Check if this is an existing owner case
-        if (res['data'] != null && res['data']['action'] == 'USE_EXISTING') {
-          _showExistingOwnerDialog(res['data']);
+        if (res[AppConstants.keyData] != null && res[AppConstants.keyData]['action'] == 'USE_EXISTING') {
+          _showExistingOwnerDialog(res[AppConstants.keyData]);
         } else {
-          _showErrorSnackBar(res['message'] ?? 'Failed to register vehicle owner');
+          _showErrorSnackBar(res[AppConstants.keyMessage] ?? AppConstants.msgFailedToRegisterOwner);
         }
       }
     } catch (e) {
       if (!mounted) return;
-      _showErrorSnackBar('Error: $e');
+      _showErrorSnackBar('${AppConstants.labelError}: $e');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -202,11 +203,9 @@ class _RegisterVehicleOwnerScreenState extends State<RegisterVehicleOwnerScreen>
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        title: const Text("Registration Successful!"),
+        title: const Text(AppConstants.msgRegistrationSuccessfulTitleGeneric),
         content: Text(
-          "$message\n\n"
-          "An activation link has been sent to the vehicle owner's email. "
-          "They can use this link to complete their registration."
+          "$message\n\n${AppConstants.msgOwnerActivationInfo}"
         ),
         actions: [
           TextButton(
@@ -214,7 +213,7 @@ class _RegisterVehicleOwnerScreenState extends State<RegisterVehicleOwnerScreen>
               Navigator.of(ctx).pop();
               Navigator.pop(context, true); // return true so dashboard can refresh
             },
-            child: const Text("OK"),
+            child: const Text(AppConstants.buttonOk),
           ),
         ],
       ),
@@ -226,18 +225,18 @@ class _RegisterVehicleOwnerScreenState extends State<RegisterVehicleOwnerScreen>
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        title: const Text("Vehicle Owner Already Exists"),
+        title: const Text(AppConstants.labelVehicleOwnerAlreadyExists),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("A vehicle owner with this email/contact already exists:"),
-            const SizedBox(height: 12),
-            Text("Name: ${existingOwnerData['existingOwnerName']}"),
-            Text("Email: ${existingOwnerData['existingOwnerEmail']}"),
-            Text("Contact: ${existingOwnerData['existingOwnerContact']}"),
-            const SizedBox(height: 12),
-            const Text("Would you like to associate this existing owner with your school?"),
+            const Text(AppConstants.msgExistingOwnerWithDetails),
+            SizedBox(height: AppSizes.registerOwnerSpacing),
+            Text('Name: ${existingOwnerData['existingOwnerName']}'),
+            Text('Email: ${existingOwnerData['existingOwnerEmail']}'),
+            Text('Contact: ${existingOwnerData['existingOwnerContact']}'),
+            SizedBox(height: AppSizes.registerOwnerSpacing),
+            const Text(AppConstants.labelWouldYouLikeToAssociate),
           ],
         ),
         actions: [
@@ -246,14 +245,14 @@ class _RegisterVehicleOwnerScreenState extends State<RegisterVehicleOwnerScreen>
               Navigator.of(ctx).pop();
               Navigator.pop(context, false); // Don't refresh dashboard
             },
-            child: const Text("Cancel"),
+            child: const Text(AppConstants.labelCancel),
           ),
           ElevatedButton(
             onPressed: () async {
               Navigator.of(ctx).pop();
               await _associateExistingOwner(existingOwnerData);
             },
-            child: const Text("Associate with School"),
+            child: const Text(AppConstants.labelAssociateWithSchool),
           ),
         ],
       ),
@@ -264,26 +263,26 @@ class _RegisterVehicleOwnerScreenState extends State<RegisterVehicleOwnerScreen>
     setState(() => _loading = true);
     try {
       final prefs = await SharedPreferences.getInstance();
-      final int? schoolId = prefs.getInt('schoolId');
-      final String createdBy = prefs.getString('userName') ?? '';
+      final int? schoolId = prefs.getInt(AppConstants.keySchoolId);
+      final String createdBy = prefs.getString(AppConstants.keyUserName) ?? '';
 
       if (schoolId == null) {
-        throw Exception("School not found in preferences");
+        throw Exception(AppConstants.msgSchoolNotFoundPrefs);
       }
 
       final ownerId = existingOwnerData['existingOwnerId'];
       final res = await _service.associateOwnerWithSchool(ownerId, schoolId, createdBy);
       
-      if (res['success'] == true) {
+      if (res[AppConstants.keySuccess] == true) {
         if (!mounted) return;
-        _showSuccessDialog(res['message'] ?? 'Vehicle owner associated with school successfully');
+        _showSuccessDialog(res[AppConstants.keyMessage] ?? AppConstants.labelOwnerAssociatedSuccess);
       } else {
         if (!mounted) return;
-        _showErrorSnackBar(res['message'] ?? 'Failed to associate vehicle owner with school');
+        _showErrorSnackBar(res[AppConstants.keyMessage] ?? AppConstants.msgFailedToAssociateOwner);
       }
     } catch (e) {
       if (!mounted) return;
-      _showErrorSnackBar('Error: $e');
+      _showErrorSnackBar('${AppConstants.labelError}: $e');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -293,8 +292,8 @@ class _RegisterVehicleOwnerScreenState extends State<RegisterVehicleOwnerScreen>
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: Colors.red,
-        duration: const Duration(seconds: 4),
+        backgroundColor: AppColors.errorColor,
+        duration: const Duration(seconds: AppConstants.registerOwnerSnackDuration),
       ),
     );
   }
@@ -302,9 +301,9 @@ class _RegisterVehicleOwnerScreenState extends State<RegisterVehicleOwnerScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Register Vehicle Owner')),
+      appBar: AppBar(title: const Text(AppConstants.labelRegisterVehicleOwner)),
       body: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSizes.registerOwnerPadding),
         child: Form(
           key: _formKey,
           child: ListView(
@@ -312,96 +311,96 @@ class _RegisterVehicleOwnerScreenState extends State<RegisterVehicleOwnerScreen>
               TextFormField(
                 controller: _nameCtl,
                 decoration: const InputDecoration(
-                  labelText: 'Owner Name',
-                  hintText: 'Enter full name',
+                  labelText: AppConstants.labelOwnerName,
+                  hintText: AppConstants.hintOwnerFullName,
                 ),
                 validator: _validateName,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSizes.registerOwnerSpacing),
               TextFormField(
                 controller: _emailCtl,
                 keyboardType: TextInputType.emailAddress,
                 decoration: const InputDecoration(
-                  labelText: 'Email Address',
-                  hintText: 'Enter email address',
+                  labelText: AppConstants.labelOwnerEmail,
+                  hintText: AppConstants.hintOwnerEmail,
                 ),
                 validator: _validateEmail,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSizes.registerOwnerSpacing),
               TextFormField(
                 controller: _contactCtl,
                 keyboardType: TextInputType.phone,
-                maxLength: 10,
+                maxLength: AppConstants.registerOwnerContactLength,
                 decoration: const InputDecoration(
-                  labelText: 'Contact Number',
-                  hintText: 'Enter 10-digit mobile number',
+                  labelText: AppConstants.labelOwnerContact,
+                  hintText: AppConstants.hintMobileNumber,
                 ),
                 validator: _validateContact,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSizes.registerOwnerSpacing),
               TextFormField(
                 controller: _addressCtl,
                 decoration: const InputDecoration(
-                  labelText: 'Address',
-                  hintText: 'Enter complete address',
+                  labelText: AppConstants.labelOwnerAddress,
+                  hintText: AppConstants.hintOwnerAddress,
                 ),
                 maxLines: 3,
                 validator: _validateAddress,
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: AppSizes.registerOwnerSpacingLG),
               
               // Photo Section
               Card(
                 elevation: 2,
                 child: Padding(
-                  padding: const EdgeInsets.all(16.0),
+                  padding: const EdgeInsets.all(AppSizes.registerOwnerCardPadding),
                   child: Column(
                     children: [
                       const Text(
-                        "Owner Photo (Optional)",
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        AppConstants.labelOwnerPhotoOptional,
+                        style: TextStyle(fontSize: AppSizes.registerOwnerTitleFont, fontWeight: FontWeight.bold),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: AppSizes.registerOwnerSpacingLG),
                       CircleAvatar(
-                        radius: 50,
-                        backgroundColor: Colors.blueGrey,
+                        radius: AppSizes.registerOwnerAvatarRadius,
+                        backgroundColor: AppColors.gateStaffColor,
                         backgroundImage: _selectedImage != null
                             ? FileImage(_selectedImage!) as ImageProvider<Object>?
                             : null,
                         child: _selectedImage == null
-                            ? const Icon(Icons.person, color: Colors.white, size: 50)
+                            ? const Icon(Icons.person, color: AppColors.textWhite, size: AppSizes.registerOwnerAvatarIconSize)
                             : null,
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: AppSizes.registerOwnerSpacingLG),
                       ElevatedButton.icon(
                         onPressed: _showImageSourceDialog,
                         icon: const Icon(Icons.camera_alt),
-                        label: const Text("Add Photo"),
+                        label: const Text(AppConstants.labelAddPhoto),
                       ),
                       if (_selectedImage != null) ...[
-                        const SizedBox(height: 8),
+                        const SizedBox(height: AppSizes.registerOwnerSpacing),
                         Text(
-                          "Photo selected: ${_selectedImage!.path.split('/').last}",
-                          style: const TextStyle(fontSize: 12, color: Colors.green),
+                          '${AppConstants.labelPhotoSelectedPrefix}${_selectedImage!.path.split('/').last}',
+                          style: const TextStyle(fontSize: 12, color: AppColors.successColor),
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: AppSizes.registerOwnerSpacing),
                         TextButton(
                           onPressed: () {
                             setState(() {
                               _selectedImage = null;
                             });
                           },
-                          child: const Text("Remove Photo"),
+                          child: const Text(AppConstants.labelRemovePhoto),
                         ),
                       ],
                     ],
                   ),
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: AppSizes.registerOwnerSpacingLG),
               ElevatedButton(
                 onPressed: _loading ? null : _submit,
-                child: _loading ? const CircularProgressIndicator() : const Text('Register Owner'),
+                child: _loading ? const CircularProgressIndicator() : const Text(AppConstants.labelRegisterVehicleOwner),
               ),
             ],
           ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../utils/constants.dart';
 import '../../data/models/vehicle.dart';
 import '../../services/vehicle_service.dart';
 
@@ -26,7 +27,7 @@ class _VehicleManagementPageState extends State<VehicleManagementPage> {
     setState(() => _loading = true);
     try {
       final prefs = await SharedPreferences.getInstance();
-      schoolId = prefs.getInt("schoolId");
+      schoolId = prefs.getInt(AppConstants.keySchoolId);
       
       if (schoolId != null) {
         final result = await _vehicleService.getVehiclesBySchool(schoolId!);
@@ -36,11 +37,11 @@ class _VehicleManagementPageState extends State<VehicleManagementPage> {
         });
       } else {
         setState(() => _loading = false);
-        _showErrorSnackBar("School not found in preferences");
+        _showErrorSnackBar(AppConstants.msgSchoolIdNotFoundPrefs);
       }
     } catch (e) {
       setState(() => _loading = false);
-      _showErrorSnackBar("Error loading vehicles: $e");
+      _showErrorSnackBar('${AppConstants.msgErrorLoadingVehicles}: $e');
     }
   }
 
@@ -49,7 +50,7 @@ class _VehicleManagementPageState extends State<VehicleManagementPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(message),
-          backgroundColor: Colors.red,
+          backgroundColor: AppColors.errorColor,
           duration: const Duration(seconds: 4),
         ),
       );
@@ -60,7 +61,7 @@ class _VehicleManagementPageState extends State<VehicleManagementPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Vehicle Reports'),
+        title: const Text(AppConstants.labelVehicleReports),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -74,27 +75,15 @@ class _VehicleManagementPageState extends State<VehicleManagementPage> {
               children: [
                 // Information Card
                 Card(
-                  margin: const EdgeInsets.all(16),
+                  margin: const EdgeInsets.all(AppSizes.marginMD),
                   child: Padding(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(AppSizes.paddingMD),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: const [
-                        Text(
-                          'Vehicle Information',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        SizedBox(height: 8),
-                        Text(
-                          'School Admin can view vehicle reports and statistics. Vehicle registration is managed by Vehicle Owners.',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey,
-                          ),
-                        ),
+                        Text(AppConstants.labelVehicleInformation, style: TextStyle(fontSize: AppSizes.textXL, fontWeight: FontWeight.bold)),
+                        SizedBox(height: AppSizes.marginSM),
+                        Text(AppConstants.textVehicleInfoDescription, style: TextStyle(fontSize: AppSizes.textSM, color: AppColors.textMuted)),
                       ],
                     ),
                   ),
@@ -102,21 +91,21 @@ class _VehicleManagementPageState extends State<VehicleManagementPage> {
                 
                 // Statistics Card
                 Card(
-                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                  margin: const EdgeInsets.symmetric(horizontal: AppSizes.marginMD),
                   child: Padding(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(AppSizes.paddingMD),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
-                        _buildStatItem('Total Vehicles', vehicles.length.toString(), Icons.directions_bus),
-                        _buildStatItem('Active Vehicles', vehicles.where((v) => v.isActive ?? false).length.toString(), Icons.check_circle),
-                        _buildStatItem('In Transit', '0', Icons.local_shipping), // TODO: Implement real transit logic
+                        _buildStatItem(AppConstants.labelTotalVehicles, vehicles.length.toString(), Icons.directions_bus),
+                        _buildStatItem(AppConstants.labelActiveVehicles, vehicles.where((v) => v.isActive ?? false).length.toString(), Icons.check_circle),
+                        _buildStatItem(AppConstants.labelInTransit, '0', Icons.local_shipping),
                       ],
                     ),
                   ),
                 ),
                 
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSizes.marginMD),
                 
                 // Vehicles List
                 Expanded(
@@ -125,59 +114,53 @@ class _VehicleManagementPageState extends State<VehicleManagementPage> {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.directions_bus, size: 64, color: Colors.grey),
-                              SizedBox(height: 16),
-                              Text(
-                                'No vehicles found',
-                                style: TextStyle(fontSize: 18, color: Colors.grey),
-                              ),
-                              SizedBox(height: 8),
-                              Text(
-                                'No vehicles have been registered yet',
-                                style: TextStyle(color: Colors.grey),
-                              ),
+                              Icon(Icons.directions_bus, size: AppSizes.iconXL, color: AppColors.textMuted),
+                              SizedBox(height: AppSizes.marginMD),
+                              Text(AppConstants.emptyStateNoVehicles, style: TextStyle(fontSize: AppSizes.textXL, color: AppColors.textMuted)),
+                              SizedBox(height: AppSizes.marginSM),
+                              Text(AppConstants.emptyStateNoVehiclesSub, style: TextStyle(color: AppColors.textMuted)),
                             ],
                           ),
                         )
                       : ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingMD),
                           itemCount: vehicles.length,
                           itemBuilder: (context, index) {
                             final vehicle = vehicles[index];
                             final isActive = vehicle.isActive ?? false;
                             
                             return Card(
-                              margin: const EdgeInsets.only(bottom: 8),
+                              margin: const EdgeInsets.only(bottom: AppSizes.marginSM),
                               child: ListTile(
                                 leading: CircleAvatar(
-                                  backgroundColor: isActive ? Colors.green : Colors.grey,
+                                  backgroundColor: isActive ? AppColors.successColor : AppColors.textMuted,
                                   child: const Icon(
                                     Icons.directions_bus,
-                                    color: Colors.white,
+                                    color: AppColors.textWhite,
                                   ),
                                 ),
                                 title: Text(
-                                  'Vehicle ${vehicle.vehicleNumber ?? 'N/A'}',
+                                  '${AppConstants.labelVehiclePrefix}${vehicle.vehicleNumber ?? AppConstants.labelNA}',
                                   style: const TextStyle(fontWeight: FontWeight.bold),
                                 ),
                                 subtitle: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text('Registration: ${vehicle.registrationNumber ?? 'N/A'}'),
-                                    Text('Type: ${vehicle.vehicleType ?? 'N/A'}'),
+                                    Text('${AppConstants.labelRegistrationNumber}: ${vehicle.registrationNumber ?? AppConstants.labelNA}'),
+                                    Text('${AppConstants.labelVehicleType}: ${vehicle.vehicleType ?? AppConstants.labelNA}'),
                                     Row(
                                       children: [
                                         Icon(
                                           isActive ? Icons.check_circle : Icons.cancel,
-                                          size: 16,
-                                          color: isActive ? Colors.green : Colors.red,
+                                          size: AppSizes.iconXS,
+                                          color: isActive ? AppColors.successColor : AppColors.errorColor,
                                         ),
-                                        const SizedBox(width: 4),
+                                        const SizedBox(width: AppSizes.marginXS),
                                         Text(
-                                          isActive ? 'Active' : 'Inactive',
+                                          isActive ? AppConstants.labelActive : AppConstants.labelInactive,
                                           style: TextStyle(
-                                            color: isActive ? Colors.green : Colors.red,
-                                            fontSize: 12,
+                                            color: isActive ? AppColors.successColor : AppColors.errorColor,
+                                            fontSize: AppSizes.textXS,
                                           ),
                                         ),
                                       ],
@@ -192,7 +175,7 @@ class _VehicleManagementPageState extends State<VehicleManagementPage> {
                                         break;
                                       case 'reports':
                                         // TODO: Navigate to vehicle reports
-                                        _showErrorSnackBar('Vehicle reports feature coming soon');
+                                        _showErrorSnackBar(AppConstants.msgVehicleReportsComingSoon);
                                         break;
                                     }
                                   },
@@ -202,8 +185,8 @@ class _VehicleManagementPageState extends State<VehicleManagementPage> {
                                       child: Row(
                                         children: [
                                           Icon(Icons.visibility),
-                                          SizedBox(width: 8),
-                                          Text('View Details'),
+                                          SizedBox(width: AppSizes.marginSM),
+                                          Text(AppConstants.labelViewDetails),
                                         ],
                                       ),
                                     ),
@@ -212,8 +195,8 @@ class _VehicleManagementPageState extends State<VehicleManagementPage> {
                                       child: Row(
                                         children: [
                                           Icon(Icons.analytics),
-                                          SizedBox(width: 8),
-                                          Text('View Reports'),
+                                          SizedBox(width: AppSizes.marginSM),
+                                          Text(AppConstants.labelViewReports),
                                         ],
                                       ),
                                     ),
@@ -232,21 +215,15 @@ class _VehicleManagementPageState extends State<VehicleManagementPage> {
   Widget _buildStatItem(String label, String value, IconData icon) {
     return Column(
       children: [
-        Icon(icon, color: Colors.blue, size: 24),
-        const SizedBox(height: 4),
+        Icon(icon, color: AppColors.primaryColor, size: AppSizes.iconMD),
+        const SizedBox(height: AppSizes.marginXS),
         Text(
           value,
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
+          style: const TextStyle(fontSize: AppSizes.textXL, fontWeight: FontWeight.bold),
         ),
         Text(
           label,
-          style: const TextStyle(
-            fontSize: 12,
-            color: Colors.grey,
-          ),
+          style: const TextStyle(fontSize: AppSizes.textXS, color: AppColors.textMuted),
         ),
       ],
     );
@@ -256,28 +233,28 @@ class _VehicleManagementPageState extends State<VehicleManagementPage> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('Vehicle ${vehicle.vehicleNumber ?? 'N/A'}'),
+        title: Text('${AppConstants.labelVehiclePrefix}${vehicle.vehicleNumber ?? AppConstants.labelNA}'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Registration: ${vehicle.registrationNumber ?? 'N/A'}'),
-            const SizedBox(height: 8),
-            Text('Type: ${vehicle.vehicleType ?? 'N/A'}'),
-            const SizedBox(height: 8),
-            Text('Status: ${vehicle.isActive ?? false ? 'Active' : 'Inactive'}'),
-            const SizedBox(height: 8),
-            Text('Owner: ${vehicle.ownerName ?? 'N/A'}'),
-            const SizedBox(height: 8),
-            Text('Driver: ${vehicle.driverName ?? 'N/A'}'),
-            const SizedBox(height: 8),
-            Text('Capacity: ${vehicle.capacity?.toString() ?? 'N/A'}'),
+            Text('${AppConstants.labelRegistrationNumber}: ${vehicle.registrationNumber ?? AppConstants.labelNA}'),
+            const SizedBox(height: AppSizes.marginSM),
+            Text('${AppConstants.labelVehicleType}: ${vehicle.vehicleType ?? AppConstants.labelNA}'),
+            const SizedBox(height: AppSizes.marginSM),
+            Text('${AppConstants.labelStatus}: ${(vehicle.isActive ?? false) ? AppConstants.labelActive : AppConstants.labelInactive}'),
+            const SizedBox(height: AppSizes.marginSM),
+            Text('${AppConstants.labelOwner}: ${vehicle.ownerName ?? AppConstants.labelNA}'),
+            const SizedBox(height: AppSizes.marginSM),
+            Text('${AppConstants.labelDriver}: ${vehicle.driverName ?? AppConstants.labelNA}'),
+            const SizedBox(height: AppSizes.marginSM),
+            Text('${AppConstants.labelCapacity}: ${vehicle.capacity?.toString() ?? AppConstants.labelNA}'),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Close'),
+            child: const Text(AppConstants.actionClose),
           ),
         ],
       ),

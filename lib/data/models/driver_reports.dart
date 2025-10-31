@@ -1,3 +1,5 @@
+import '../../utils/constants.dart';
+
 class DriverReports {
   final int totalTripsCompleted;
   final int totalStudentsTransported;
@@ -41,26 +43,26 @@ class DriverReports {
 
   factory DriverReports.fromJson(Map<String, dynamic> json) {
     return DriverReports(
-      totalTripsCompleted: json['totalTripsCompleted'] ?? 0,
-      totalStudentsTransported: json['totalStudentsTransported'] ?? 0,
-      totalDistanceCovered: json['totalDistanceCovered'] ?? 0,
-      averageRating: (json['averageRating'] ?? 0.0).toDouble(),
-      todayTrips: json['todayTrips'] ?? 0,
-      todayStudents: json['todayStudents'] ?? 0,
-      todayPickups: json['todayPickups'] ?? 0,
-      todayDrops: json['todayDrops'] ?? 0,
-      weekTrips: json['weekTrips'] ?? 0,
-      weekStudents: json['weekStudents'] ?? 0,
-      weekPickups: json['weekPickups'] ?? 0,
-      weekDrops: json['weekDrops'] ?? 0,
-      monthTrips: json['monthTrips'] ?? 0,
-      monthStudents: json['monthStudents'] ?? 0,
-      monthPickups: json['monthPickups'] ?? 0,
-      monthDrops: json['monthDrops'] ?? 0,
-      attendanceRecords: (json['attendanceRecords'] as List<dynamic>?)
+      totalTripsCompleted: json[AppConstants.keyTotalTripsCompleted] ?? 0,
+      totalStudentsTransported: json[AppConstants.keyTotalStudentsTransported] ?? 0,
+      totalDistanceCovered: json[AppConstants.keyTotalDistanceCovered] ?? 0,
+      averageRating: (json[AppConstants.keyAverageRating] ?? 0.0).toDouble(),
+      todayTrips: json[AppConstants.keyTodayTrips] ?? 0,
+      todayStudents: json[AppConstants.keyTodayStudents] ?? 0,
+      todayPickups: json[AppConstants.keyTodayPickups] ?? 0,
+      todayDrops: json[AppConstants.keyTodayDrops] ?? 0,
+      weekTrips: json[AppConstants.keyWeekTrips] ?? 0,
+      weekStudents: json[AppConstants.keyWeekStudents] ?? 0,
+      weekPickups: json[AppConstants.keyWeekPickups] ?? 0,
+      weekDrops: json[AppConstants.keyWeekDrops] ?? 0,
+      monthTrips: json[AppConstants.keyMonthTrips] ?? 0,
+      monthStudents: json[AppConstants.keyMonthStudents] ?? 0,
+      monthPickups: json[AppConstants.keyMonthPickups] ?? 0,
+      monthDrops: json[AppConstants.keyMonthDrops] ?? 0,
+      attendanceRecords: (json[AppConstants.keyAttendanceRecords] as List<dynamic>?)
           ?.map((record) => AttendanceRecord.fromJson(record))
           .toList() ?? [],
-      recentTrips: (json['recentTrips'] as List<dynamic>?)
+      recentTrips: (json[AppConstants.keyRecentTrips] as List<dynamic>?)
           ?.map((trip) => RecentTrip.fromJson(trip))
           .toList() ?? [],
     );
@@ -68,24 +70,24 @@ class DriverReports {
 
   Map<String, dynamic> toJson() {
     return {
-      'totalTripsCompleted': totalTripsCompleted,
-      'totalStudentsTransported': totalStudentsTransported,
-      'totalDistanceCovered': totalDistanceCovered,
-      'averageRating': averageRating,
-      'todayTrips': todayTrips,
-      'todayStudents': todayStudents,
-      'todayPickups': todayPickups,
-      'todayDrops': todayDrops,
-      'weekTrips': weekTrips,
-      'weekStudents': weekStudents,
-      'weekPickups': weekPickups,
-      'weekDrops': weekDrops,
-      'monthTrips': monthTrips,
-      'monthStudents': monthStudents,
-      'monthPickups': monthPickups,
-      'monthDrops': monthDrops,
-      'attendanceRecords': attendanceRecords.map((record) => record.toJson()).toList(),
-      'recentTrips': recentTrips.map((trip) => trip.toJson()).toList(),
+      AppConstants.keyTotalTripsCompleted: totalTripsCompleted,
+      AppConstants.keyTotalStudentsTransported: totalStudentsTransported,
+      AppConstants.keyTotalDistanceCovered: totalDistanceCovered,
+      AppConstants.keyAverageRating: averageRating,
+      AppConstants.keyTodayTrips: todayTrips,
+      AppConstants.keyTodayStudents: todayStudents,
+      AppConstants.keyTodayPickups: todayPickups,
+      AppConstants.keyTodayDrops: todayDrops,
+      AppConstants.keyWeekTrips: weekTrips,
+      AppConstants.keyWeekStudents: weekStudents,
+      AppConstants.keyWeekPickups: weekPickups,
+      AppConstants.keyWeekDrops: weekDrops,
+      AppConstants.keyMonthTrips: monthTrips,
+      AppConstants.keyMonthStudents: monthStudents,
+      AppConstants.keyMonthPickups: monthPickups,
+      AppConstants.keyMonthDrops: monthDrops,
+      AppConstants.keyAttendanceRecords: attendanceRecords.map((record) => record.toJson()).toList(),
+      AppConstants.keyRecentTrips: recentTrips.map((trip) => trip.toJson()).toList(),
     };
   }
 }
@@ -109,23 +111,23 @@ class AttendanceRecord {
 
   factory AttendanceRecord.fromJson(Map<String, dynamic> json) {
     return AttendanceRecord(
-      date: DateTime.parse(json['date'] ?? DateTime.now().toIso8601String()),
-      totalTrips: json['totalTrips'] ?? 0,
-      completedTrips: json['completedTrips'] ?? 0,
-      studentsPickedUp: json['studentsPickedUp'] ?? 0,
-      studentsDropped: json['studentsDropped'] ?? 0,
-      status: json['status'] ?? 'UNKNOWN',
+      date: DateTime.parse(json[AppConstants.keyDate] ?? DateTime.now().toIso8601String()),
+      totalTrips: json[AppConstants.keyTotalTrips] ?? 0,
+      completedTrips: json[AppConstants.keyCompletedTrips] ?? 0,
+      studentsPickedUp: json[AppConstants.keyStudentsPickedUp] ?? 0,
+      studentsDropped: json[AppConstants.keyStudentsDropped] ?? 0,
+      status: json[AppConstants.keyStatus] ?? 'UNKNOWN',
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'date': date.toIso8601String(),
-      'totalTrips': totalTrips,
-      'completedTrips': completedTrips,
-      'studentsPickedUp': studentsPickedUp,
-      'studentsDropped': studentsDropped,
-      'status': status,
+      AppConstants.keyDate: date.toIso8601String(),
+      AppConstants.keyTotalTrips: totalTrips,
+      AppConstants.keyCompletedTrips: completedTrips,
+      AppConstants.keyStudentsPickedUp: studentsPickedUp,
+      AppConstants.keyStudentsDropped: studentsDropped,
+      AppConstants.keyStatus: status,
     };
   }
 }
@@ -155,29 +157,29 @@ class RecentTrip {
 
   factory RecentTrip.fromJson(Map<String, dynamic> json) {
     return RecentTrip(
-      tripId: json['tripId'] ?? 0,
-      tripName: json['tripName'] ?? '',
-      tripType: json['tripType'] ?? '',
-      tripDate: DateTime.parse(json['tripDate'] ?? DateTime.now().toIso8601String()),
-      startTime: json['startTime'] ?? '',
-      endTime: json['endTime'] ?? '',
-      studentsCount: json['studentsCount'] ?? 0,
-      status: json['status'] ?? '',
-      route: json['route'] ?? '',
+      tripId: json[AppConstants.keyTripId] ?? 0,
+      tripName: json[AppConstants.keyCurrentTripName] ?? '',
+      tripType: json[AppConstants.keyTripType] ?? '',
+      tripDate: DateTime.parse(json[AppConstants.keyTripDate] ?? DateTime.now().toIso8601String()),
+      startTime: json[AppConstants.keyStartTime] ?? '',
+      endTime: json[AppConstants.keyEndTime] ?? '',
+      studentsCount: json[AppConstants.keyStudentsCount] ?? 0,
+      status: json[AppConstants.keyStatus] ?? '',
+      route: json[AppConstants.keyRoute] ?? '',
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'tripId': tripId,
-      'tripName': tripName,
-      'tripType': tripType,
-      'tripDate': tripDate.toIso8601String(),
-      'startTime': startTime,
-      'endTime': endTime,
-      'studentsCount': studentsCount,
-      'status': status,
-      'route': route,
+      AppConstants.keyTripId: tripId,
+      AppConstants.keyCurrentTripName: tripName,
+      AppConstants.keyTripType: tripType,
+      AppConstants.keyTripDate: tripDate.toIso8601String(),
+      AppConstants.keyStartTime: startTime,
+      AppConstants.keyEndTime: endTime,
+      AppConstants.keyStudentsCount: studentsCount,
+      AppConstants.keyStatus: status,
+      AppConstants.keyRoute: route,
     };
   }
 }

@@ -1,4 +1,6 @@
 // models/vehicle.dart
+import '../../utils/constants.dart';
+
 class Vehicle {
   final int? vehicleId;
   final String? vehicleNumber;
@@ -22,27 +24,27 @@ class Vehicle {
 
   factory Vehicle.fromJson(Map<String, dynamic> json) {
     return Vehicle(
-      vehicleId: json["vehicleId"],
-      vehicleNumber: json["vehicleNumber"],
-      registrationNumber: json["registrationNumber"],
-      vehicleType: json["vehicleType"],
-      isActive: json["isActive"],
-      ownerName: json["ownerName"],
-      driverName: json["driverName"],
-      capacity: json["capacity"],
+      vehicleId: json[AppConstants.keyVehicleId],
+      vehicleNumber: json[AppConstants.keyVehicleNumber],
+      registrationNumber: json[AppConstants.keyRegistrationNumber],
+      vehicleType: json[AppConstants.keyVehicleType],
+      isActive: json[AppConstants.keyIsActive],
+      ownerName: json[AppConstants.keyOwnerName],
+      driverName: json[AppConstants.keyDriverName],
+      capacity: json[AppConstants.keyCapacity],
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      "vehicleId": vehicleId,
-      "vehicleNumber": vehicleNumber,
-      "registrationNumber": registrationNumber,
-      "vehicleType": vehicleType,
-      "isActive": isActive,
-      "ownerName": ownerName,
-      "driverName": driverName,
-      "capacity": capacity,
+      AppConstants.keyVehicleId: vehicleId,
+      AppConstants.keyVehicleNumber: vehicleNumber,
+      AppConstants.keyRegistrationNumber: registrationNumber,
+      AppConstants.keyVehicleType: vehicleType,
+      AppConstants.keyIsActive: isActive,
+      AppConstants.keyOwnerName: ownerName,
+      AppConstants.keyDriverName: driverName,
+      AppConstants.keyCapacity: capacity,
     };
   }
 }

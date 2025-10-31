@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../utils/constants.dart';
 import '../../data/models/driver_profile.dart';
 import '../../data/models/driver_request.dart';
 import '../../services/driver_service.dart';
@@ -71,12 +72,14 @@ class _DriverProfilePageState extends State<DriverProfilePage> {
         _base64Image = base64Encode(bytes);
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error picking image: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${AppConstants.msgErrorPickingImage}$e'),
+            backgroundColor: AppColors.driverProfileErrorColor,
+          ),
+        );
+      }
     }
   }
 
@@ -99,12 +102,14 @@ class _DriverProfilePageState extends State<DriverProfilePage> {
         _base64Image = base64Encode(bytes);
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error taking photo: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${AppConstants.msgErrorTakingPhoto}$e'),
+            backgroundColor: AppColors.driverProfileErrorColor,
+          ),
+        );
+      }
     }
   }
 
@@ -116,7 +121,7 @@ class _DriverProfilePageState extends State<DriverProfilePage> {
           children: [
             ListTile(
               leading: const Icon(Icons.photo_library),
-              title: const Text('Choose from Gallery'),
+              title: const Text(AppConstants.labelChooseFromGallery),
               onTap: () {
                 Navigator.pop(context);
                 _pickImage();
@@ -124,7 +129,7 @@ class _DriverProfilePageState extends State<DriverProfilePage> {
             ),
             ListTile(
               leading: const Icon(Icons.camera_alt),
-              title: const Text('Take Photo'),
+              title: const Text(AppConstants.labelTakePhoto),
               onTap: () {
                 Navigator.pop(context);
                 _takePhoto();
@@ -156,11 +161,13 @@ class _DriverProfilePageState extends State<DriverProfilePage> {
 
       final response = await _driverService.updateDriverProfile(widget.profile.driverId, request);
       
+      if (!mounted) return;
+      
       if (response['success'] == true) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Profile updated successfully'),
-            backgroundColor: Colors.green,
+            content: Text(AppConstants.msgProfileUpdatedSuccessfully),
+            backgroundColor: AppColors.driverProfileSuccessColor,
           ),
         );
         
@@ -170,26 +177,30 @@ class _DriverProfilePageState extends State<DriverProfilePage> {
         
         // Update SharedPreferences if needed
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('driverName', _nameController.text.trim());
+        await prefs.setString(AppConstants.keyDriverName, _nameController.text.trim());
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(response['message'] ?? 'Failed to update profile'),
-            backgroundColor: Colors.red,
+            content: Text(response['message'] ?? AppConstants.msgFailedToUpdateProfile),
+            backgroundColor: AppColors.driverProfileErrorColor,
           ),
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error updating profile: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${AppConstants.msgErrorUpdatingProfile}$e'),
+            backgroundColor: AppColors.driverProfileErrorColor,
+          ),
+        );
+      }
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -206,7 +217,7 @@ class _DriverProfilePageState extends State<DriverProfilePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Driver Profile'),
+        title: const Text(AppConstants.labelDriverProfile),
         actions: [
           if (!_isEditing)
             IconButton(
@@ -225,9 +236,9 @@ class _DriverProfilePageState extends State<DriverProfilePage> {
             IconButton(
               icon: _isLoading 
                 ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                    width: AppSizes.driverProfileProgressSize,
+                    height: AppSizes.driverProfileProgressSize,
+                    child: CircularProgressIndicator(strokeWidth: AppSizes.driverProfileProgressStroke),
                   )
                 : const Icon(Icons.save),
               onPressed: _isLoading ? null : _saveProfile,
@@ -236,16 +247,16 @@ class _DriverProfilePageState extends State<DriverProfilePage> {
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSizes.driverProfilePadding),
         child: Column(
           children: [
             // Profile Photo Section
             _buildProfilePhotoSection(),
-            const SizedBox(height: 24),
+            const SizedBox(height: AppSizes.driverProfileSpacingLG),
 
             // Profile Information
             _buildProfileInfoSection(),
-            const SizedBox(height: 24),
+            const SizedBox(height: AppSizes.driverProfileSpacingLG),
 
             // Account Information (Read-only)
             _buildAccountInfoSection(),
@@ -257,25 +268,25 @@ class _DriverProfilePageState extends State<DriverProfilePage> {
 
   Widget _buildProfilePhotoSection() {
     return Card(
-      elevation: 3,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: AppSizes.driverProfileCardElevation,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSizes.driverProfileCardRadius)),
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(AppSizes.driverProfileCardPadding),
         child: Column(
           children: [
             const Text(
-              'Profile Photo',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              AppConstants.labelProfilePhoto,
+              style: TextStyle(fontSize: AppSizes.driverProfileHeaderFontSize, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSizes.driverProfileSpacingMD),
             Stack(
               children: [
                 CircleAvatar(
-                  radius: 60,
-                  backgroundColor: Colors.blue,
+                  radius: AppSizes.driverProfilePhotoRadius,
+                  backgroundColor: AppColors.driverProfilePrimaryColor,
                   backgroundImage: _getProfileImage(),
                   child: _getProfileImage() == null 
-                    ? const Icon(Icons.person, size: 60, color: Colors.white)
+                    ? const Icon(Icons.person, size: AppSizes.driverProfilePhotoIconSize, color: AppColors.driverProfileTextWhite)
                     : null,
                 ),
                 if (_isEditing)
@@ -285,27 +296,27 @@ class _DriverProfilePageState extends State<DriverProfilePage> {
                     child: GestureDetector(
                       onTap: _showImagePicker,
                       child: Container(
-                        padding: const EdgeInsets.all(8),
+                        padding: const EdgeInsets.all(AppSizes.driverProfileCameraPadding),
                         decoration: const BoxDecoration(
-                          color: Colors.blue,
+                          color: AppColors.driverProfilePrimaryColor,
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(
                           Icons.camera_alt,
-                          color: Colors.white,
-                          size: 20,
+                          color: AppColors.driverProfileTextWhite,
+                          size: AppSizes.driverProfileCameraIconSize,
                         ),
                       ),
                     ),
                   ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSizes.driverProfileSpacingSM),
             if (_isEditing)
               TextButton.icon(
                 onPressed: _showImagePicker,
                 icon: const Icon(Icons.photo_camera),
-                label: const Text('Change Photo'),
+                label: const Text(AppConstants.labelChangePhoto),
               ),
           ],
         ),
@@ -316,71 +327,76 @@ class _DriverProfilePageState extends State<DriverProfilePage> {
   ImageProvider? _getProfileImage() {
     if (_selectedImagePath != null) {
       return FileImage(File(_selectedImagePath!));
-    } else if (widget.profile.driverPhoto != null) {
-      return MemoryImage(base64Decode(widget.profile.driverPhoto!));
+    } else if (widget.profile.driverPhoto != null && widget.profile.driverPhoto!.isNotEmpty) {
+      try {
+        return MemoryImage(base64Decode(widget.profile.driverPhoto!));
+      } catch (e) {
+        debugPrint('${AppConstants.msgErrorDecodingImage}$e');
+        return null;
+      }
     }
     return null;
   }
 
   Widget _buildProfileInfoSection() {
     return Card(
-      elevation: 3,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: AppSizes.driverProfileCardElevation,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSizes.driverProfileCardRadius)),
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(AppSizes.driverProfileCardPadding),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Personal Information',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              AppConstants.labelPersonalInformation,
+              style: TextStyle(fontSize: AppSizes.driverProfileHeaderFontSize, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSizes.driverProfileSpacingMD),
             
             // Driver Name
             TextFormField(
               controller: _nameController,
               enabled: _isEditing,
               decoration: const InputDecoration(
-                labelText: 'Full Name',
+                labelText: AppConstants.labelFullName,
                 prefixIcon: Icon(Icons.person),
                 border: OutlineInputBorder(),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSizes.driverProfileSpacingMD),
             
             // Email
             TextFormField(
               controller: _emailController,
               enabled: _isEditing,
               decoration: const InputDecoration(
-                labelText: 'Email',
+                labelText: AppConstants.labelEmail,
                 prefixIcon: Icon(Icons.email),
                 border: OutlineInputBorder(),
               ),
               keyboardType: TextInputType.emailAddress,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSizes.driverProfileSpacingMD),
             
             // Contact Number
             TextFormField(
               controller: _contactController,
               enabled: _isEditing,
               decoration: const InputDecoration(
-                labelText: 'Contact Number',
+                labelText: AppConstants.labelContactNumber,
                 prefixIcon: Icon(Icons.phone),
                 border: OutlineInputBorder(),
               ),
               keyboardType: TextInputType.phone,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSizes.driverProfileSpacingMD),
             
             // Address
             TextFormField(
               controller: _addressController,
               enabled: _isEditing,
               decoration: const InputDecoration(
-                labelText: 'Address',
+                labelText: AppConstants.labelAddress,
                 prefixIcon: Icon(Icons.location_on),
                 border: OutlineInputBorder(),
               ),
@@ -394,25 +410,25 @@ class _DriverProfilePageState extends State<DriverProfilePage> {
 
   Widget _buildAccountInfoSection() {
     return Card(
-      elevation: 3,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: AppSizes.driverProfileCardElevation,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSizes.driverProfileCardRadius)),
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(AppSizes.driverProfileCardPadding),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Account Information',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              AppConstants.labelAccountInformation,
+              style: TextStyle(fontSize: AppSizes.driverProfileHeaderFontSize, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSizes.driverProfileSpacingMD),
             
-            _buildInfoRow('Driver ID', widget.profile.driverId.toString()),
-            _buildInfoRow('School', widget.profile.schoolName),
-            _buildInfoRow('Vehicle', '${widget.profile.vehicleNumber} (${widget.profile.vehicleType})'),
-            _buildInfoRow('Status', widget.profile.isActive ? 'Active' : 'Inactive'),
-            _buildInfoRow('Member Since', _formatDate(widget.profile.createdDate)),
-            _buildInfoRow('Last Updated', _formatDate(widget.profile.updatedDate)),
+            _buildInfoRow(AppConstants.labelDriverID, widget.profile.driverId.toString()),
+            _buildInfoRow(AppConstants.labelSchool, widget.profile.schoolName),
+            _buildInfoRow(AppConstants.labelVehicle, '${widget.profile.vehicleNumber} (${widget.profile.vehicleType})'),
+            _buildInfoRow(AppConstants.labelStatus, widget.profile.isActive ? AppConstants.labelActive : AppConstants.labelInactive),
+            _buildInfoRow(AppConstants.labelMemberSince, _formatDate(widget.profile.createdDate)),
+            _buildInfoRow(AppConstants.labelLastUpdated, _formatDate(widget.profile.updatedDate)),
           ],
         ),
       ),
@@ -421,17 +437,17 @@ class _DriverProfilePageState extends State<DriverProfilePage> {
 
   Widget _buildInfoRow(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: AppSizes.driverProfileSpacingXS),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 120,
+            width: AppSizes.driverProfileLabelWidth,
             child: Text(
               label,
               style: const TextStyle(
                 fontWeight: FontWeight.w500,
-                color: Colors.grey,
+                color: AppColors.driverProfileGreyColor,
               ),
             ),
           ),

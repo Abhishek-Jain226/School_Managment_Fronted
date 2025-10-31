@@ -1,5 +1,6 @@
 // lib/screens/home_page.dart
 import 'package:flutter/material.dart';
+import '../../utils/constants.dart';
 import '../../app_routes.dart';
 
 class HomePage extends StatelessWidget {
@@ -12,30 +13,30 @@ class HomePage extends StatelessWidget {
         width: double.infinity,
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFF2196F3), Color(0xFF6EC6FF)],
+            colors: [AppColors.primaryColor, AppColors.primaryLight],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
         ),
         child: Center(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+            padding: const EdgeInsets.symmetric(horizontal: AppSizes.homePaddingH, vertical: AppSizes.homePaddingV),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.school_outlined, size: 100, color: Colors.white),
-                const SizedBox(height: 20),
+                const Icon(Icons.school_outlined, size: AppSizes.homeIconSize, color: AppColors.textWhite),
+                const SizedBox(height: AppSizes.homeSpacing),
                 const Text(
-                  "Welcome to School Tracker",
+                  AppConstants.labelWelcomeToSchoolTracker,
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 28,
+                    fontSize: AppSizes.homeTitleFontSize,
                     fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                    letterSpacing: 1.2,
+                    color: AppColors.textWhite,
+                    letterSpacing: AppSizes.homeLetterSpacing,
                   ),
                 ),
-                const SizedBox(height: 50),
+                const SizedBox(height: AppSizes.homeButtonSpacing),
 
                 // LOGIN -> opens Login screen
                 ElevatedButton(
@@ -43,12 +44,12 @@ class HomePage extends StatelessWidget {
                     Navigator.pushNamed(context, AppRoutes.login);
                   },
                   style: ElevatedButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 55),
+                    minimumSize: const Size(double.infinity, AppSizes.homeButtonHeight),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(15),
+                      borderRadius: BorderRadius.circular(AppSizes.homeButtonRadius),
                     ),
                   ),
-                  child: const Text("Login/Register", style: TextStyle(fontSize: 18)),
+                  child: const Text(AppConstants.labelLoginRegister, style: TextStyle(fontSize: AppSizes.homeButtonTextSize)),
                 ),
               ],
             ),

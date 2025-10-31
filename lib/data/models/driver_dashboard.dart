@@ -1,3 +1,5 @@
+import '../../utils/constants.dart';
+
 class DriverDashboard {
   final int driverId;
   final String driverName;
@@ -59,30 +61,30 @@ class DriverDashboard {
 
   factory DriverDashboard.fromJson(Map<String, dynamic> json) {
     return DriverDashboard(
-      driverId: json['driverId'],
-      driverName: json['driverName'],
-      driverContactNumber: json['driverContactNumber'],
-      driverPhoto: json['driverPhoto'],
-      vehicleId: json['vehicleId'],
-      vehicleNumber: json['vehicleNumber'],
-      vehicleType: json['vehicleType'],
-      vehicleCapacity: json['vehicleCapacity'],
-      schoolId: json['schoolId'],
-      schoolName: json['schoolName'],
-      totalTripsToday: json['totalTripsToday'],
-      completedTrips: json['completedTrips'],
-      pendingTrips: json['pendingTrips'],
-      totalStudentsToday: json['totalStudentsToday'],
-      studentsPickedUp: json['studentsPickedUp'],
-      studentsDropped: json['studentsDropped'],
-      currentTripId: json['currentTripId'],
-      currentTripName: json['currentTripName'],
-      currentTripStatus: json['currentTripStatus'],
-      currentTripStartTime: json['currentTripStartTime'] != null 
-          ? DateTime.parse(json['currentTripStartTime']) 
+      driverId: json[AppConstants.keyDriverId],
+      driverName: json[AppConstants.keyDriverName],
+      driverContactNumber: json[AppConstants.keyDriverContactNumber],
+      driverPhoto: json[AppConstants.keyDriverPhoto],
+      vehicleId: json[AppConstants.keyVehicleId],
+      vehicleNumber: json[AppConstants.keyVehicleNumber],
+      vehicleType: json[AppConstants.keyVehicleType],
+      vehicleCapacity: json[AppConstants.keyVehicleCapacity],
+      schoolId: json[AppConstants.keySchoolId],
+      schoolName: json[AppConstants.keySchoolName],
+      totalTripsToday: json[AppConstants.keyTotalTripsToday],
+      completedTrips: json[AppConstants.keyCompletedTrips],
+      pendingTrips: json[AppConstants.keyPendingTrips],
+      totalStudentsToday: json[AppConstants.keyTotalStudentsToday],
+      studentsPickedUp: json[AppConstants.keyStudentsPickedUp],
+      studentsDropped: json[AppConstants.keyStudentsDropped],
+      currentTripId: json[AppConstants.keyCurrentTripId],
+      currentTripName: json[AppConstants.keyCurrentTripName],
+      currentTripStatus: json[AppConstants.keyCurrentTripStatus],
+      currentTripStartTime: json[AppConstants.keyCurrentTripStartTime] != null 
+          ? DateTime.parse(json[AppConstants.keyCurrentTripStartTime]) 
           : null,
-      currentTripStudentCount: json['currentTripStudentCount'],
-      recentActivities: (json['recentActivities'] as List<dynamic>?)
+      currentTripStudentCount: json[AppConstants.keyCurrentTripStudentCount],
+      recentActivities: (json[AppConstants.keyRecentActivities] as List<dynamic>?)
           ?.map((activity) => RecentActivity.fromJson(activity))
           .toList() ?? [],
     );
@@ -90,28 +92,28 @@ class DriverDashboard {
 
   Map<String, dynamic> toJson() {
     return {
-      'driverId': driverId,
-      'driverName': driverName,
-      'driverContactNumber': driverContactNumber,
-      'driverPhoto': driverPhoto,
-      'vehicleId': vehicleId,
-      'vehicleNumber': vehicleNumber,
-      'vehicleType': vehicleType,
-      'vehicleCapacity': vehicleCapacity,
-      'schoolId': schoolId,
-      'schoolName': schoolName,
-      'totalTripsToday': totalTripsToday,
-      'completedTrips': completedTrips,
-      'pendingTrips': pendingTrips,
-      'totalStudentsToday': totalStudentsToday,
-      'studentsPickedUp': studentsPickedUp,
-      'studentsDropped': studentsDropped,
-      'currentTripId': currentTripId,
-      'currentTripName': currentTripName,
-      'currentTripStatus': currentTripStatus,
-      'currentTripStartTime': currentTripStartTime?.toIso8601String(),
-      'currentTripStudentCount': currentTripStudentCount,
-      'recentActivities': recentActivities.map((activity) => activity.toJson()).toList(),
+      AppConstants.keyDriverId: driverId,
+      AppConstants.keyDriverName: driverName,
+      AppConstants.keyDriverContactNumber: driverContactNumber,
+      AppConstants.keyDriverPhoto: driverPhoto,
+      AppConstants.keyVehicleId: vehicleId,
+      AppConstants.keyVehicleNumber: vehicleNumber,
+      AppConstants.keyVehicleType: vehicleType,
+      AppConstants.keyVehicleCapacity: vehicleCapacity,
+      AppConstants.keySchoolId: schoolId,
+      AppConstants.keySchoolName: schoolName,
+      AppConstants.keyTotalTripsToday: totalTripsToday,
+      AppConstants.keyCompletedTrips: completedTrips,
+      AppConstants.keyPendingTrips: pendingTrips,
+      AppConstants.keyTotalStudentsToday: totalStudentsToday,
+      AppConstants.keyStudentsPickedUp: studentsPickedUp,
+      AppConstants.keyStudentsDropped: studentsDropped,
+      AppConstants.keyCurrentTripId: currentTripId,
+      AppConstants.keyCurrentTripName: currentTripName,
+      AppConstants.keyCurrentTripStatus: currentTripStatus,
+      AppConstants.keyCurrentTripStartTime: currentTripStartTime?.toIso8601String(),
+      AppConstants.keyCurrentTripStudentCount: currentTripStudentCount,
+      AppConstants.keyRecentActivities: recentActivities.map((activity) => activity.toJson()).toList(),
     };
   }
 
@@ -185,23 +187,23 @@ class RecentActivity {
 
   factory RecentActivity.fromJson(Map<String, dynamic> json) {
     return RecentActivity(
-      activityId: json['activityId'],
-      activityType: json['activityType'],
-      description: json['description'],
-      activityTime: DateTime.parse(json['activityTime']),
-      studentName: json['studentName'],
-      location: json['location'],
+      activityId: json[AppConstants.keyActivityId],
+      activityType: json[AppConstants.keyActivityType],
+      description: json[AppConstants.keyDescription],
+      activityTime: DateTime.parse(json[AppConstants.keyActivityTime]),
+      studentName: json[AppConstants.keyStudentName],
+      location: json[AppConstants.keyLocation],
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'activityId': activityId,
-      'activityType': activityType,
-      'description': description,
-      'activityTime': activityTime.toIso8601String(),
-      'studentName': studentName,
-      'location': location,
+      AppConstants.keyActivityId: activityId,
+      AppConstants.keyActivityType: activityType,
+      AppConstants.keyDescription: description,
+      AppConstants.keyActivityTime: activityTime.toIso8601String(),
+      AppConstants.keyStudentName: studentName,
+      AppConstants.keyLocation: location,
     };
   }
 

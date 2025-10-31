@@ -1,3 +1,5 @@
+import '../../utils/constants.dart';
+
 class TripStatus {
   final int tripStatusId;
   final int tripId;
@@ -31,37 +33,37 @@ class TripStatus {
 
   factory TripStatus.fromJson(Map<String, dynamic> json) {
     return TripStatus(
-      tripStatusId: json['tripStatusId'],
-      tripId: json['tripId'],
-      tripName: json['tripName'],
-      status: json['status'],
-      statusDisplay: json['statusDisplay'] ?? _getStatusDisplay(json['status']),
-      statusTime: DateTime.parse(json['statusTime']),
-      startTime: json['startTime'] != null ? DateTime.parse(json['startTime']) : null,
-      endTime: json['endTime'] != null ? DateTime.parse(json['endTime']) : null,
-      totalTimeMinutes: json['totalTimeMinutes'],
-      totalTimeDisplay: json['totalTimeDisplay'] ?? _formatTotalTime(json['totalTimeMinutes']),
-      remarks: json['remarks'],
-      createdBy: json['createdBy'],
-      createdDate: json['createdDate'] != null ? DateTime.parse(json['createdDate']) : null,
+      tripStatusId: json[AppConstants.keyTripStatusId],
+      tripId: json[AppConstants.keyTripId],
+      tripName: json[AppConstants.keyTripName],
+      status: json[AppConstants.keyStatus],
+      statusDisplay: json[AppConstants.keyStatusDisplay] ?? _getStatusDisplay(json[AppConstants.keyStatus]),
+      statusTime: DateTime.parse(json[AppConstants.keyStatusTime]),
+      startTime: json[AppConstants.keyStartTime] != null ? DateTime.parse(json[AppConstants.keyStartTime]) : null,
+      endTime: json[AppConstants.keyEndTime] != null ? DateTime.parse(json[AppConstants.keyEndTime]) : null,
+      totalTimeMinutes: json[AppConstants.keyTotalTimeMinutes],
+      totalTimeDisplay: json[AppConstants.keyTotalTimeDisplay] ?? _formatTotalTime(json[AppConstants.keyTotalTimeMinutes]),
+      remarks: json[AppConstants.keyRemarks],
+      createdBy: json[AppConstants.keyCreatedBy],
+      createdDate: json[AppConstants.keyCreatedDate] != null ? DateTime.parse(json[AppConstants.keyCreatedDate]) : null,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'tripStatusId': tripStatusId,
-      'tripId': tripId,
-      'tripName': tripName,
-      'status': status,
-      'statusDisplay': statusDisplay,
-      'statusTime': statusTime.toIso8601String(),
-      'startTime': startTime?.toIso8601String(),
-      'endTime': endTime?.toIso8601String(),
-      'totalTimeMinutes': totalTimeMinutes,
-      'totalTimeDisplay': totalTimeDisplay,
-      'remarks': remarks,
-      'createdBy': createdBy,
-      'createdDate': createdDate?.toIso8601String(),
+      AppConstants.keyTripStatusId: tripStatusId,
+      AppConstants.keyTripId: tripId,
+      AppConstants.keyTripName: tripName,
+      AppConstants.keyStatus: status,
+      AppConstants.keyStatusDisplay: statusDisplay,
+      AppConstants.keyStatusTime: statusTime.toIso8601String(),
+      AppConstants.keyStartTime: startTime?.toIso8601String(),
+      AppConstants.keyEndTime: endTime?.toIso8601String(),
+      AppConstants.keyTotalTimeMinutes: totalTimeMinutes,
+      AppConstants.keyTotalTimeDisplay: totalTimeDisplay,
+      AppConstants.keyRemarks: remarks,
+      AppConstants.keyCreatedBy: createdBy,
+      AppConstants.keyCreatedDate: createdDate?.toIso8601String(),
     };
   }
 

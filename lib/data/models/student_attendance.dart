@@ -1,3 +1,5 @@
+import '../../utils/constants.dart';
+
 class StudentAttendanceRequest {
   final int tripId;
   final int studentId;
@@ -25,31 +27,31 @@ class StudentAttendanceRequest {
 
   factory StudentAttendanceRequest.fromJson(Map<String, dynamic> json) {
     return StudentAttendanceRequest(
-      tripId: json['tripId'],
-      studentId: json['studentId'],
-      eventType: json['eventType'],
-      driverId: json['driverId'],
-      remarks: json['remarks'],
-      location: json['location'],
-      eventTime: json['eventTime'] != null 
-          ? DateTime.parse(json['eventTime']) 
+      tripId: json[AppConstants.keyTripId],
+      studentId: json[AppConstants.keyStudentId],
+      eventType: json[AppConstants.keyEventType],
+      driverId: json[AppConstants.keyDriverId],
+      remarks: json[AppConstants.keyRemarks],
+      location: json[AppConstants.keyLocation],
+      eventTime: json[AppConstants.keyEventTime] != null 
+          ? DateTime.parse(json[AppConstants.keyEventTime]) 
           : null,
-      sendNotificationToParent: json['sendNotificationToParent'] ?? false,
-      notificationMessage: json['notificationMessage'],
+      sendNotificationToParent: json[AppConstants.keySendNotificationToParent] ?? false,
+      notificationMessage: json[AppConstants.keyNotificationMessage],
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'tripId': tripId,
-      'studentId': studentId,
-      'eventType': eventType,
-      'driverId': driverId,
-      'remarks': remarks,
-      'location': location,
-      'eventTime': eventTime?.toIso8601String(),
-      'sendNotificationToParent': sendNotificationToParent,
-      'notificationMessage': notificationMessage,
+      AppConstants.keyTripId: tripId,
+      AppConstants.keyStudentId: studentId,
+      AppConstants.keyEventType: eventType,
+      AppConstants.keyDriverId: driverId,
+      AppConstants.keyRemarks: remarks,
+      AppConstants.keyLocation: location,
+      AppConstants.keyEventTime: eventTime?.toIso8601String(),
+      AppConstants.keySendNotificationToParent: sendNotificationToParent,
+      AppConstants.keyNotificationMessage: notificationMessage,
     };
   }
 
@@ -91,17 +93,17 @@ class StudentAttendanceResponse {
 
   factory StudentAttendanceResponse.fromJson(Map<String, dynamic> json) {
     return StudentAttendanceResponse(
-      success: json['success'],
-      message: json['message'],
-      data: json['data'],
+      success: json[AppConstants.keySuccess],
+      message: json[AppConstants.keyMessage],
+      data: json[AppConstants.keyData],
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'success': success,
-      'message': message,
-      'data': data,
+      AppConstants.keySuccess: success,
+      AppConstants.keyMessage: message,
+      AppConstants.keyData: data,
     };
   }
 }

@@ -1,4 +1,6 @@
 // lib/data/models/vehicle_owner_request.dart
+import '../../utils/constants.dart';
+
 class VehicleOwnerRequest {
   final String name;
   final String email;
@@ -17,11 +19,11 @@ class VehicleOwnerRequest {
   });
 
   Map<String, dynamic> toJson() => {
-        'name': name,
-        'email': email,
-        'contactNumber': contactNumber,
-        'address': address,
-        'createdBy': createdBy,
-        if (ownerPhoto != null) 'ownerPhoto': ownerPhoto,
+        AppConstants.keyName: name,
+        AppConstants.keyEmail: email,
+        AppConstants.keyContactNumber: contactNumber,
+        AppConstants.keyAddress: address,
+        AppConstants.keyCreatedBy: createdBy,
+        if (ownerPhoto != null) AppConstants.keyOwnerPhoto: ownerPhoto,
       };
 }

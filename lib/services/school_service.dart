@@ -1,10 +1,12 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config/app_config.dart';
 import '../data/models/api_response.dart';
 import '../data/models/school_request.dart';
 import '../data/models/staff_request.dart';
+import '../utils/constants.dart';
 import 'auth_service.dart';
 
 class SchoolService {
@@ -14,26 +16,46 @@ class SchoolService {
 
   // ---------------- Register School ----------------
   Future<Map<String, dynamic>> registerSchool(SchoolRequest request) async {
+    try {
     final url = Uri.parse("$_base/register");
+      debugPrint('🔹 Registering school at URL: $url');
+      
     final resp = await http.post(
       url,
-      headers: {"Content-Type": "application/json"},
+        headers: {AppConstants.headerContentType: AppConstants.headerApplicationJson},
       body: jsonEncode(request.toJson()),
     );
-    if (resp.statusCode == 200) {
-      return jsonDecode(resp.body);
+      
+      debugPrint('🔹 Response status code: ${resp.statusCode}');
+      debugPrint('🔹 Response body: ${resp.body}');
+      
+      if (resp.statusCode == 200 || resp.statusCode == 201) {
+        final data = jsonDecode(resp.body);
+        
+        // Check if backend returned success: false
+        if (data[AppConstants.keySuccess] == false) {
+          debugPrint('❌ Backend returned error: ${data[AppConstants.keyMessage]}');
+          throw Exception("${AppConstants.errorRegistrationFailed}: ${data[AppConstants.keyMessage] ?? AppConstants.errorUnknown}");
+        }
+        
+        return data;
     } else {
-      throw Exception("Failed to register school: ${resp.body}");
+        debugPrint('❌ HTTP Error ${resp.statusCode}: ${resp.body}');
+        throw Exception("${AppConstants.errorFailedToRegisterSchool}${resp.statusCode}): ${resp.body}");
+      }
+    } catch (e) {
+      debugPrint('❌ Exception in registerSchool: $e');
+      rethrow;
     }
   }
 
   // ---------------- Activate School ----------------
   Future<Map<String, dynamic>> activateSchool(int schoolId, String activationCode) async {
-    final url = Uri.parse("$_base/$schoolId/activate?activationCode=$activationCode");
+    final url = Uri.parse("$_base/$schoolId/activate?${AppConstants.keyActivationCode}=$activationCode");
     final token = await _auth.getToken();
     final resp = await http.post(
       url,
-      headers: {"Authorization": "Bearer $token"},
+      headers: {AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token"},
     );
     return jsonDecode(resp.body);
   }
@@ -45,8 +67,8 @@ class SchoolService {
     final resp = await http.put(
       url,
       headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer $token",
+        AppConstants.headerContentType: AppConstants.headerApplicationJson,
+        AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token",
       },
       body: jsonEncode(request.toJson()),
     );
@@ -59,7 +81,7 @@ class SchoolService {
     final token = await _auth.getToken();
     final resp = await http.delete(
       url,
-      headers: {"Authorization": "Bearer $token"},
+      headers: {AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token"},
     );
     return jsonDecode(resp.body);
   }
@@ -70,7 +92,7 @@ class SchoolService {
   //   final token = await _auth.getToken();
   //   final resp = await http.get(
   //     url,
-  //     headers: {"Authorization": "Bearer $token"},
+  //     headers: {AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token"},
   //   );
   //   return jsonDecode(resp.body);
   // }
@@ -81,13 +103,149 @@ Future<Map<String, dynamic>> getAllSchools() async {
   final token = await _auth.getToken();
   final resp = await http.get(
     url,
-    headers: {"Authorization": "Bearer $token"},
+    headers: {AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token"},
   );
 
   if (resp.statusCode == 200) {
     return jsonDecode(resp.body); // ye ek Map hoga { success, message, data }
   } else {
-    throw Exception("Failed to fetch schools: ${resp.body}");
+    throw Exception("${AppConstants.errorFailedToFetchSchools}: ${resp.body}");
+  }
+}
+
+// ---------------- Get School Dashboard ----------------
+Future<Map<String, dynamic>> getSchoolDashboard(int schoolId) async {
+  final url = Uri.parse("${AppConfig.baseUrl}/api/school-admin/dashboard/$schoolId");
+  final token = await _auth.getToken();
+  final resp = await http.get(
+    url,
+    headers: {AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token"},
+  );
+
+  if (resp.statusCode == 200) {
+    return jsonDecode(resp.body);
+  } else {
+    throw Exception("${AppConstants.errorFailedToFetchSchoolDashboard}: ${resp.body}");
+  }
+}
+
+// ---------------- Get School Students ----------------
+Future<List<dynamic>> getSchoolStudents(int schoolId) async {
+  final url = Uri.parse("${AppConfig.baseUrl}/api/students/school/$schoolId");
+  final token = await _auth.getToken();
+  final resp = await http.get(
+    url,
+    headers: {AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token"},
+  );
+
+  if (resp.statusCode == 200) {
+    final data = jsonDecode(resp.body);
+    return data[AppConstants.keyData] ?? [];
+  } else {
+    throw Exception("${AppConstants.errorFailedToFetchSchoolStudents}: ${resp.body}");
+  }
+}
+
+// ---------------- Get School Staff ----------------
+Future<List<dynamic>> getSchoolStaff(int schoolId) async {
+  final url = Uri.parse("${AppConfig.baseUrl}/api/school-admin/school/$schoolId/staff");
+  final token = await _auth.getToken();
+  final resp = await http.get(
+    url,
+    headers: {AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token"},
+  );
+
+  if (resp.statusCode == 200) {
+    final data = jsonDecode(resp.body);
+    // Backend returns {data: {staffList: [...], totalCount: x, activeCount: y}}
+    // We need to extract the staffList
+    if (data[AppConstants.keyData] is Map) {
+      return (data[AppConstants.keyData][AppConstants.keyStaffList] as List?) ?? [];
+    }
+    return data[AppConstants.keyData] ?? [];
+  } else {
+    throw Exception("${AppConstants.errorFailedToFetchSchoolStaff}: ${resp.body}");
+  }
+}
+
+// ---------------- Get School Vehicles ----------------
+Future<List<dynamic>> getSchoolVehicles(int schoolId) async {
+  final url = Uri.parse("${AppConfig.baseUrl}/api/vehicles/school/$schoolId");
+  final token = await _auth.getToken();
+  final resp = await http.get(
+    url,
+    headers: {AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token"},
+  );
+
+  if (resp.statusCode == 200) {
+    final data = jsonDecode(resp.body);
+    return data[AppConstants.keyData] ?? [];
+  } else {
+    throw Exception("${AppConstants.errorFailedToFetchSchoolVehicles}: ${resp.body}");
+  }
+}
+
+// ---------------- Get School Trips ----------------
+Future<List<dynamic>> getSchoolTrips(int schoolId) async {
+  final url = Uri.parse("${AppConfig.baseUrl}/api/trips/school/$schoolId");
+  final token = await _auth.getToken();
+  final resp = await http.get(
+    url,
+    headers: {AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token"},
+  );
+
+  if (resp.statusCode == 200) {
+    final data = jsonDecode(resp.body);
+    return data[AppConstants.keyData] ?? [];
+  } else {
+    throw Exception("${AppConstants.errorFailedToFetchSchoolTrips}: ${resp.body}");
+  }
+}
+
+// ---------------- Get School Profile ----------------
+Future<Map<String, dynamic>> getSchoolProfile(int schoolId) async {
+  final url = Uri.parse("${AppConfig.baseUrl}/api/schools/$schoolId");
+  final token = await _auth.getToken();
+  final resp = await http.get(url, headers: {
+    AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token"
+  });
+  if (resp.statusCode == 200) {
+    return jsonDecode(resp.body);
+  } else {
+    throw Exception("${AppConstants.errorFailedToFetchSchoolProfile}: ${resp.body}");
+  }
+}
+
+// ---------------- Update School Profile ----------------
+Future<Map<String, dynamic>> updateSchoolProfile(int schoolId, Map<String, dynamic> schoolData) async {
+  final url = Uri.parse("${AppConfig.baseUrl}/api/schools/$schoolId");
+  final token = await _auth.getToken();
+  final resp = await http.put(
+    url,
+    headers: {
+      AppConstants.headerContentType: AppConstants.headerApplicationJson,
+      AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token",
+    },
+    body: jsonEncode(schoolData),
+  );
+  if (resp.statusCode == 200) {
+    return jsonDecode(resp.body);
+  } else {
+    throw Exception("${AppConstants.errorFailedToUpdateSchoolProfile}: ${resp.body}");
+  }
+}
+
+// ---------------- Get School Reports ----------------
+Future<Map<String, dynamic>> getSchoolReports(int schoolId) async {
+    final url = Uri.parse("${AppConfig.baseUrl}/api/reports/attendance/$schoolId?${AppConstants.keyFilterType}=${AppConstants.keyFilterTypeAll}");
+  final token = await _auth.getToken();
+  final resp = await http.get(url, headers: {
+    AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token"
+  });
+  if (resp.statusCode == 200) {
+    return jsonDecode(resp.body);
+  } else {
+    throw Exception("${AppConstants.errorFailedToFetchSchoolReports}: ${resp.body}");
   }
 }
    // ---------------- ✅ Create Staff ----------------
@@ -98,8 +256,8 @@ Future<Map<String, dynamic>> getAllSchools() async {
     final response = await http.post(
       url,
       headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer $token",
+        AppConstants.headerContentType: AppConstants.headerApplicationJson,
+        AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token",
       },
       body: jsonEncode(request.toJson()),
     );
@@ -107,7 +265,7 @@ Future<Map<String, dynamic>> getAllSchools() async {
     if (response.statusCode == 200) {
       return ApiResponse.fromJson(jsonDecode(response.body));
     } else {
-      throw Exception("Failed to create staff: ${response.body}");
+      throw Exception("${AppConstants.errorFailedToCreateStaff}: ${response.body}");
     }}
      // ---------------- Assign Vehicle to School ----------------
   Future<Map<String, dynamic>> assignVehicleToSchool(Map<String, dynamic> body) async {
@@ -117,8 +275,8 @@ Future<Map<String, dynamic>> getAllSchools() async {
     final resp = await http.post(
       url,
       headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer $token",
+        AppConstants.headerContentType: AppConstants.headerApplicationJson,
+        AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token",
       },
       body: jsonEncode(body),
     );
@@ -127,9 +285,9 @@ Future<Map<String, dynamic>> getAllSchools() async {
       return jsonDecode(resp.body);
     } else {
       return {
-        "success": false,
-        "message": "Failed to assign vehicle",
-        "error": resp.body,
+        AppConstants.keySuccess: false,
+        AppConstants.keyMessage: AppConstants.errorFailedToAssignVehicle,
+        AppConstants.keyError: resp.body,
       };
     }
     
@@ -137,12 +295,12 @@ Future<Map<String, dynamic>> getAllSchools() async {
 
   Future<void> saveSchoolToPrefs(Map<String, dynamic> school) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString("school_info", jsonEncode(school));
+    await prefs.setString(AppConstants.keySchoolInfo, jsonEncode(school));
   }
 
   Future<dynamic> getSchoolFromPrefs() async {
     final prefs = await SharedPreferences.getInstance();
-    final data = prefs.getString("school_info");
+    final data = prefs.getString(AppConstants.keySchoolInfo);
     if (data == null) return null;
     return jsonDecode(data);
   }
@@ -154,7 +312,7 @@ Future<Map<String, dynamic>> getAllSchools() async {
     final resp = await http.get(
       url,
       headers: {
-        if (token != null) "Authorization": "Bearer $token",
+        if (token != null) AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token",
       },
     );
     
@@ -162,9 +320,9 @@ Future<Map<String, dynamic>> getAllSchools() async {
       return jsonDecode(resp.body);
     } else {
       return {
-        'success': false,
-        'message': 'Failed to get vehicles in transit: ${resp.statusCode}',
-        'data': 0
+        AppConstants.keySuccess: false,
+        AppConstants.keyMessage: '${AppConstants.errorFailedToGetVehiclesInTransit}: ${resp.statusCode}',
+        AppConstants.keyData: 0
       };
     }
   }
@@ -176,7 +334,7 @@ Future<Map<String, dynamic>> getAllSchools() async {
     final resp = await http.get(
       url,
       headers: {
-        if (token != null) "Authorization": "Bearer $token",
+        if (token != null) AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token",
       },
     );
     
@@ -184,9 +342,13 @@ Future<Map<String, dynamic>> getAllSchools() async {
       return jsonDecode(resp.body);
     } else {
       return {
-        'success': false,
-        'message': 'Failed to get today\'s attendance: ${resp.statusCode}',
-        'data': {'studentsPresent': 0, 'totalStudents': 0, 'attendanceRate': 0.0}
+        AppConstants.keySuccess: false,
+        AppConstants.keyMessage: '${AppConstants.errorFailedToGetTodayAttendance}: ${resp.statusCode}',
+        AppConstants.keyData: {
+          AppConstants.keyStudentsPresent: 0,
+          AppConstants.keyTotalStudents: 0,
+          AppConstants.keyAttendanceRate: 0.0
+        }
       };
     }
   }
@@ -198,7 +360,7 @@ Future<Map<String, dynamic>> getAllSchools() async {
     final resp = await http.get(
       url,
       headers: {
-        if (token != null) "Authorization": "Bearer $token",
+        if (token != null) AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token",
       },
     );
     
@@ -206,9 +368,9 @@ Future<Map<String, dynamic>> getAllSchools() async {
       return jsonDecode(resp.body);
     } else {
       return {
-        'success': false,
-        'message': 'Failed to get school details: ${resp.statusCode}',
-        'data': null
+        AppConstants.keySuccess: false,
+        AppConstants.keyMessage: '${AppConstants.errorFailedToGetSchoolDetails}: ${resp.statusCode}',
+        AppConstants.keyData: null
       };
     }
   }
@@ -220,7 +382,7 @@ Future<Map<String, dynamic>> getAllSchools() async {
     final resp = await http.get(
       url,
       headers: {
-        if (token != null) "Authorization": "Bearer $token",
+        if (token != null) AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token",
       },
     );
     
@@ -228,9 +390,9 @@ Future<Map<String, dynamic>> getAllSchools() async {
       return jsonDecode(resp.body);
     } else {
       return {
-        'success': false,
-        'message': 'Failed to get staff list: ${resp.statusCode}',
-        'data': null
+        AppConstants.keySuccess: false,
+        AppConstants.keyMessage: '${AppConstants.errorFailedToGetStaffList}: ${resp.statusCode}',
+        AppConstants.keyData: null
       };
     }
   }
@@ -238,11 +400,11 @@ Future<Map<String, dynamic>> getAllSchools() async {
   // ---------------- Update Staff Status ----------------
   Future<Map<String, dynamic>> updateStaffStatus(int staffId, bool isActive, String updatedBy) async {
     final token = await _auth.getToken();
-    final url = Uri.parse("${AppConfig.baseUrl}/api/school-admin/staff/$staffId/status?isActive=$isActive&updatedBy=$updatedBy");
+    final url = Uri.parse("${AppConfig.baseUrl}/api/school-admin/staff/$staffId/status?${AppConstants.keyIsActive}=$isActive&${AppConstants.keyUpdatedBy}=$updatedBy");
     final resp = await http.put(
       url,
       headers: {
-        if (token != null) "Authorization": "Bearer $token",
+        if (token != null) AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token",
       },
     );
     
@@ -250,9 +412,9 @@ Future<Map<String, dynamic>> getAllSchools() async {
       return jsonDecode(resp.body);
     } else {
       return {
-        'success': false,
-        'message': 'Failed to update staff status: ${resp.statusCode}',
-        'data': null
+        AppConstants.keySuccess: false,
+        AppConstants.keyMessage: '${AppConstants.errorFailedToUpdateStaffStatus}: ${resp.statusCode}',
+        AppConstants.keyData: null
       };
     }
   }
@@ -272,20 +434,20 @@ Future<Map<String, dynamic>> getAllSchools() async {
     final url = Uri.parse("${AppConfig.baseUrl}/api/school-admin/staff/$staffId");
     
     final requestBody = {
-      'name': name,
-      'email': email,
-      'contact': contact,
-      'role': role,
-      'joinDate': joinDate,
-      'isActive': isActive,
-      'updatedBy': updatedBy,
+      AppConstants.keyName: name,
+      AppConstants.keyEmail: email,
+      AppConstants.keyContact: contact,
+      AppConstants.keyRole: role,
+      AppConstants.keyJoinDate: joinDate,
+      AppConstants.keyIsActive: isActive,
+      AppConstants.keyUpdatedBy: updatedBy,
     };
     
     final resp = await http.put(
       url,
       headers: {
-        'Content-Type': 'application/json',
-        if (token != null) "Authorization": "Bearer $token",
+        AppConstants.headerContentType: AppConstants.headerApplicationJson,
+        if (token != null) AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token",
       },
       body: jsonEncode(requestBody),
     );
@@ -294,9 +456,9 @@ Future<Map<String, dynamic>> getAllSchools() async {
       return jsonDecode(resp.body);
     } else {
       return {
-        'success': false,
-        'message': 'Failed to update staff details: ${resp.statusCode}',
-        'data': null
+        AppConstants.keySuccess: false,
+        AppConstants.keyMessage: '${AppConstants.errorFailedToUpdateStaffDetails}: ${resp.statusCode}',
+        AppConstants.keyData: null
       };
     }
   }
@@ -304,11 +466,11 @@ Future<Map<String, dynamic>> getAllSchools() async {
   // ---------------- Delete Staff ----------------
   Future<Map<String, dynamic>> deleteStaff(int staffId, String updatedBy) async {
     final token = await _auth.getToken();
-    final url = Uri.parse("${AppConfig.baseUrl}/api/school-admin/staff/$staffId/delete?updatedBy=$updatedBy");
+    final url = Uri.parse("${AppConfig.baseUrl}/api/school-admin/staff/$staffId/delete?${AppConstants.keyUpdatedBy}=$updatedBy");
     final resp = await http.put(
       url,
       headers: {
-        if (token != null) "Authorization": "Bearer $token",
+        if (token != null) AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token",
       },
     );
     
@@ -316,9 +478,9 @@ Future<Map<String, dynamic>> getAllSchools() async {
       return jsonDecode(resp.body);
     } else {
       return {
-        'success': false,
-        'message': 'Failed to delete staff: ${resp.statusCode}',
-        'data': null
+        AppConstants.keySuccess: false,
+        AppConstants.keyMessage: '${AppConstants.errorFailedToDeleteStaff}: ${resp.statusCode}',
+        AppConstants.keyData: null
       };
     }
   }
@@ -330,7 +492,7 @@ Future<Map<String, dynamic>> getAllSchools() async {
     final resp = await http.get(
       url,
       headers: {
-        if (token != null) "Authorization": "Bearer $token",
+        if (token != null) AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token",
       },
     );
     
@@ -338,9 +500,9 @@ Future<Map<String, dynamic>> getAllSchools() async {
       return jsonDecode(resp.body);
     } else {
       return {
-        'success': false,
-        'message': 'Failed to get staff by name: ${resp.statusCode}',
-        'data': null
+        AppConstants.keySuccess: false,
+        AppConstants.keyMessage: '${AppConstants.errorFailedToGetStaffByName}: ${resp.statusCode}',
+        AppConstants.keyData: null
       };
     }
   }
@@ -348,11 +510,11 @@ Future<Map<String, dynamic>> getAllSchools() async {
   // ---------------- Update Staff Role ----------------
   Future<Map<String, dynamic>> updateStaffRole(int staffId, int newRoleId, String updatedBy) async {
     final token = await _auth.getToken();
-    final url = Uri.parse("${AppConfig.baseUrl}/api/school-admin/staff/$staffId/role?newRoleId=$newRoleId&updatedBy=$updatedBy");
+    final url = Uri.parse("${AppConfig.baseUrl}/api/school-admin/staff/$staffId/role?${AppConstants.keyNewRoleId}=$newRoleId&${AppConstants.keyUpdatedBy}=$updatedBy");
     final resp = await http.put(
       url,
       headers: {
-        if (token != null) "Authorization": "Bearer $token",
+        if (token != null) AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token",
       },
     );
     
@@ -360,9 +522,9 @@ Future<Map<String, dynamic>> getAllSchools() async {
       return jsonDecode(resp.body);
     } else {
       return {
-        'success': false,
-        'message': 'Failed to update staff role: ${resp.statusCode}',
-        'data': null
+        AppConstants.keySuccess: false,
+        AppConstants.keyMessage: '${AppConstants.errorFailedToUpdateStaffRole}: ${resp.statusCode}',
+        AppConstants.keyData: null
       };
     }
   }
@@ -374,7 +536,7 @@ Future<Map<String, dynamic>> getAllSchools() async {
     final resp = await http.get(
       url,
       headers: {
-        if (token != null) "Authorization": "Bearer $token",
+        if (token != null) AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token",
       },
     );
     
@@ -382,9 +544,9 @@ Future<Map<String, dynamic>> getAllSchools() async {
       return jsonDecode(resp.body);
     } else {
       return {
-        'success': false,
-        'message': 'Failed to get all users: ${resp.statusCode}',
-        'data': null
+        AppConstants.keySuccess: false,
+        AppConstants.keyMessage: '${AppConstants.errorFailedToGetAllUsers}: ${resp.statusCode}',
+        AppConstants.keyData: null
       };
     }
   }
@@ -396,7 +558,7 @@ Future<Map<String, dynamic>> getAllSchools() async {
     final resp = await http.get(
       url,
       headers: {
-        if (token != null) "Authorization": "Bearer $token",
+        if (token != null) AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token",
       },
     );
     
@@ -404,9 +566,9 @@ Future<Map<String, dynamic>> getAllSchools() async {
       return jsonDecode(resp.body);
     } else {
       return {
-        'success': false,
-        'message': 'Failed to get dashboard stats: ${resp.statusCode}',
-        'data': null
+        AppConstants.keySuccess: false,
+        AppConstants.keyMessage: '${AppConstants.errorFailedToGetDashboardStats}: ${resp.statusCode}',
+        AppConstants.keyData: null
       };
     }
   }

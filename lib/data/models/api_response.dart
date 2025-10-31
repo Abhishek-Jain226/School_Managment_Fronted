@@ -1,3 +1,5 @@
+import '../../utils/constants.dart';
+
 class ApiResponse {
   final bool success;
   final String? message;
@@ -8,10 +10,10 @@ class ApiResponse {
 
   factory ApiResponse.fromJson(Map<String, dynamic> json) {
     return ApiResponse(
-      success: json['success'] ?? false,
-      message: json['message'],
-      data: json['data'] != null
-          ? Map<String, dynamic>.from(json['data'])
+      success: json[AppConstants.keySuccess] ?? false,
+      message: json[AppConstants.keyMessage],
+      data: json[AppConstants.keyData] != null
+          ? Map<String, dynamic>.from(json[AppConstants.keyData])
           : {}, // always non-null
     );
   }

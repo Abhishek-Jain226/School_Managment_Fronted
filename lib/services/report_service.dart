@@ -1,8 +1,8 @@
 // lib/services/report_service.dart
 import 'dart:convert';
-import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
+import '../utils/constants.dart';
 import 'auth_service.dart';
 import '../config/app_config.dart';
 
@@ -14,22 +14,22 @@ class ReportService {
   Future<Map<String, dynamic>> getAttendanceReport(int schoolId, String filterType) async {
     final token = await _auth.getToken();
     
-    final url = Uri.parse("$base/api/reports/attendance/$schoolId?filterType=$filterType");
-    print("🔍 ReportService: getAttendanceReport URL: $url");
+    final url = Uri.parse("$base/api/reports/attendance/$schoolId?${AppConstants.keyFilterType}=$filterType");
+    debugPrint("🔍 ReportService: getAttendanceReport URL: $url");
     
     final headers = {
-      "Content-Type": "application/json",
-      if (token != null) "Authorization": "Bearer $token",
+      AppConstants.headerContentType: AppConstants.headerApplicationJson,
+      if (token != null) AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token",
     };
 
     final resp = await http.get(url, headers: headers);
-    print("🔍 ReportService: getAttendanceReport response status: ${resp.statusCode}");
-    print("🔍 ReportService: getAttendanceReport response body: ${resp.body}");
+    debugPrint("🔍 ReportService: getAttendanceReport response status: ${resp.statusCode}");
+    debugPrint("🔍 ReportService: getAttendanceReport response body: ${resp.body}");
 
     if (resp.statusCode == 200) {
       return jsonDecode(resp.body) as Map<String, dynamic>;
     } else {
-      throw Exception("Attendance report request failed: ${resp.statusCode} ${resp.body}");
+      throw Exception("${AppConstants.errorAttendanceReportFailed}: ${resp.statusCode} ${resp.body}");
     }
   }
 
@@ -37,22 +37,22 @@ class ReportService {
   Future<Map<String, dynamic>> getDispatchLogsReport(int schoolId, String filterType) async {
     final token = await _auth.getToken();
     
-    final url = Uri.parse("$base/api/reports/dispatch-logs/$schoolId?filterType=$filterType");
-    print("🔍 ReportService: getDispatchLogsReport URL: $url");
+    final url = Uri.parse("$base/api/reports/dispatch-logs/$schoolId?${AppConstants.keyFilterType}=$filterType");
+    debugPrint("🔍 ReportService: getDispatchLogsReport URL: $url");
     
     final headers = {
-      "Content-Type": "application/json",
-      if (token != null) "Authorization": "Bearer $token",
+      AppConstants.headerContentType: AppConstants.headerApplicationJson,
+      if (token != null) AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token",
     };
 
     final resp = await http.get(url, headers: headers);
-    print("🔍 ReportService: getDispatchLogsReport response status: ${resp.statusCode}");
-    print("🔍 ReportService: getDispatchLogsReport response body: ${resp.body}");
+    debugPrint("🔍 ReportService: getDispatchLogsReport response status: ${resp.statusCode}");
+    debugPrint("🔍 ReportService: getDispatchLogsReport response body: ${resp.body}");
 
     if (resp.statusCode == 200) {
       return jsonDecode(resp.body) as Map<String, dynamic>;
     } else {
-      throw Exception("Dispatch logs report request failed: ${resp.statusCode} ${resp.body}");
+      throw Exception("${AppConstants.errorDispatchLogsReportFailed}: ${resp.statusCode} ${resp.body}");
     }
   }
 
@@ -60,22 +60,22 @@ class ReportService {
   Future<Map<String, dynamic>> getNotificationLogsReport(int schoolId, String filterType) async {
     final token = await _auth.getToken();
     
-    final url = Uri.parse("$base/api/reports/notifications/$schoolId?filterType=$filterType");
-    print("🔍 ReportService: getNotificationLogsReport URL: $url");
+    final url = Uri.parse("$base/api/reports/notifications/$schoolId?${AppConstants.keyFilterType}=$filterType");
+    debugPrint("🔍 ReportService: getNotificationLogsReport URL: $url");
     
     final headers = {
-      "Content-Type": "application/json",
-      if (token != null) "Authorization": "Bearer $token",
+      AppConstants.headerContentType: AppConstants.headerApplicationJson,
+      if (token != null) AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token",
     };
 
     final resp = await http.get(url, headers: headers);
-    print("🔍 ReportService: getNotificationLogsReport response status: ${resp.statusCode}");
-    print("🔍 ReportService: getNotificationLogsReport response body: ${resp.body}");
+    debugPrint("🔍 ReportService: getNotificationLogsReport response status: ${resp.statusCode}");
+    debugPrint("🔍 ReportService: getNotificationLogsReport response body: ${resp.body}");
 
     if (resp.statusCode == 200) {
       return jsonDecode(resp.body) as Map<String, dynamic>;
     } else {
-      throw Exception("Notification logs report request failed: ${resp.statusCode} ${resp.body}");
+      throw Exception("${AppConstants.errorNotificationLogsReportFailed}: ${resp.statusCode} ${resp.body}");
     }
   }
 
@@ -83,22 +83,22 @@ class ReportService {
   Future<Map<String, dynamic>> exportReport(int schoolId, String type, String format) async {
     final token = await _auth.getToken();
     
-    final url = Uri.parse("$base/api/reports/export/$schoolId?type=$type&format=$format");
-    print("🔍 ReportService: exportReport URL: $url");
+    final url = Uri.parse("$base/api/reports/export/$schoolId?${AppConstants.keyType}=$type&${AppConstants.keyFormat}=$format");
+    debugPrint("🔍 ReportService: exportReport URL: $url");
     
     final headers = {
-      "Content-Type": "application/json",
-      if (token != null) "Authorization": "Bearer $token",
+      AppConstants.headerContentType: AppConstants.headerApplicationJson,
+      if (token != null) AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token",
     };
 
     final resp = await http.get(url, headers: headers);
-    print("🔍 ReportService: exportReport response status: ${resp.statusCode}");
-    print("🔍 ReportService: exportReport response body: ${resp.body}");
+    debugPrint("🔍 ReportService: exportReport response status: ${resp.statusCode}");
+    debugPrint("🔍 ReportService: exportReport response body: ${resp.body}");
 
     if (resp.statusCode == 200) {
       return jsonDecode(resp.body) as Map<String, dynamic>;
     } else {
-      throw Exception("Export report request failed: ${resp.statusCode} ${resp.body}");
+      throw Exception("${AppConstants.errorExportReportFailed}: ${resp.statusCode} ${resp.body}");
     }
   }
 
@@ -106,20 +106,20 @@ class ReportService {
   Future<Uint8List> downloadReport(int schoolId, String type, String format) async {
     final token = await _auth.getToken();
     
-    final url = Uri.parse("$base/api/reports/download/$schoolId?type=$type&format=$format");
-    print("🔍 ReportService: downloadReport URL: $url");
+    final url = Uri.parse("$base/api/reports/download/$schoolId?${AppConstants.keyType}=$type&${AppConstants.keyFormat}=$format");
+    debugPrint("🔍 ReportService: downloadReport URL: $url");
     
     final headers = {
-      if (token != null) "Authorization": "Bearer $token",
+      if (token != null) AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token",
     };
 
     final resp = await http.get(url, headers: headers);
-    print("🔍 ReportService: downloadReport response status: ${resp.statusCode}");
+    debugPrint("🔍 ReportService: downloadReport response status: ${resp.statusCode}");
 
     if (resp.statusCode == 200) {
       return resp.bodyBytes;
     } else {
-      throw Exception("Download report request failed: ${resp.statusCode} ${resp.body}");
+      throw Exception("${AppConstants.errorDownloadReportFailed}: ${resp.statusCode} ${resp.body}");
     }
   }
 }

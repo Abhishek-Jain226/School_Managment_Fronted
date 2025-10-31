@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../utils/constants.dart';
 
 import '../../services/auth_service.dart';
 
@@ -23,30 +24,35 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   Future<void> _sendOtp() async {
     if (_loginIdCtl.text.isEmpty) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Enter username/email/mobile")),
+        const SnackBar(content: Text(AppConstants.msgEnterUsernameEmailMobile)),
       );
       return;
     }
     setState(() => _loading = true);
     try {
       final resp = await _service.forgotPassword(_loginIdCtl.text.trim());
-      if (resp["success"] == true) {
+      if (!mounted) return;
+      if (resp[AppConstants.keySuccess] == true) {
         setState(() => _otpSent = true);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(resp["message"] ?? "OTP sent")),
+          SnackBar(content: Text(resp[AppConstants.keyMessage] ?? AppConstants.msgOTPSent)),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(resp["message"] ?? "Failed")),
+          SnackBar(content: Text(resp[AppConstants.keyMessage] ?? AppConstants.msgFailed)),
         );
       }
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $e")),
+        SnackBar(content: Text('${AppConstants.msgError}: $e')),
       );
     } finally {
-      setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
   }
 
@@ -60,31 +66,35 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         _otpCtl.text.trim(),
         _newPassCtl.text.trim(),
       );
-      if (resp["success"] == true) {
+      if (!mounted) return;
+      if (resp[AppConstants.keySuccess] == true) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(resp["message"] ?? "Password reset successful")),
+          SnackBar(content: Text(resp[AppConstants.keyMessage] ?? AppConstants.msgPasswordResetSuccessful)),
         );
         Navigator.pop(context); // back to login screen
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(resp["message"] ?? "Failed")),
+          SnackBar(content: Text(resp[AppConstants.keyMessage] ?? AppConstants.msgFailed)),
         );
       }
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $e")),
+        SnackBar(content: Text('${AppConstants.msgError}: $e')),
       );
     } finally {
-      setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Forgot Password")),
+      appBar: AppBar(title: Text(AppConstants.labelForgotPassword)),
       body: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSizes.forgotPasswordPadding),
         child: Form(
           key: _formKey,
           child: ListView(
@@ -92,43 +102,43 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               TextFormField(
                 controller: _loginIdCtl,
                 decoration: const InputDecoration(
-                  labelText: "Username / Email / Mobile",
+                  labelText: AppConstants.labelUsernameEmailMobile,
                   border: OutlineInputBorder(),
                 ),
-                validator: (v) => v == null || v.isEmpty ? "Enter login id" : null,
+                validator: (v) => v == null || v.isEmpty ? AppConstants.msgEnterLoginId : null,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSizes.forgotPasswordSpacing),
 
               if (_otpSent) ...[
                 TextFormField(
                   controller: _otpCtl,
                   decoration: const InputDecoration(
-                    labelText: "Enter OTP",
+                    labelText: AppConstants.labelEnterOTP,
                     border: OutlineInputBorder(),
                   ),
-                  validator: (v) => v == null || v.isEmpty ? "Enter OTP" : null,
+                  validator: (v) => v == null || v.isEmpty ? AppConstants.msgEnterOTP : null,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSizes.forgotPasswordSpacing),
                 TextFormField(
                   controller: _newPassCtl,
                   obscureText: true,
                   decoration: const InputDecoration(
-                    labelText: "New Password",
+                    labelText: AppConstants.labelNewPassword,
                     border: OutlineInputBorder(),
                   ),
-                  validator: (v) => v != null && v.length < 6 ? "Min 6 chars" : null,
+                  validator: (v) => v != null && v.length < AppSizes.forgotPasswordMinLength ? AppConstants.msgMinSixChars : null,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSizes.forgotPasswordSpacing),
                 TextFormField(
                   controller: _confirmCtl,
                   obscureText: true,
                   decoration: const InputDecoration(
-                    labelText: "Confirm Password",
+                    labelText: AppConstants.labelConfirmPassword,
                     border: OutlineInputBorder(),
                   ),
-                  validator: (v) => v != _newPassCtl.text ? "Passwords do not match" : null,
+                  validator: (v) => v != _newPassCtl.text ? AppConstants.msgPasswordsDoNotMatch : null,
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: AppSizes.forgotPasswordSpacingLG),
               ],
 
               ElevatedButton(
@@ -139,7 +149,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                         : _sendOtp,
                 child: _loading
                     ? const CircularProgressIndicator()
-                    : Text(_otpSent ? "Reset Password" : "Send OTP"),
+                    : Text(_otpSent ? AppConstants.labelResetPassword : AppConstants.labelSendOTP),
               ),
             ],
           ),

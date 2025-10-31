@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/vehicle_owner_service.dart';
+import '../../utils/constants.dart';
 
 class SchoolSelector extends StatefulWidget {
   final Function(int? schoolId, String? schoolName) onSchoolSelected;
@@ -35,41 +36,47 @@ class _SchoolSelectorState extends State<SchoolSelector> {
     
     try {
       final prefs = await SharedPreferences.getInstance();
-      final userId = prefs.getInt("userId");
+      final userId = prefs.getInt(AppConstants.keyUserId);
       
       if (userId == null) {
-        _showError("User not found. Please login again.");
+        _showError(AppConstants.errorUserNotFound);
         return;
       }
 
       // Get vehicle owner by user ID
       final ownerResponse = await _vehicleOwnerService.getOwnerByUserId(userId);
       
-      if (ownerResponse['success'] == true) {
-        final ownerData = ownerResponse['data'];
-        final ownerId = ownerData['ownerId'];
+      if (ownerResponse[AppConstants.keySuccess] == true) {
+        final ownerData = ownerResponse[AppConstants.keyData];
+        final ownerId = ownerData[AppConstants.keyOwnerId];
         
         // Get associated schools
         final schoolsResponse = await _vehicleOwnerService.getAssociatedSchools(ownerId);
         
-        if (schoolsResponse['success'] == true) {
-          final schoolsData = schoolsResponse['data'];
+        if (schoolsResponse[AppConstants.keySuccess] == true) {
+          final schoolsData = schoolsResponse[AppConstants.keyData];
           setState(() {
-            _schools = List<Map<String, dynamic>>.from(schoolsData['schools'] ?? []);
+            _schools = List<Map<String, dynamic>>.from(
+              schoolsData[AppConstants.keySchools] ?? [],
+            );
             if (_schools.isNotEmpty && _selectedSchoolId == null) {
-              _selectedSchoolId = _schools.first['schoolId'];
-              _selectedSchoolName = _schools.first['schoolName'];
+              _selectedSchoolId = _schools.first[AppConstants.keySchoolId];
+              _selectedSchoolName = _schools.first[AppConstants.keySchoolName];
               widget.onSchoolSelected(_selectedSchoolId, _selectedSchoolName);
             }
           });
         } else {
-          _showError("Failed to load schools: ${schoolsResponse['message']}");
+          _showError(
+            '${AppConstants.errorFailedToLoadSchools}${schoolsResponse[AppConstants.keyMessage]}',
+          );
         }
       } else {
-        _showError("Failed to load owner data: ${ownerResponse['message']}");
+        _showError(
+          '${AppConstants.errorFailedToLoadOwnerData}${ownerResponse[AppConstants.keyMessage]}',
+        );
       }
     } catch (e) {
-      _showError("Error loading schools: $e");
+      _showError('${AppConstants.errorLoadingSchools}$e');
     } finally {
       setState(() => _isLoading = false);
     }
@@ -80,7 +87,7 @@ class _SchoolSelectorState extends State<SchoolSelector> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(message),
-          backgroundColor: Colors.red,
+          backgroundColor: AppColors.schoolSelectorErrorColor,
         ),
       );
     }
@@ -91,10 +98,12 @@ class _SchoolSelectorState extends State<SchoolSelector> {
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppSizes.schoolSelectorModalRadius),
+        ),
       ),
       builder: (context) => Container(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(AppSizes.schoolSelectorModalPadding),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -104,9 +113,9 @@ class _SchoolSelectorState extends State<SchoolSelector> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
-                  "Select School",
+                  AppConstants.labelSelectSchool,
                   style: TextStyle(
-                    fontSize: 20,
+                    fontSize: AppSizes.schoolSelectorHeaderFontSize,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -116,16 +125,18 @@ class _SchoolSelectorState extends State<SchoolSelector> {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSizes.schoolSelectorSpacingMD),
             
             // Schools List
             if (_schools.isEmpty)
               const Padding(
-                padding: EdgeInsets.all(20),
+                padding: EdgeInsets.all(AppSizes.schoolSelectorModalPadding),
                 child: Center(
                   child: Text(
-                    "No schools associated with your account",
-                    style: TextStyle(color: Colors.grey),
+                    AppConstants.labelNoSchoolsAssociated,
+                    style: TextStyle(
+                      color: AppColors.schoolSelectorEmptyTextColor,
+                    ),
                   ),
                 ),
               )
@@ -135,21 +146,30 @@ class _SchoolSelectorState extends State<SchoolSelector> {
                 itemCount: _schools.length,
                 itemBuilder: (context, index) {
                   final school = _schools[index];
-                  final schoolId = school['schoolId'];
-                  final schoolName = school['schoolName'];
-                  final schoolAddress = school['schoolAddress'];
+                  final schoolId = school[AppConstants.keySchoolId];
+                  final schoolName = school[AppConstants.keySchoolName];
+                  final schoolAddress = school[AppConstants.keyAddress];
                   final isSelected = _selectedSchoolId == schoolId;
                   
                   return Card(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    color: isSelected ? Colors.blue.shade50 : null,
+                    margin: const EdgeInsets.only(
+                      bottom: AppSizes.schoolSelectorSpacingSM,
+                    ),
+                    color: isSelected
+                        ? AppColors.schoolSelectorPrimaryColor.shade50
+                        : null,
                     child: ListTile(
                       leading: CircleAvatar(
-                        backgroundColor: isSelected ? Colors.blue : Colors.grey,
+                        backgroundColor: isSelected
+                            ? AppColors.schoolSelectorSelectedColor
+                            : AppColors.schoolSelectorUnselectedColor,
                         child: Text(
-                          schoolName.substring(0, 1).toUpperCase(),
+                          schoolName.substring(
+                            AppSizes.schoolSelectorNameSubstringStart,
+                            AppSizes.schoolSelectorNameSubstringEnd,
+                          ).toUpperCase(),
                           style: const TextStyle(
-                            color: Colors.white,
+                            color: AppColors.schoolSelectorTextWhite,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -157,13 +177,20 @@ class _SchoolSelectorState extends State<SchoolSelector> {
                       title: Text(
                         schoolName,
                         style: TextStyle(
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                          color: isSelected ? Colors.blue : Colors.black,
+                          fontWeight: isSelected
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                          color: isSelected
+                              ? AppColors.schoolSelectorSelectedColor
+                              : AppColors.schoolSelectorTextBlack,
                         ),
                       ),
                       subtitle: Text(schoolAddress ?? ''),
                       trailing: isSelected
-                          ? const Icon(Icons.check_circle, color: Colors.blue)
+                          ? const Icon(
+                              Icons.check_circle,
+                              color: AppColors.schoolSelectorSelectedColor,
+                            )
                           : null,
                       onTap: () {
                         setState(() {
@@ -173,8 +200,14 @@ class _SchoolSelectorState extends State<SchoolSelector> {
                         
                         // Save to SharedPreferences
                         SharedPreferences.getInstance().then((prefs) {
-                          prefs.setInt('currentSchoolId', schoolId);
-                          prefs.setString('currentSchoolName', schoolName);
+                          prefs.setInt(
+                            AppConstants.keyCurrentSchoolId,
+                            schoolId,
+                          );
+                          prefs.setString(
+                            AppConstants.keyCurrentSchoolName,
+                            schoolName,
+                          );
                         });
                         
                         widget.onSchoolSelected(schoolId, schoolName);
@@ -194,18 +227,20 @@ class _SchoolSelectorState extends State<SchoolSelector> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const SizedBox(
-        width: 24,
-        height: 24,
-        child: CircularProgressIndicator(strokeWidth: 2),
+        width: AppSizes.schoolSelectorLoadingSize,
+        height: AppSizes.schoolSelectorLoadingSize,
+        child: CircularProgressIndicator(
+          strokeWidth: AppSizes.schoolSelectorLoadingStroke,
+        ),
       );
     }
 
     if (_schools.isEmpty) {
       return const Text(
-        "No Schools",
+        AppConstants.labelNoSchools,
         style: TextStyle(
-          color: Colors.red,
-          fontSize: 12,
+          color: AppColors.schoolSelectorNoSchoolsColor,
+          fontSize: AppSizes.schoolSelectorNoSchoolsFontSize,
           fontWeight: FontWeight.w500,
         ),
       );
@@ -214,37 +249,44 @@ class _SchoolSelectorState extends State<SchoolSelector> {
     return GestureDetector(
       onTap: _showSchoolSelector,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSizes.schoolSelectorContainerPaddingH,
+          vertical: AppSizes.schoolSelectorContainerPaddingV,
+        ),
         decoration: BoxDecoration(
-          color: Colors.blue.shade50,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.blue.shade200),
+          color: AppColors.schoolSelectorPrimaryColor.shade50,
+          borderRadius: BorderRadius.circular(
+            AppSizes.schoolSelectorContainerRadius,
+          ),
+          border: Border.all(
+            color: AppColors.schoolSelectorPrimaryColor.shade200,
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               Icons.school,
-              size: 16,
-              color: Colors.blue.shade700,
+              size: AppSizes.schoolSelectorIconSize,
+              color: AppColors.schoolSelectorPrimaryColor.shade700,
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: AppSizes.schoolSelectorSpacingXS),
             Flexible(
               child: Text(
-                _selectedSchoolName ?? "Select School",
+                _selectedSchoolName ?? AppConstants.labelSelectSchool,
                 style: TextStyle(
-                  color: Colors.blue.shade700,
-                  fontSize: 12,
+                  color: AppColors.schoolSelectorPrimaryColor.shade700,
+                  fontSize: AppSizes.schoolSelectorTextFontSize,
                   fontWeight: FontWeight.w500,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            const SizedBox(width: 4),
+            const SizedBox(width: AppSizes.schoolSelectorSpacingXXS),
             Icon(
               Icons.arrow_drop_down,
-              size: 16,
-              color: Colors.blue.shade700,
+              size: AppSizes.schoolSelectorIconSize,
+              color: AppColors.schoolSelectorPrimaryColor.shade700,
             ),
           ],
         ),

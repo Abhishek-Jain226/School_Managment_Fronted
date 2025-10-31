@@ -1,4 +1,6 @@
 // lib/data/models/section_master.dart
+import '../../utils/constants.dart';
+
 class SectionMaster {
   final int? sectionId;
   final String sectionName;
@@ -26,31 +28,31 @@ class SectionMaster {
 
   factory SectionMaster.fromJson(Map<String, dynamic> json) {
     return SectionMaster(
-      sectionId: json['sectionId'],
-      sectionName: json['sectionName'],
-      description: json['description'],
-      schoolId: json['schoolId'],
-      schoolName: json['schoolName'],
-      isActive: json['isActive'] ?? true,
-      createdBy: json['createdBy'],
-      createdDate: json['createdDate'] != null ? DateTime.parse(json['createdDate']) : null,
-      updatedBy: json['updatedBy'],
-      updatedDate: json['updatedDate'] != null ? DateTime.parse(json['updatedDate']) : null,
+      sectionId: json[AppConstants.keySectionId],
+      sectionName: json[AppConstants.keySectionName],
+      description: json[AppConstants.keyDescription],
+      schoolId: json[AppConstants.keySchoolId],
+      schoolName: json[AppConstants.keySchoolName],
+      isActive: json[AppConstants.keyIsActive] ?? true,
+      createdBy: json[AppConstants.keyCreatedBy],
+      createdDate: json[AppConstants.keyCreatedDate] != null ? DateTime.parse(json[AppConstants.keyCreatedDate]) : null,
+      updatedBy: json[AppConstants.keyUpdatedBy],
+      updatedDate: json[AppConstants.keyUpdatedDate] != null ? DateTime.parse(json[AppConstants.keyUpdatedDate]) : null,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'sectionId': sectionId,
-      'sectionName': sectionName,
-      'description': description,
-      'schoolId': schoolId,
-      'schoolName': schoolName,
-      'isActive': isActive,
-      'createdBy': createdBy,
-      'createdDate': createdDate?.toIso8601String(),
-      'updatedBy': updatedBy,
-      'updatedDate': updatedDate?.toIso8601String(),
+      AppConstants.keySectionId: sectionId,
+      AppConstants.keySectionName: sectionName,
+      AppConstants.keyDescription: description,
+      AppConstants.keySchoolId: schoolId,
+      AppConstants.keySchoolName: schoolName,
+      AppConstants.keyIsActive: isActive,
+      AppConstants.keyCreatedBy: createdBy,
+      AppConstants.keyCreatedDate: createdDate?.toIso8601String(),
+      AppConstants.keyUpdatedBy: updatedBy,
+      AppConstants.keyUpdatedDate: updatedDate?.toIso8601String(),
     };
   }
 

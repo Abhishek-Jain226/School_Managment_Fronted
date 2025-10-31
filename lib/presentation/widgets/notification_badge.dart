@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../data/models/websocket_notification.dart';
+import '../../utils/constants.dart';
 
 class NotificationBadge extends StatefulWidget {
   final int notificationCount;
@@ -28,28 +28,30 @@ class _NotificationBadgeState extends State<NotificationBadge> {
         children: [
           const Icon(
             Icons.notifications,
-            size: 28,
-            color: Colors.white,
+            size: AppSizes.notificationIconSize,
+            color: AppColors.notificationIconColor,
           ),
           if (widget.notificationCount > 0)
             Positioned(
               right: 0,
               top: 0,
               child: Container(
-                padding: const EdgeInsets.all(2),
+                padding: const EdgeInsets.all(AppSizes.notificationBadgePadding),
                 decoration: BoxDecoration(
-                  color: widget.badgeColor ?? Colors.red,
-                  borderRadius: BorderRadius.circular(10),
+                  color: widget.badgeColor ?? AppColors.notificationBadgeColor,
+                  borderRadius: BorderRadius.circular(AppSizes.notificationBadgeRadius),
                 ),
                 constraints: const BoxConstraints(
-                  minWidth: 16,
-                  minHeight: 16,
+                  minWidth: AppSizes.notificationBadgeMinSize,
+                  minHeight: AppSizes.notificationBadgeMinSize,
                 ),
                 child: Text(
-                  widget.notificationCount > 99 ? '99+' : widget.notificationCount.toString(),
+                  widget.notificationCount > AppSizes.notificationMaxCount
+                      ? AppConstants.labelNotificationOverflow
+                      : widget.notificationCount.toString(),
                   style: TextStyle(
-                    color: widget.textColor ?? Colors.white,
-                    fontSize: 10,
+                    color: widget.textColor ?? AppColors.notificationBadgeTextColor,
+                    fontSize: AppSizes.notificationBadgeFontSize,
                     fontWeight: FontWeight.bold,
                   ),
                   textAlign: TextAlign.center,

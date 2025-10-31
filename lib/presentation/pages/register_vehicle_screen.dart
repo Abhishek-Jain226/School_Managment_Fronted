@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../utils/constants.dart';
 import '../../data/models/New_vehicle_request.dart';
 import '../../services/vehicle_service.dart';
 
@@ -30,11 +31,11 @@ class _RegisterVehicleScreenState extends State<RegisterVehicleScreen> {
   final _service = VehicleService();
   final _picker = ImagePicker();
 
-  final List<String> _vehicleTypes = ["Car", "Auto", "Bus", "Van"]; // ✅ dropdown list 
+  final List<String> _vehicleTypes = AppConstants.vehicleTypes; // ✅ dropdown list 
 
   Future<void> _pickImage(ImageSource source) async {
     final XFile? picked =
-        await _picker.pickImage(source: source, imageQuality: 75);
+        await _picker.pickImage(source: source, imageQuality: AppSizes.registerStudentImageQuality);
     if (picked == null) return;
     final bytes = await picked.readAsBytes();
     setState(() {
@@ -49,11 +50,11 @@ class _RegisterVehicleScreenState extends State<RegisterVehicleScreen> {
     setState(() => _submitting = true);
     try {
       final prefs = await SharedPreferences.getInstance();
-      final createdBy = prefs.getString("userName") ?? "";
+      final createdBy = prefs.getString(AppConstants.keyUserName) ?? "";
       
 
       final capacityValue = int.parse(_capacityCtl.text.trim());
-      print('🔍 Frontend: Sending capacity value: $capacityValue');
+      debugPrint('🔍 Frontend: Sending capacity value: $capacityValue');
       
       final req = VehicleRequest(
         vehicleNumber: _vehicleNumberCtl.text.trim(),
@@ -64,23 +65,23 @@ class _RegisterVehicleScreenState extends State<RegisterVehicleScreen> {
         capacity: capacityValue, // ✅ send capacity
       );
       
-      print('🔍 Frontend: Vehicle request JSON: ${req.toJson()}');
+      debugPrint('🔍 Frontend: Vehicle request JSON: ${req.toJson()}');
 
       final res = await _service.registerVehicle(req);
 
       if (!mounted) return;
-      if (res['success'] == true) {
+      if (res[AppConstants.keySuccess] == true) {
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(res['message'] ?? 'Vehicle registered')));
+            SnackBar(content: Text(res[AppConstants.keyMessage] ?? AppConstants.labelVehicleRegistered)));
         Navigator.pop(context, true);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(res['message'] ?? 'Failed')));
+            SnackBar(content: Text(res[AppConstants.keyMessage] ?? AppConstants.labelFailedGeneric)));
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text("Error: $e")));
+            .showSnackBar(SnackBar(content: Text('${AppConstants.labelError}: $e')));
       }
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -98,9 +99,9 @@ class _RegisterVehicleScreenState extends State<RegisterVehicleScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Register Vehicle")),
+      appBar: AppBar(title: const Text(AppConstants.labelRegisterVehicle)),
       body: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSizes.registerVehiclePadding),
         child: Form(
           key: _formKey,
           child: SingleChildScrollView(
@@ -115,7 +116,7 @@ class _RegisterVehicleScreenState extends State<RegisterVehicleScreen> {
                         children: [
                           ListTile(
                             leading: const Icon(Icons.photo_library),
-                            title: const Text("Choose from gallery"),
+                            title: const Text(AppConstants.labelChooseFromGallery),
                             onTap: () {
                               Navigator.pop(context);
                               _pickImage(ImageSource.gallery);
@@ -123,7 +124,7 @@ class _RegisterVehicleScreenState extends State<RegisterVehicleScreen> {
                           ),
                           ListTile(
                             leading: const Icon(Icons.camera_alt),
-                            title: const Text("Take photo"),
+                            title: const Text(AppConstants.labelTakePhoto),
                             onTap: () {
                               Navigator.pop(context);
                               _pickImage(ImageSource.camera);
@@ -135,44 +136,44 @@ class _RegisterVehicleScreenState extends State<RegisterVehicleScreen> {
                   );
                 },
                 child: CircleAvatar(
-                  radius: 48,
-                  backgroundColor: Colors.grey.shade200,
+                  radius: AppSizes.registerVehicleAvatarRadius,
+                  backgroundColor: AppColors.grey200,
                   backgroundImage:
                       _photoFile != null ? FileImage(_photoFile!) : null,
                   child: _photoFile == null
-                      ? const Icon(Icons.camera_alt, size: 36)
+                      ? const Icon(Icons.camera_alt, size: AppSizes.registerVehicleAvatarIcon)
                       : null,
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSizes.registerVehicleSpacingLG),
 
               TextFormField(
                 controller: _vehicleNumberCtl,
                 decoration: const InputDecoration(
-                  labelText: "Vehicle Number *",
-                  hintText: "e.g., 28, 29, 30",
+                  labelText: AppConstants.labelVehicleNumber,
+                  hintText: AppConstants.hintVehicleNumber,
                 ),
                 validator: (v) {
-                  if (v == null || v.trim().isEmpty) return "Vehicle number is required";
-                  if (v.trim().length > 10) return "Vehicle number cannot exceed 10 characters";
+                  if (v == null || v.trim().isEmpty) return AppConstants.msgVehicleNumberRequired;
+                  if (v.trim().length > 10) return AppConstants.msgVehicleNumberMax10;
                   return null;
                 },
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSizes.registerVehicleSpacing),
 
               TextFormField(
                 controller: _registrationNumberCtl,
                 decoration: const InputDecoration(
-                  labelText: "Registration Number *",
-                  hintText: "e.g., MH12AB1234",
+                  labelText: AppConstants.labelVehicleRegistrationNumber,
+                  hintText: AppConstants.hintVehicleRegistrationNumber,
                 ),
                 validator: (v) {
-                  if (v == null || v.trim().isEmpty) return "Registration number is required";
-                  if (v.trim().length > 20) return "Registration number cannot exceed 20 characters";
+                  if (v == null || v.trim().isEmpty) return AppConstants.msgRegistrationNumberRequired;
+                  if (v.trim().length > 20) return AppConstants.msgRegistrationNumberMax20;
                   return null;
                 },
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSizes.registerVehicleSpacing),
 
               // ✅ Vehicle Type Dropdown
               DropdownButtonFormField<String>(
@@ -182,37 +183,37 @@ class _RegisterVehicleScreenState extends State<RegisterVehicleScreen> {
                         DropdownMenuItem(value: type, child: Text(type)))
                     .toList(),
                 onChanged: (val) => setState(() => _selectedVehicleType = val),
-                decoration: const InputDecoration(labelText: "Vehicle Type *"),
+                decoration: const InputDecoration(labelText: AppConstants.labelVehicleType),
                 validator: (v) =>
-                    v == null ? "Please select vehicle type" : null,
+                    v == null ? AppConstants.msgSelectVehicleType : null,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSizes.registerVehicleSpacing),
 
               // ✅ Vehicle Capacity Field
               TextFormField(
                 controller: _capacityCtl,
                 keyboardType: TextInputType.number,
                 decoration: const InputDecoration(
-                  labelText: "Vehicle Capacity *",
-                  hintText: "e.g., 25, 30, 40",
-                  suffixText: "students",
+                  labelText: AppConstants.labelVehicleCapacity,
+                  hintText: AppConstants.hintVehicleCapacity,
+                  suffixText: AppConstants.suffixStudents,
                 ),
                 validator: (v) {
-                  if (v == null || v.trim().isEmpty) return "Vehicle capacity is required";
+                  if (v == null || v.trim().isEmpty) return AppConstants.msgVehicleCapacityRequired;
                   final capacity = int.tryParse(v.trim());
-                  if (capacity == null) return "Please enter a valid number";
-                  if (capacity <= 0) return "Capacity must be greater than 0";
-                  if (capacity > 100) return "Capacity cannot exceed 100 students";
+                  if (capacity == null) return AppConstants.msgEnterValidNumber;
+                  if (capacity <= 0) return AppConstants.msgCapacityMustBeGreaterThanZero;
+                  if (capacity > 100) return AppConstants.msgCapacityCannotExceed100;
                   return null;
                 },
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: AppSizes.registerVehicleSpacingLG),
 
               ElevatedButton(
                 onPressed: _submitting ? null : _submit,
                 child: _submitting
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text("Register Vehicle"),
+                    ? const CircularProgressIndicator(color: AppColors.loadingIndicatorColor)
+                    : const Text(AppConstants.labelRegisterVehicle),
               ),
             ],
             ),

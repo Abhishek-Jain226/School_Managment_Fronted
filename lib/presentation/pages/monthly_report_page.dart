@@ -1,8 +1,8 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/parent_service.dart';
 import '../../data/models/monthly_report.dart';
+import '../../utils/constants.dart';
 
 class MonthlyReportPage extends StatefulWidget {
   const MonthlyReportPage({super.key});
@@ -21,11 +21,6 @@ class _MonthlyReportPageState extends State<MonthlyReportPage> {
   int _selectedYear = DateTime.now().year;
   int _selectedMonth = DateTime.now().month;
 
-  final List<String> _months = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -35,14 +30,14 @@ class _MonthlyReportPageState extends State<MonthlyReportPage> {
   Future<void> _loadUserId() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      _userId = prefs.getInt('userId');
+      _userId = prefs.getInt(AppConstants.keyUserId);
     });
     
     if (_userId != null) {
       _loadMonthlyReport();
     } else {
       setState(() {
-        _error = 'User ID not found. Please login again.';
+        _error = AppConstants.msgUserIdNotFoundLogin;
         _isLoading = false;
       });
     }
@@ -65,9 +60,9 @@ class _MonthlyReportPageState extends State<MonthlyReportPage> {
         _error = '';
       });
     } catch (e) {
-      print('🔍 Error loading monthly report: $e');
+      debugPrint('🔍 Error loading monthly report: $e');
       setState(() {
-        _error = 'Error loading monthly report: $e';
+        _error = '${AppConstants.msgErrorLoadingReport}$e';
       });
     } finally {
       setState(() => _isLoading = false);
@@ -79,7 +74,7 @@ class _MonthlyReportPageState extends State<MonthlyReportPage> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Select Month & Year'),
+          title: const Text(AppConstants.labelSelectMonthYear),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -87,10 +82,10 @@ class _MonthlyReportPageState extends State<MonthlyReportPage> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Year:'),
+                  const Text(AppConstants.labelYear),
                   DropdownButton<int>(
                     value: _selectedYear,
-                    items: List.generate(5, (index) {
+                    items: List.generate(AppSizes.monthlyReportYearRange, (index) {
                       final year = DateTime.now().year - index;
                       return DropdownMenuItem(value: year, child: Text(year.toString()));
                     }),
@@ -102,18 +97,18 @@ class _MonthlyReportPageState extends State<MonthlyReportPage> {
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSizes.monthlyReportSpacingLG),
               // Month Picker
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Month:'),
+                  const Text(AppConstants.labelMonth),
                   DropdownButton<int>(
                     value: _selectedMonth,
-                    items: List.generate(12, (index) {
+                    items: List.generate(AppSizes.monthlyReportMonthCount, (index) {
                       return DropdownMenuItem(
                         value: index + 1,
-                        child: Text(_months[index]),
+                        child: Text(AppConstants.monthNames[index]),
                       );
                     }),
                     onChanged: (value) {
@@ -129,14 +124,14 @@ class _MonthlyReportPageState extends State<MonthlyReportPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
+              child: const Text(AppConstants.actionCancel),
             ),
             TextButton(
               onPressed: () {
                 Navigator.of(context).pop();
                 _loadMonthlyReport();
               },
-              child: const Text('Load Report'),
+              child: const Text(AppConstants.labelLoadReport),
             ),
           ],
         );
@@ -150,21 +145,21 @@ class _MonthlyReportPageState extends State<MonthlyReportPage> {
       appBar: AppBar(
         title: const Row(
           children: [
-            Icon(Icons.assessment, size: 28),
-            SizedBox(width: 8),
-            Text("Monthly Report"),
+            Icon(Icons.assessment, size: AppSizes.monthlyReportIconSize),
+            SizedBox(width: AppSizes.monthlyReportIconSpacing),
+            Text(AppConstants.labelMonthlyReport),
           ],
         ),
         actions: [
           IconButton(
             icon: const Icon(Icons.calendar_month),
             onPressed: _showMonthYearPicker,
-            tooltip: 'Select Month & Year',
+            tooltip: AppConstants.labelSelectMonthYear,
           ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadMonthlyReport,
-            tooltip: 'Refresh',
+            tooltip: AppConstants.labelRefresh,
           ),
         ],
       ),
@@ -175,111 +170,111 @@ class _MonthlyReportPageState extends State<MonthlyReportPage> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(_error, style: const TextStyle(color: Colors.red, fontSize: 16)),
-                      const SizedBox(height: 10),
+                      Text(_error, style: const TextStyle(color: AppColors.errorColor, fontSize: AppSizes.monthlyReportErrorFontSize)),
+                      const SizedBox(height: AppSizes.monthlyReportErrorSpacing),
                       ElevatedButton(
                         onPressed: _loadMonthlyReport,
-                        child: const Text('Retry'),
+                        child: const Text(AppConstants.labelRetry),
                       ),
                     ],
                   ),
                 )
               : _monthlyReport == null
-                  ? const Center(child: Text('No report data found'))
+                  ? const Center(child: Text(AppConstants.labelNoReportData))
                   : SingleChildScrollView(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(AppSizes.monthlyReportPadding),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           // Report Header
                           Card(
-                            elevation: 3,
+                            elevation: AppSizes.monthlyReportCardElevation,
                             child: Padding(
-                              padding: const EdgeInsets.all(16),
+                              padding: const EdgeInsets.all(AppSizes.monthlyReportPadding),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    '${_months[_selectedMonth - 1]} $_selectedYear Report',
-                                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                                    '${AppConstants.monthNames[_selectedMonth - 1]} $_selectedYear${AppConstants.labelReportSuffix}',
+                                    style: const TextStyle(fontSize: AppSizes.monthlyReportHeaderFontSize, fontWeight: FontWeight.bold),
                                   ),
-                                  const SizedBox(height: 8),
-                                  Text('Student: ${_monthlyReport!.studentName}'),
-                                  Text('Class: ${_monthlyReport!.className} - ${_monthlyReport!.sectionName}'),
-                                  Text('School: ${_monthlyReport!.schoolName}'),
+                                  const SizedBox(height: AppSizes.monthlyReportSpacing),
+                                  Text('${AppConstants.labelStudent}${AppConstants.labelColon} ${_monthlyReport!.studentName}'),
+                                  Text('${AppConstants.labelClass}${AppConstants.labelColon} ${_monthlyReport!.className} - ${_monthlyReport!.sectionName}'),
+                                  Text('${AppConstants.labelSchool}${AppConstants.labelColon} ${_monthlyReport!.schoolName}'),
                                 ],
                               ),
                             ),
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: AppSizes.monthlyReportSpacingLG),
                           
                           // Attendance Summary
                           const Text(
-                            'Attendance Summary',
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                            AppConstants.labelAttendanceSummary,
+                            style: TextStyle(fontSize: AppSizes.monthlyReportSectionFontSize, fontWeight: FontWeight.bold),
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: AppSizes.monthlyReportSpacing),
                           Row(
                             children: [
                               Expanded(
                                 child: _buildStatCard(
-                                  "School Days",
+                                  AppConstants.labelSchoolDays,
                                   _monthlyReport!.totalSchoolDays.toString(),
-                                  Colors.blue,
+                                  AppColors.primaryColor,
                                   Icons.school,
                                 ),
                               ),
-                              const SizedBox(width: 8),
+                              const SizedBox(width: AppSizes.monthlyReportSpacing),
                               Expanded(
                                 child: _buildStatCard(
-                                  "Present",
+                                  AppConstants.labelPresent,
                                   _monthlyReport!.presentDays.toString(),
-                                  Colors.green,
+                                  AppColors.statusSuccess,
                                   Icons.check_circle,
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: AppSizes.monthlyReportSpacing),
                           Row(
                             children: [
                               Expanded(
                                 child: _buildStatCard(
-                                  "Absent",
+                                  AppConstants.labelAbsent,
                                   _monthlyReport!.absentDays.toString(),
-                                  Colors.red,
+                                  AppColors.errorColor,
                                   Icons.cancel,
                                 ),
                               ),
-                              const SizedBox(width: 8),
+                              const SizedBox(width: AppSizes.monthlyReportSpacing),
                               Expanded(
                                 child: _buildStatCard(
-                                  "Late",
+                                  AppConstants.labelLate,
                                   _monthlyReport!.lateDays.toString(),
-                                  Colors.orange,
+                                  AppColors.statusWarning,
                                   Icons.schedule,
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: AppSizes.monthlyReportSpacingLG),
                           
                           // Attendance Percentage
                           Card(
-                            elevation: 3,
+                            elevation: AppSizes.monthlyReportCardElevation,
                             child: Padding(
-                              padding: const EdgeInsets.all(16),
+                              padding: const EdgeInsets.all(AppSizes.monthlyReportPadding),
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   const Text(
-                                    "Attendance Percentage",
-                                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                    AppConstants.labelAttendancePercentage,
+                                    style: TextStyle(fontSize: AppSizes.monthlyReportSectionFontSize, fontWeight: FontWeight.bold),
                                   ),
                                   Text(
                                     "${_monthlyReport!.attendancePercentage.toStringAsFixed(1)}%",
                                     style: TextStyle(
-                                      fontSize: 24,
+                                      fontSize: AppSizes.monthlyReportPercentFontSize,
                                       fontWeight: FontWeight.bold,
                                       color: _getAttendanceColor(_monthlyReport!.attendancePercentage),
                                     ),
@@ -288,82 +283,82 @@ class _MonthlyReportPageState extends State<MonthlyReportPage> {
                               ),
                             ),
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: AppSizes.monthlyReportSpacingLG),
                           
                           // Trip Summary
                           const Text(
-                            'Trip Summary',
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                            AppConstants.labelTripSummary,
+                            style: TextStyle(fontSize: AppSizes.monthlyReportSectionFontSize, fontWeight: FontWeight.bold),
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: AppSizes.monthlyReportSpacing),
                           Row(
                             children: [
                               Expanded(
                                 child: _buildStatCard(
-                                  "Total Trips",
+                                  AppConstants.labelTotalTrips,
                                   _monthlyReport!.totalTrips.toString(),
-                                  Colors.purple,
+                                  AppColors.accentColor,
                                   Icons.directions_bus,
                                 ),
                               ),
-                              const SizedBox(width: 8),
+                              const SizedBox(width: AppSizes.monthlyReportSpacing),
                               Expanded(
                                 child: _buildStatCard(
-                                  "Completed",
+                                  AppConstants.labelCompleted,
                                   _monthlyReport!.completedTrips.toString(),
-                                  Colors.green,
+                                  AppColors.statusSuccess,
                                   Icons.check_circle_outline,
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: AppSizes.monthlyReportSpacing),
                           Row(
                             children: [
                               Expanded(
                                 child: _buildStatCard(
-                                  "Missed",
+                                  AppConstants.labelMissed,
                                   _monthlyReport!.missedTrips.toString(),
-                                  Colors.red,
+                                  AppColors.errorColor,
                                   Icons.cancel_outlined,
                                 ),
                               ),
-                              const SizedBox(width: 8),
+                              const SizedBox(width: AppSizes.monthlyReportSpacing),
                               Expanded(
                                 child: _buildStatCard(
-                                  "Completion Rate",
+                                  AppConstants.labelCompletionRate,
                                   "${_monthlyReport!.tripCompletionRate.toStringAsFixed(1)}%",
-                                  Colors.blue,
+                                  AppColors.primaryColor,
                                   Icons.trending_up,
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: AppSizes.monthlyReportSpacingLG),
                           
                           // Performance Chart (Simple)
                           Card(
-                            elevation: 3,
+                            elevation: AppSizes.monthlyReportCardElevation,
                             child: Padding(
-                              padding: const EdgeInsets.all(16),
+                              padding: const EdgeInsets.all(AppSizes.monthlyReportPadding),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   const Text(
-                                    'Performance Overview',
-                                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                    AppConstants.labelPerformanceOverview,
+                                    style: TextStyle(fontSize: AppSizes.monthlyReportSectionFontSize, fontWeight: FontWeight.bold),
                                   ),
-                                  const SizedBox(height: 16),
+                                  const SizedBox(height: AppSizes.monthlyReportSpacingLG),
                                   _buildProgressBar(
-                                    'Attendance',
+                                    AppConstants.labelAttendance,
                                     _monthlyReport!.attendancePercentage,
-                                    Colors.blue,
+                                    AppColors.primaryColor,
                                   ),
-                                  const SizedBox(height: 12),
+                                  const SizedBox(height: AppSizes.monthlyReportProgressSpacingLG),
                                   _buildProgressBar(
-                                    'Trip Completion',
+                                    AppConstants.labelTripCompletion,
                                     _monthlyReport!.tripCompletionRate,
-                                    Colors.green,
+                                    AppColors.statusSuccess,
                                   ),
                                 ],
                               ),
@@ -377,20 +372,20 @@ class _MonthlyReportPageState extends State<MonthlyReportPage> {
 
   Widget _buildStatCard(String title, String value, Color color, IconData icon) {
     return Card(
-      elevation: 2,
+      elevation: AppSizes.monthlyReportStatCardElevation,
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(AppSizes.monthlyReportStatCardPadding),
         child: Column(
           children: [
-            Icon(icon, color: color, size: 24),
-            const SizedBox(height: 4),
+            Icon(icon, color: color, size: AppSizes.monthlyReportStatIconSize),
+            const SizedBox(height: AppSizes.monthlyReportStatSpacing),
             Text(
               value,
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color),
+              style: TextStyle(fontSize: AppSizes.monthlyReportStatValueFontSize, fontWeight: FontWeight.bold, color: color),
             ),
             Text(
               title,
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
+              style: const TextStyle(fontSize: AppSizes.monthlyReportStatLabelFontSize, color: AppColors.textSecondary),
               textAlign: TextAlign.center,
             ),
           ],
@@ -410,10 +405,10 @@ class _MonthlyReportPageState extends State<MonthlyReportPage> {
             Text('${percentage.toStringAsFixed(1)}%'),
           ],
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: AppSizes.monthlyReportProgressSpacing),
         LinearProgressIndicator(
           value: percentage / 100,
-          backgroundColor: color.withOpacity(0.3),
+          backgroundColor: color.withValues(alpha: AppSizes.monthlyReportPercentOpacity),
           valueColor: AlwaysStoppedAnimation<Color>(color),
         ),
       ],
@@ -421,8 +416,8 @@ class _MonthlyReportPageState extends State<MonthlyReportPage> {
   }
 
   Color _getAttendanceColor(double percentage) {
-    if (percentage >= 90) return Colors.green;
-    if (percentage >= 75) return Colors.orange;
-    return Colors.red;
+    if (percentage >= AppSizes.monthlyReportAttendanceGood) return AppColors.statusSuccess;
+    if (percentage >= AppSizes.monthlyReportAttendanceFair) return AppColors.statusWarning;
+    return AppColors.errorColor;
   }
 }
