@@ -173,6 +173,32 @@ class VehicleOwnerService {
   return _handleResponse(resp);
 }
 
+  /// ---------------- Get Vehicle Owner Notifications ----------------
+  Future<Map<String, dynamic>> getVehicleOwnerNotifications(int userId) async {
+    final token = await _auth.getToken();
+
+    final url = Uri.parse("${AppConfig.baseUrl}/api/vehicle-owners/user/$userId/notifications");
+    final headers = {
+      if (token != null) AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token",
+    };
+
+    final resp = await http.get(url, headers: headers);
+    return _handleResponse(resp);
+  }
+
+  /// ---------------- Get Vehicle Owner Notifications by OwnerId ----------------
+  Future<Map<String, dynamic>> getVehicleOwnerNotificationsByOwnerId(int ownerId) async {
+    final token = await _auth.getToken();
+
+    final url = Uri.parse("${AppConfig.baseUrl}/api/vehicle-owners/$ownerId/notifications");
+    final headers = {
+      if (token != null) AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token",
+    };
+
+    final resp = await http.get(url, headers: headers);
+    return _handleResponse(resp);
+  }
+
 /// ---------------- Get Vehicle Owner Dashboard ----------------
 Future<Map<String, dynamic>> getVehicleOwnerDashboardLegacy(int ownerId) async {
   final token = await _auth.getToken();

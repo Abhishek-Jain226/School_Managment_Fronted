@@ -48,13 +48,22 @@ class _VehicleOwnerProfilePageState extends State<VehicleOwnerProfilePage> {
     final resp = await _service.getOwnerByUserId(_userId!);
     if (resp[AppConstants.keySuccess] == true && resp[AppConstants.keyData] != null) {
       final data = resp[AppConstants.keyData];
+      final ownerName = (data[AppConstants.keyOwnerName] ?? data[AppConstants.keyName] ?? '').toString();
+      final ownerPhoto = data[AppConstants.keyOwnerPhoto];
       setState(() {
-        _nameCtl.text = data[AppConstants.keyName] ?? "";
+        _nameCtl.text = ownerName;
         _emailCtl.text = data[AppConstants.keyEmail] ?? "";
         _contactCtl.text = data[AppConstants.keyContactNumber] ?? "";
         _addressCtl.text = data[AppConstants.keyAddress] ?? "";
-        _ownerPhoto = data[AppConstants.keyOwnerPhoto];
+        _ownerPhoto = ownerPhoto;
       });
+      final trimmedName = ownerName.trim();
+      if (trimmedName.isNotEmpty) {
+        await prefs.setString(AppConstants.keyOwnerName, trimmedName);
+      }
+      if (ownerPhoto is String && ownerPhoto.isNotEmpty) {
+        await prefs.setString(AppConstants.keyOwnerPhoto, ownerPhoto);
+      }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text(AppConstants.msgErrorLoadingProfile)),
@@ -177,8 +186,17 @@ class _VehicleOwnerProfilePageState extends State<VehicleOwnerProfilePage> {
         }
         _selectedImage = null;
       });
+      final prefs = await SharedPreferences.getInstance();
+      final trimmedName = _nameCtl.text.trim();
+      if (trimmedName.isNotEmpty) {
+        await prefs.setString(AppConstants.keyOwnerName, trimmedName);
+      }
+      final photoToPersist = photoBase64 ?? _ownerPhoto;
+      if (photoToPersist != null && photoToPersist.isNotEmpty) {
+        await prefs.setString(AppConstants.keyOwnerPhoto, photoToPersist);
+      }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppConstants.msgProfileUpdatedSuccessfully)),
+        const SnackBar(content: Text(AppConstants.msgProfileUpdated)),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(

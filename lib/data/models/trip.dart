@@ -77,19 +77,19 @@ class Trip {
 
   factory Trip.fromJson(Map<String, dynamic> json) {
     return Trip(
-      tripId: json[AppConstants.keyTripId],
-      tripName: json[AppConstants.keyTripName],
-      tripNumber: json[AppConstants.keyTripNumber],
+      tripId: json[AppConstants.keyTripId] ?? 0,
+      tripName: json[AppConstants.keyTripName] ?? '',
+      tripNumber: json[AppConstants.keyTripNumber] ?? 0,
       tripType: json[AppConstants.keyTripType],
       scheduledTime: json[AppConstants.keyScheduledTime],
       estimatedDurationMinutes: json[AppConstants.keyEstimatedDurationMinutes],
-      isActive: json[AppConstants.keyIsActive],
-      vehicleId: json[AppConstants.keyVehicleId],
-      vehicleNumber: json[AppConstants.keyVehicleNumber],
-      vehicleType: json[AppConstants.keyVehicleType],
+      isActive: json[AppConstants.keyIsActive] ?? true, // Default to true if null
+      vehicleId: json[AppConstants.keyVehicleId] ?? 0,
+      vehicleNumber: json[AppConstants.keyVehicleNumber] ?? '',
+      vehicleType: json[AppConstants.keyVehicleType] ?? '',
       vehicleCapacity: json[AppConstants.keyVehicleCapacity],
-      schoolId: json[AppConstants.keySchoolId],
-      schoolName: json[AppConstants.keySchoolName],
+      schoolId: json[AppConstants.keySchoolId] ?? 0,
+      schoolName: json[AppConstants.keySchoolName] ?? '',
       driverId: json[AppConstants.keyDriverId],
       driverName: json[AppConstants.keyDriverName],
       driverContactNumber: json[AppConstants.keyDriverContactNumber],

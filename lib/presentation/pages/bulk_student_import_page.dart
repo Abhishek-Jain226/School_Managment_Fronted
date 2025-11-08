@@ -1,13 +1,20 @@
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:file_picker/file_picker.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+// Conditional imports for web vs non-web
+// Import dart:io on non-web, stub on web
+import 'dart:io' if (dart.library.html) 'stub_io.dart' as io;
+// Import dart:html on web, stub on non-web
+import 'dart:html' if (dart.library.io) 'stub_html.dart' as html;
 import '../../utils/constants.dart';
 import '../../data/models/bulk_student_import_request.dart';
 import '../../data/models/bulk_import_result.dart';
 import '../../services/bulk_student_import_service.dart';
 import '../../services/excel_parser_service.dart';
+import '../../services/school_service.dart';
 
 class BulkStudentImportPage extends StatefulWidget {
   const BulkStudentImportPage({Key? key}) : super(key: key);
@@ -20,13 +27,16 @@ class _BulkStudentImportPageState extends State<BulkStudentImportPage> {
   final _formKey = GlobalKey<FormState>();
   final _bulkImportService = BulkStudentImportService();
   final _excelParserService = ExcelParserService();
+  final _schoolService = SchoolService();
   
-  File? _selectedFile;
+  dynamic _selectedFile; // FilePickerResult on web, File path (String) or File object on mobile/desktop
+  String? _selectedFilePath; // Store file path separately for non-web platforms
   bool _isLoading = false;
   bool _isValidating = false;
   bool _isImporting = false;
   BulkImportResult? _validationResult;
   BulkImportResult? _importResult;
+  List<String> _parsingErrors = []; // Store parsing errors (e.g., date format errors)
   
   // Configuration
   String _schoolDomain = '';
@@ -37,6 +47,11 @@ class _BulkStudentImportPageState extends State<BulkStudentImportPage> {
   int? _schoolId;
   String? _schoolName;
   
+  // Classes and Sections (for dynamic mapping)
+  List<Map<String, dynamic>> _classes = [];
+  List<Map<String, dynamic>> _sections = [];
+  bool _isLoadingClassesSections = false;
+  
   @override
   void initState() {
     super.initState();
@@ -45,10 +60,68 @@ class _BulkStudentImportPageState extends State<BulkStudentImportPage> {
   
   Future<void> _loadSchoolInfo() async {
     final prefs = await SharedPreferences.getInstance();
+    final schoolId = prefs.getInt('schoolId');
+    final schoolName = prefs.getString('schoolName');
+    
     setState(() {
-      _schoolId = prefs.getInt('schoolId');
-      _schoolName = prefs.getString('schoolName');
+      _schoolId = schoolId;
+      _schoolName = schoolName;
     });
+    
+    // Fetch classes and sections for the school
+    if (schoolId != null) {
+      await _loadClassesAndSections(schoolId);
+    }
+  }
+  
+  Future<void> _loadClassesAndSections(int schoolId) async {
+    setState(() {
+      _isLoadingClassesSections = true;
+    });
+    
+    try {
+      // Fetch classes
+      final classesResponse = await _schoolService.getSchoolClasses(schoolId);
+      if (classesResponse[AppConstants.keySuccess] == true && 
+          classesResponse[AppConstants.keyData] != null) {
+        final classesList = classesResponse[AppConstants.keyData] as List<dynamic>;
+        setState(() {
+          _classes = classesList.cast<Map<String, dynamic>>();
+        });
+        debugPrint('✅ Loaded ${_classes.length} classes');
+      } else {
+        debugPrint('⚠️ Failed to load classes: ${classesResponse[AppConstants.keyMessage]}');
+      }
+      
+      // Fetch sections
+      final sectionsResponse = await _schoolService.getSchoolSections(schoolId);
+      if (sectionsResponse[AppConstants.keySuccess] == true && 
+          sectionsResponse[AppConstants.keyData] != null) {
+        final sectionsList = sectionsResponse[AppConstants.keyData] as List<dynamic>;
+        setState(() {
+          _sections = sectionsList.cast<Map<String, dynamic>>();
+        });
+        debugPrint('✅ Loaded ${_sections.length} sections');
+      } else {
+        debugPrint('⚠️ Failed to load sections: ${sectionsResponse[AppConstants.keyMessage]}');
+      }
+    } catch (e) {
+      debugPrint('❌ Error loading classes/sections: $e');
+      // Show error but don't block the page
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Warning: Failed to load classes/sections. Please ensure they are configured. Error: $e'),
+            backgroundColor: AppColors.bulkImportWarningColor,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    } finally {
+      setState(() {
+        _isLoadingClassesSections = false;
+      });
+    }
   }
   
   Future<void> _pickExcelFile() async {
@@ -59,11 +132,25 @@ class _BulkStudentImportPageState extends State<BulkStudentImportPage> {
         allowMultiple: false,
       );
       
-      if (result != null && result.files.single.path != null) {
+      if (result != null) {
         setState(() {
-          _selectedFile = File(result.files.single.path!);
+          if (kIsWeb) {
+            // On web, store the FilePickerResult
+            _selectedFile = result;
+            _selectedFilePath = null;
+          } else {
+            // On mobile/desktop, store the file path
+            if (result.files.single.path != null) {
+              _selectedFilePath = result.files.single.path!;
+              _selectedFile = result.files.single.path; // Store path for display
+            } else {
+              _selectedFile = null;
+              _selectedFilePath = null;
+            }
+          }
           _validationResult = null;
           _importResult = null;
+          _parsingErrors = []; // Clear parsing errors when new file is selected
         });
       }
     } catch (e) {
@@ -75,17 +162,64 @@ class _BulkStudentImportPageState extends State<BulkStudentImportPage> {
     try {
       setState(() => _isLoading = true);
       
-      final templateBytes = await _excelParserService.generateExcelTemplate();
+      final templateBytes = await _excelParserService.generateExcelTemplate(
+        classes: _classes,
+        sections: _sections,
+      );
       
-      final directory = await getApplicationDocumentsDirectory();
-      final file = File('${directory.path}/${AppConstants.fileNameStudentTemplate}');
-      await file.writeAsBytes(templateBytes);
-      
-      _showSuccessSnackBar('${AppConstants.msgTemplateDownloaded}${file.path}');
+      if (kIsWeb) {
+        // For web: Use dart:html to trigger browser download
+        _downloadFileWeb(templateBytes, AppConstants.fileNameStudentTemplate);
+        _showSuccessSnackBar('Template download started');
+      } else {
+        // For mobile/desktop: Use file_picker's saveFile method
+        const fileName = AppConstants.fileNameStudentTemplate;
+        final result = await FilePicker.platform.saveFile(
+          fileName: fileName,
+          bytes: templateBytes,
+          type: FileType.custom,
+          allowedExtensions: ['xlsx'],
+        );
+        
+        if (result != null) {
+          _showSuccessSnackBar('${AppConstants.msgTemplateDownloaded}$result');
+        } else {
+          // User cancelled, don't show error
+          debugPrint('Template download cancelled by user');
+        }
+      }
     } catch (e) {
       _showErrorSnackBar('${AppConstants.msgErrorDownloadingTemplate}$e');
     } finally {
       setState(() => _isLoading = false);
+    }
+  }
+  
+  /// Download file on web platform using dart:html
+  void _downloadFileWeb(Uint8List bytes, String fileName) {
+    if (kIsWeb) {
+      // Use dart:html for web download (html is dart:html on web)
+      final blob = html.Blob([bytes]);
+      final url = html.Url.createObjectUrlFromBlob(blob);
+      html.AnchorElement(href: url)
+        ..setAttribute('download', fileName)
+        ..click();
+      html.Url.revokeObjectUrl(url);
+    }
+  }
+  
+  /// Get file name for display
+  String _getFileName() {
+    if (_selectedFile == null) return '';
+    if (kIsWeb) {
+      final result = _selectedFile as FilePickerResult;
+      return result.files.single.name;
+    } else {
+      // On non-web, _selectedFile is a file path (String)
+      if (_selectedFile is String) {
+        return (_selectedFile as String).split('/').last.split('\\').last;
+      }
+      return '';
     }
   }
   
@@ -100,19 +234,67 @@ class _BulkStudentImportPageState extends State<BulkStudentImportPage> {
     try {
       setState(() => _isValidating = true);
       
-      // Parse Excel file
-      final students = await _excelParserService.parseStudentExcel(_selectedFile!);
+      // Get file bytes - handle both web (FilePickerResult) and mobile/desktop (File)
+      Uint8List fileBytes;
+      if (kIsWeb) {
+        // On web, read bytes from FilePickerResult
+        final result = _selectedFile as FilePickerResult;
+        fileBytes = result.files.single.bytes!;
+      } else {
+        // On mobile/desktop, read bytes from File using stored path
+        if (_selectedFilePath != null) {
+          final file = io.File(_selectedFilePath!);
+          fileBytes = await file.readAsBytes();
+        } else {
+          throw Exception('Invalid file path on mobile/desktop');
+        }
+      }
+      
+      // Parse Excel file with classes and sections for dynamic mapping
+      final parseResult = await _excelParserService.parseStudentExcelFromBytes(
+        fileBytes,
+        classes: _classes,
+        sections: _sections,
+      );
+      
+      final students = parseResult['students'] as List<StudentRequest>;
+      final parsingErrors = parseResult['errors'] as List<String>;
+      
+      // Store parsing errors for display
+      setState(() {
+        _parsingErrors = parsingErrors;
+      });
+      
+      // Show parsing errors if any (e.g., date format errors)
+      if (parsingErrors.isNotEmpty && mounted) {
+        final errorMessage = 'Found ${parsingErrors.length} parsing error(s). Please check the details below.';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: AppColors.bulkImportWarningColor,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
       
       if (students.isEmpty) {
-        _showErrorSnackBar(AppConstants.msgNoValidStudentData);
+        if (parsingErrors.isNotEmpty) {
+          _showErrorSnackBar('${AppConstants.msgNoValidStudentData} Parsing errors: ${parsingErrors.join("; ")}');
+        } else {
+          _showErrorSnackBar(AppConstants.msgNoValidStudentData);
+        }
         return;
       }
+      
+      // Get actual admin username for createdBy
+      final prefs = await SharedPreferences.getInstance();
+      final userName = prefs.getString(AppConstants.keyUserName) ?? 'SchoolAdmin';
       
       // Create validation request
       final request = BulkStudentImportRequest(
         students: students,
         schoolId: _schoolId!,
-        createdBy: 'SchoolAdmin',
+        createdBy: userName, // ✅ Use actual admin username (same as normal registration)
         schoolDomain: _schoolDomain.isNotEmpty ? _schoolDomain : null,
         sendActivationEmails: _sendActivationEmails,
         emailGenerationStrategy: _emailStrategy,
@@ -152,14 +334,53 @@ class _BulkStudentImportPageState extends State<BulkStudentImportPage> {
     try {
       setState(() => _isImporting = true);
       
-      // Parse Excel file
-      final students = await _excelParserService.parseStudentExcel(_selectedFile!);
+      // Get file bytes - handle both web (FilePickerResult) and mobile/desktop (File)
+      Uint8List fileBytes;
+      if (kIsWeb) {
+        // On web, read bytes from FilePickerResult
+        final result = _selectedFile as FilePickerResult;
+        fileBytes = result.files.single.bytes!;
+      } else {
+        // On mobile/desktop, read bytes from File using stored path
+        if (_selectedFilePath != null) {
+          final file = io.File(_selectedFilePath!);
+          fileBytes = await file.readAsBytes();
+        } else {
+          throw Exception('Invalid file path on mobile/desktop');
+        }
+      }
+      
+      // Parse Excel file with classes and sections for dynamic mapping
+      final parseResult = await _excelParserService.parseStudentExcelFromBytes(
+        fileBytes,
+        classes: _classes,
+        sections: _sections,
+      );
+      
+      final students = parseResult['students'] as List<StudentRequest>;
+      final parsingErrors = parseResult['errors'] as List<String>;
+      
+      // Show parsing errors if any (e.g., date format errors)
+      if (parsingErrors.isNotEmpty && mounted) {
+        final errorMessage = 'Found ${parsingErrors.length} parsing error(s) before import.';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: AppColors.bulkImportWarningColor,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+      
+      // Get actual admin username for createdBy
+      final prefs = await SharedPreferences.getInstance();
+      final userName = prefs.getString(AppConstants.keyUserName) ?? 'SchoolAdmin';
       
       // Create import request
       final request = BulkStudentImportRequest(
         students: students,
         schoolId: _schoolId!,
-        createdBy: 'SchoolAdmin',
+        createdBy: userName, // ✅ Use actual admin username (same as normal registration)
         schoolDomain: _schoolDomain.isNotEmpty ? _schoolDomain : null,
         sendActivationEmails: _sendActivationEmails,
         emailGenerationStrategy: _emailStrategy,
@@ -247,7 +468,7 @@ class _BulkStudentImportPageState extends State<BulkStudentImportPage> {
         backgroundColor: AppColors.bulkImportPrimaryColor[700],
         foregroundColor: AppColors.bulkImportTextWhite,
       ),
-      body: _isLoading
+      body: (_isLoading || _isLoadingClassesSections)
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
               padding: const EdgeInsets.all(AppSizes.bulkImportPadding),
@@ -413,7 +634,7 @@ class _BulkStudentImportPageState extends State<BulkStudentImportPage> {
                                     const SizedBox(width: AppSizes.bulkImportSpacingSM),
                                     Expanded(
                                       child: Text(
-                                        '${AppConstants.labelSelected}: ${_selectedFile!.path.split('/').last}',
+                                        '${AppConstants.labelSelected}: ${_getFileName()}',
                                         style: const TextStyle(color: AppColors.bulkImportSuccessColor),
                                       ),
                                     ),
@@ -470,6 +691,68 @@ class _BulkStudentImportPageState extends State<BulkStudentImportPage> {
                       ],
                     ),
                     const SizedBox(height: AppSizes.bulkImportSpacingMD),
+                    
+                    // Parsing Errors (e.g., date format errors)
+                    if (_parsingErrors.isNotEmpty) ...[
+                      Card(
+                        color: AppColors.bulkImportWarningColor[50],
+                        child: Padding(
+                          padding: const EdgeInsets.all(AppSizes.bulkImportPadding),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(Icons.warning, color: AppColors.bulkImportWarningColor),
+                                  const SizedBox(width: AppSizes.bulkImportSpacingSM),
+                                  const Text(
+                                    'Parsing Errors (Date Format, etc.)',
+                                    style: TextStyle(
+                                      fontSize: AppSizes.bulkImportHeaderFontSize,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.bulkImportWarningColor,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: AppSizes.bulkImportSpacingMD),
+                              ..._parsingErrors.take(10).map((error) => Padding(
+                                padding: const EdgeInsets.only(bottom: AppSizes.bulkImportSpacingSM),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Icon(
+                                      Icons.error_outline,
+                                      color: AppColors.bulkImportErrorColor,
+                                      size: 16,
+                                    ),
+                                    const SizedBox(width: AppSizes.bulkImportSpacingSM),
+                                    Expanded(
+                                      child: Text(
+                                        error,
+                                        style: const TextStyle(
+                                          fontSize: AppSizes.bulkImportInfoFontSize,
+                                          color: AppColors.bulkImportErrorColor,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )),
+                              if (_parsingErrors.length > 10)
+                                Text(
+                                  '${AppConstants.msgAndMore}${_parsingErrors.length - 10}${AppConstants.msgMore} parsing errors',
+                                  style: const TextStyle(
+                                    fontSize: AppSizes.bulkImportInfoFontSize,
+                                    color: AppColors.bulkImportWarningColor,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: AppSizes.bulkImportSpacingMD),
+                    ],
                     
                     // Validation Results
                     if (_validationResult != null) ...[

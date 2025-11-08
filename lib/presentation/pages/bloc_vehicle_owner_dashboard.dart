@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -13,6 +15,7 @@ import '../../app_routes.dart';
 import '../widgets/school_selector.dart';
 import '../../services/websocket_notification_service.dart';
 import '../../data/models/websocket_notification.dart';
+import '../widgets/live_tracking_widget.dart';
 
 class BlocVehicleOwnerDashboard extends StatefulWidget {
   const BlocVehicleOwnerDashboard({super.key});
@@ -25,55 +28,145 @@ class _BlocVehicleOwnerDashboardState extends State<BlocVehicleOwnerDashboard> {
   int? _currentSchoolId;
   String? _currentSchoolName;
   String? _ownerName;
-  String? _ownerEmail;
+  String? _ownerPhotoBase64;
+  Uint8List? _ownerPhotoBytes;
+  
+  // Live tracking state
+  bool _isMapVisible = false;
+  bool _mapExpanded = false;
+  int? _activeTripId;
   
   final WebSocketNotificationService _wsService = WebSocketNotificationService();
   StreamSubscription<WebSocketNotification>? _notificationSubscription;
   StreamSubscription<WebSocketNotification>? _tripUpdateSubscription;
-  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
-    _loadCurrentSchool();
     _loadOwnerInfo();
+    _loadCurrentSchool();
     _loadVehicleOwnerData();
     _initializeWebSocket();
-    _startAutoRefresh();
   }
 
   @override
   void dispose() {
     _notificationSubscription?.cancel();
     _tripUpdateSubscription?.cancel();
-    _refreshTimer?.cancel();
     super.dispose();
+  }
+
+  Future<void> _loadOwnerInfo() async {
+    final prefs = await SharedPreferences.getInstance();
+    final photoBase64 = prefs.getString(AppConstants.keyOwnerPhoto);
+    Uint8List? photoBytes;
+    if (photoBase64 != null && photoBase64.isNotEmpty) {
+      photoBytes = _decodeBase64Image(photoBase64);
+    }
+    if (!mounted) return;
+    setState(() {
+      _ownerName = (prefs.getString(AppConstants.keyOwnerName) ??
+              prefs.getString(AppConstants.keyUserName))
+          ?.trim();
+      _ownerPhotoBase64 = photoBase64;
+      _ownerPhotoBytes = photoBytes;
+    });
+  }
+
+  Uint8List? _decodeBase64Image(String data) {
+    try {
+      final sanitized = data.contains(',') ? data.split(',').last : data;
+      return base64Decode(sanitized);
+    } catch (e) {
+      debugPrint('${AppConstants.msgErrorDecodingImage}$e');
+      return null;
+    }
+  }
+
+  String? _findStringValue(dynamic source, String key) {
+    if (source is Map) {
+      final value = source[key];
+      if (value is String && value.trim().isNotEmpty) {
+        return value.trim();
+      }
+      for (final entry in source.entries) {
+        final result = _findStringValue(entry.value, key);
+        if (result != null) {
+          return result;
+        }
+      }
+    } else if (source is Iterable) {
+      for (final item in source) {
+        final result = _findStringValue(item, key);
+        if (result != null) {
+          return result;
+        }
+      }
+    }
+    return null;
+  }
+
+  void _updateOwnerInfoFromData(Map<String, dynamic> data, {bool persist = false}) {
+    final name = _findStringValue(data, AppConstants.keyOwnerName) ??
+        _findStringValue(data, AppConstants.keyName);
+    final photoBase64 = _findStringValue(data, AppConstants.keyOwnerPhoto);
+
+    bool shouldUpdateState = false;
+    String? updatedName = _ownerName;
+    String? updatedPhotoBase64 = _ownerPhotoBase64;
+    Uint8List? updatedPhotoBytes = _ownerPhotoBytes;
+
+    if (name != null && name != _ownerName) {
+      updatedName = name;
+      shouldUpdateState = true;
+    }
+
+    if (photoBase64 != null && photoBase64.isNotEmpty && photoBase64 != _ownerPhotoBase64) {
+      final decoded = _decodeBase64Image(photoBase64);
+      if (decoded != null) {
+        updatedPhotoBase64 = photoBase64;
+        updatedPhotoBytes = decoded;
+        shouldUpdateState = true;
+      }
+    }
+
+    if (shouldUpdateState && mounted) {
+      setState(() {
+        _ownerName = updatedName;
+        _ownerPhotoBase64 = updatedPhotoBase64;
+        _ownerPhotoBytes = updatedPhotoBytes;
+      });
+    }
+
+    if (persist && (name != null || photoBase64 != null)) {
+      SharedPreferences.getInstance().then((prefs) {
+        if (name != null && name != prefs.getString(AppConstants.keyOwnerName)) {
+          prefs.setString(AppConstants.keyOwnerName, name);
+        }
+        if (photoBase64 != null && photoBase64.isNotEmpty &&
+            photoBase64 != prefs.getString(AppConstants.keyOwnerPhoto)) {
+          prefs.setString(AppConstants.keyOwnerPhoto, photoBase64);
+        }
+      });
+    }
   }
 
   Future<void> _loadCurrentSchool() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      _currentSchoolId = prefs.getInt('currentSchoolId');
-      _currentSchoolName = prefs.getString('currentSchoolName');
-    });
-  }
-
-  Future<void> _loadOwnerInfo() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _ownerName = prefs.getString('userName');
-      _ownerEmail = prefs.getString('email');
+      _currentSchoolId = prefs.getInt(AppConstants.keyCurrentSchoolId);
+      _currentSchoolName = prefs.getString(AppConstants.keyCurrentSchoolName);
     });
   }
 
   void _onSchoolSelected(int? schoolId, String? schoolName) async {
     final prefs = await SharedPreferences.getInstance();
     if (schoolId != null) {
-      await prefs.setInt('currentSchoolId', schoolId);
-      await prefs.setString('currentSchoolName', schoolName ?? '');
+      await prefs.setInt(AppConstants.keyCurrentSchoolId, schoolId);
+      await prefs.setString(AppConstants.keyCurrentSchoolName, schoolName ?? '');
     } else {
-      await prefs.remove('currentSchoolId');
-      await prefs.remove('currentSchoolName');
+      await prefs.remove(AppConstants.keyCurrentSchoolId);
+      await prefs.remove(AppConstants.keyCurrentSchoolName);
     }
     
     setState(() {
@@ -123,7 +216,7 @@ class _BlocVehicleOwnerDashboardState extends State<BlocVehicleOwnerDashboard> {
       _tripUpdateSubscription = _wsService.tripUpdateStream.listen(
         (notification) {
           debugPrint('${AppConstants.msgReceivedTripUpdate}${notification.message}');
-          _refreshDashboard();
+          _handleNotification(notification);
         },
         onError: (error) {
           debugPrint('${AppConstants.msgTripUpdateStreamError}$error');
@@ -135,6 +228,45 @@ class _BlocVehicleOwnerDashboardState extends State<BlocVehicleOwnerDashboard> {
   }
 
   void _handleNotification(WebSocketNotification notification) {
+    // Handle trip started notification - show map
+    if (notification.type == AppConstants.notificationTypeTripStarted ||
+        notification.type == AppConstants.notificationTypeTripUpdate ||
+        notification.type == 'LOCATION_UPDATE') {
+      if (notification.tripId != null && notification.vehicleId != null) {
+        // Check if this trip belongs to the vehicle owner
+        final currentState = context.read<VehicleOwnerBloc>().state;
+        if (currentState is VehicleOwnerDashboardLoaded) {
+          final activeTrip = currentState.trips.firstWhere(
+            (trip) => trip['tripId'] == notification.tripId &&
+                     (trip['tripStatus'] == 'IN_PROGRESS' || trip['tripStatus'] == 'STARTED'),
+            orElse: () => null,
+          );
+          
+          if (activeTrip != null) {
+            setState(() {
+              _activeTripId = notification.tripId;
+              _isMapVisible = true;
+              _mapExpanded = false;
+            });
+          }
+        }
+      }
+    }
+    
+    // Handle trip completed notification - hide map
+    if (notification.type == AppConstants.notificationTypeTripCompleted ||
+        (notification.type == AppConstants.notificationTypeTripUpdate &&
+         (notification.message.toLowerCase().contains('completed') ||
+          notification.message.toLowerCase().contains('ended')))) {
+      if (notification.tripId == _activeTripId) {
+        setState(() {
+          _isMapVisible = false;
+          _mapExpanded = false;
+          _activeTripId = null;
+        });
+      }
+    }
+    
     // Only show USER-FACING notifications as SnackBar
     final showAsSnackBar = _shouldShowNotificationToUser(notification.type);
     
@@ -145,12 +277,14 @@ class _BlocVehicleOwnerDashboardState extends State<BlocVehicleOwnerDashboard> {
             content: Text(notification.message),
             backgroundColor: _getNotificationColor(notification.type),
             duration: AppDurations.snackbarDefault,
+            action: SnackBarAction(
+              label: AppConstants.actionRefreshCaps,
+              textColor: Colors.white,
+              onPressed: _requestRefresh,
+            ),
           ),
         );
       }
-      
-      // Always refresh dashboard data
-      _refreshDashboard();
     }
   }
   
@@ -184,22 +318,13 @@ class _BlocVehicleOwnerDashboardState extends State<BlocVehicleOwnerDashboard> {
     }
   }
 
-  void _refreshDashboard() {
+  void _requestRefresh() {
     final authState = context.read<AuthBloc>().state;
     if (authState is AuthAuthenticated && authState.ownerId != null) {
       context.read<VehicleOwnerBloc>().add(
-        VehicleOwnerDashboardRequested(ownerId: authState.ownerId!),
+        VehicleOwnerRefreshRequested(ownerId: authState.ownerId!),
       );
     }
-  }
-
-  void _startAutoRefresh() {
-    // Auto-refresh dashboard every 30 seconds
-    _refreshTimer = Timer.periodic(AppDurations.autoRefresh, (timer) {
-      if (mounted) {
-        _refreshDashboard();
-      }
-    });
   }
 
   Future<void> _showLogoutConfirmation() async {
@@ -235,22 +360,24 @@ class _BlocVehicleOwnerDashboardState extends State<BlocVehicleOwnerDashboard> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: _buildMenuAction(),
+        titleSpacing: 0,
         title: const Text(AppConstants.labelVehicleOwnerDashboard),
         actions: [
           // School Selector
           Padding(
             padding: const EdgeInsets.only(right: AppSizes.vehicleOwnerTooltipPaddingRight),
-            child: SchoolSelector(
-              onSchoolSelected: _onSchoolSelected,
-              currentSchoolId: _currentSchoolId,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 160),
+              child: SchoolSelector(
+                onSchoolSelected: _onSchoolSelected,
+                currentSchoolId: _currentSchoolId,
+              ),
             ),
           ),
-
-          // Logout Icon
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: _showLogoutConfirmation,
-            tooltip: AppConstants.labelLogout,
+          Padding(
+            padding: const EdgeInsets.only(right: AppSizes.vehicleOwnerSpacingSM),
+            child: _buildProfileAction(),
           ),
         ],
       ),
@@ -265,6 +392,7 @@ class _BlocVehicleOwnerDashboardState extends State<BlocVehicleOwnerDashboard> {
               ),
             );
           } else if (state is VehicleOwnerProfileLoaded) {
+            _updateOwnerInfoFromData(state.profile, persist: true);
             // Navigate to profile page
             Navigator.pushNamed(
               context,
@@ -273,10 +401,11 @@ class _BlocVehicleOwnerDashboardState extends State<BlocVehicleOwnerDashboard> {
             ).then((_) {
               // Reload dashboard when returning from profile page
               if (mounted) {
+                _loadOwnerInfo();
                 final authState = context.read<AuthBloc>().state;
                 if (authState is AuthAuthenticated && authState.ownerId != null) {
                   context.read<VehicleOwnerBloc>().add(
-                    VehicleOwnerDashboardRequested(ownerId: authState.ownerId!),
+                    VehicleOwnerRefreshRequested(ownerId: authState.ownerId!),
                   );
                 }
               }
@@ -304,7 +433,41 @@ class _BlocVehicleOwnerDashboardState extends State<BlocVehicleOwnerDashboard> {
             if (state is VehicleOwnerLoading) {
               return const Center(child: CircularProgressIndicator());
             } else if (state is VehicleOwnerDashboardLoaded) {
-              return _buildDashboard(state);
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) {
+                  _updateOwnerInfoFromData(state.dashboard, persist: true);
+                  _checkActiveTrip(state);
+                }
+              });
+              return _buildDashboardWithTracking(state);
+            } else if (state is VehicleOwnerRefreshing &&
+                state.dashboard != null &&
+                state.vehicles != null &&
+                state.drivers != null &&
+                state.trips != null &&
+                state.notifications != null) {
+              final loadingState = VehicleOwnerDashboardLoaded(
+                dashboard: state.dashboard!,
+                vehicles: state.vehicles!,
+                drivers: state.drivers!,
+                trips: state.trips!,
+                notifications: state.notifications!,
+              );
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) {
+                  _updateOwnerInfoFromData(state.dashboard!, persist: true);
+                }
+              });
+              return Stack(
+                children: [
+                  _buildDashboardWithTracking(loadingState),
+                  const Positioned(
+                    top: AppSizes.vehicleOwnerSpacingMD,
+                    right: AppSizes.vehicleOwnerSpacingMD,
+                    child: CircularProgressIndicator(),
+                  ),
+                ],
+              );
             } else if (state is VehicleOwnerProfileLoaded) {
               // If profile loaded but dashboard state lost, reload dashboard
               final authState = context.read<AuthBloc>().state;
@@ -337,6 +500,93 @@ class _BlocVehicleOwnerDashboardState extends State<BlocVehicleOwnerDashboard> {
         ),
       ),
     );
+  }
+
+  Widget _buildProfileAction() {
+    final displayName = (_ownerName?.isNotEmpty == true)
+        ? _ownerName!
+        : AppConstants.labelVehicleOwner;
+    final schoolName = (_currentSchoolName?.isNotEmpty == true)
+        ? _currentSchoolName!
+        : AppConstants.labelSelectSchool;
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(AppSizes.radiusMD),
+      onTap: _onProfileTapped,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          CircleAvatar(
+            radius: AppSizes.vehicleOwnerAvatarRadius,
+            backgroundColor: AppColors.vehicleOwnerPrimaryColor,
+            backgroundImage: _ownerPhotoBytes != null ? MemoryImage(_ownerPhotoBytes!) : null,
+            child: _ownerPhotoBytes == null
+                ? const Icon(
+                    Icons.person,
+                    color: AppColors.vehicleOwnerTextWhite,
+                  )
+                : null,
+          ),
+          const SizedBox(width: AppSizes.vehicleOwnerSpacingSM),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 150),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  displayName,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: AppSizes.vehicleOwnerSpacingXS),
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.school,
+                      size: 14,
+                      color: AppColors.textSecondary,
+                    ),
+                    const SizedBox(width: AppSizes.vehicleOwnerSpacingXS),
+                    Expanded(
+                      child: Text(
+                        schoolName,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMenuAction() {
+    return Builder(
+      builder: (context) {
+        return IconButton(
+          tooltip: AppConstants.labelVehicleOwnerMenu,
+          icon: const Icon(Icons.menu),
+          onPressed: () => Scaffold.of(context).openDrawer(),
+        );
+      },
+    );
+  }
+
+  void _onProfileTapped() {
+    final authState = context.read<AuthBloc>().state;
+    if (authState is AuthAuthenticated && authState.ownerId != null) {
+      context.read<VehicleOwnerBloc>().add(
+        VehicleOwnerProfileRequested(ownerId: authState.ownerId!),
+      );
+    }
   }
 
   Widget _buildDrawer() {
@@ -425,18 +675,79 @@ class _BlocVehicleOwnerDashboardState extends State<BlocVehicleOwnerDashboard> {
               Navigator.pushNamed(context, AppRoutes.vehicleOwnerStudentTripAssignment);
             },
           ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.logout),
+            title: const Text(AppConstants.actionLogout),
+            onTap: () {
+              Navigator.pop(context);
+              _showLogoutConfirmation();
+            },
+          ),
         ],
       ),
+    );
+  }
+
+  void _checkActiveTrip(VehicleOwnerDashboardLoaded state) {
+    // Check for active trip with status IN_PROGRESS or STARTED
+    // Vehicle owner sees all their active trips, but we'll show tracking for the first active trip
+    final activeTrip = state.trips.firstWhere(
+      (trip) => trip['tripStatus'] == 'IN_PROGRESS' || trip['tripStatus'] == 'STARTED',
+      orElse: () => null,
+    );
+
+    if (activeTrip != null) {
+      final tripId = activeTrip['tripId'] as int?;
+      
+      if (tripId != null && tripId != _activeTripId) {
+        setState(() {
+          _activeTripId = tripId;
+          _isMapVisible = true;
+          _mapExpanded = false;
+        });
+      }
+    } else {
+      // No active trip found
+      if (_activeTripId != null) {
+        setState(() {
+          _isMapVisible = false;
+          _mapExpanded = false;
+          _activeTripId = null;
+        });
+      }
+    }
+  }
+
+  Widget _buildDashboardWithTracking(VehicleOwnerDashboardLoaded state) {
+    return Stack(
+      children: [
+        _buildDashboard(state),
+        // Live tracking widget overlay
+        if (_isMapVisible && _activeTripId != null)
+          LiveTrackingWidget(
+            tripId: _activeTripId,
+            studentId: null, // Vehicle owner doesn't need studentId
+            onTripCompleted: () {
+              setState(() {
+                _isMapVisible = false;
+                _mapExpanded = false;
+                _activeTripId = null;
+              });
+            },
+          ),
+      ],
     );
   }
 
   Widget _buildDashboard(VehicleOwnerDashboardLoaded state) {
     return RefreshIndicator(
       onRefresh: () async {
-        _loadVehicleOwnerData();
+        _requestRefresh();
       },
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(AppSizes.vehicleOwnerPadding),
+        physics: const AlwaysScrollableScrollPhysics(),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -503,9 +814,9 @@ class _BlocVehicleOwnerDashboardState extends State<BlocVehicleOwnerDashboard> {
                 const SizedBox(width: AppSizes.vehicleOwnerSpacingSM),
                 Expanded(
                   child: _buildStatCard(
-                    AppConstants.labelTotalRevenue,
-                    '₹0',
-                    Icons.monetization_on,
+                    AppConstants.labelNotifications,
+                    state.notifications.length.toString(),
+                    Icons.notifications,
                     AppColors.vehicleOwnerPurpleColor,
                   ),
                 ),

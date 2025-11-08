@@ -40,6 +40,7 @@ class BlocProviders extends StatelessWidget {
         BlocProvider<DriverBloc>(
           create: (context) => DriverBloc(
             driverService: DriverService(),
+            webSocketService: WebSocketNotificationService(),
           ),
         ),
         
@@ -47,6 +48,7 @@ class BlocProviders extends StatelessWidget {
         BlocProvider<SchoolBloc>(
           create: (context) => SchoolBloc(
             schoolService: SchoolService(),
+            webSocketService: WebSocketNotificationService(),
           ),
         ),
         
@@ -54,6 +56,7 @@ class BlocProviders extends StatelessWidget {
         BlocProvider<VehicleOwnerBloc>(
           create: (context) => VehicleOwnerBloc(
             vehicleOwnerService: VehicleOwnerService(),
+            webSocketService: WebSocketNotificationService(),
           ),
         ),
         
@@ -61,6 +64,7 @@ class BlocProviders extends StatelessWidget {
         BlocProvider<ParentBloc>(
           create: (context) => ParentBloc(
             parentService: ParentService(),
+            webSocketService: WebSocketNotificationService(),
           ),
         ),
         
@@ -68,6 +72,7 @@ class BlocProviders extends StatelessWidget {
         BlocProvider<AppAdminBloc>(
           create: (context) => AppAdminBloc(
             appAdminService: AppAdminService(),
+            webSocketService: WebSocketNotificationService(),
           ),
         ),
         
@@ -75,6 +80,7 @@ class BlocProviders extends StatelessWidget {
         BlocProvider<GateStaffBloc>(
           create: (context) => GateStaffBloc(
             gateStaffService: GateStaffService(),
+            webSocketService: WebSocketNotificationService(),
           ),
         ),
         

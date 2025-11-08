@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import '../../data/models/websocket_notification.dart';
 
 abstract class AppAdminEvent extends Equatable {
   const AppAdminEvent();
@@ -84,4 +85,13 @@ class AppAdminSystemStatsRequested extends AppAdminEvent {
 
 class AppAdminRefreshRequested extends AppAdminEvent {
   const AppAdminRefreshRequested();
+}
+
+class AppAdminRealtimeNotificationReceived extends AppAdminEvent {
+  final WebSocketNotification notification;
+
+  const AppAdminRealtimeNotificationReceived({required this.notification});
+
+  @override
+  List<Object> get props => [notification];
 }

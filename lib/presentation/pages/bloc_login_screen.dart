@@ -32,7 +32,7 @@ class _BlocLoginScreenState extends State<BlocLoginScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     FocusScope.of(context).unfocus();
-    
+
     // Dispatch login event to AuthBloc
     context.read<AuthBloc>().add(
       AuthLoginRequested(
@@ -75,7 +75,7 @@ class _BlocLoginScreenState extends State<BlocLoginScreen> {
                 schoolId: state.schoolId,
               ),
             );
-            
+
             // Navigate based on role
             _navigateBasedOnRole(state.roles, state.userData);
           } else if (state is AuthError) {
@@ -88,133 +88,140 @@ class _BlocLoginScreenState extends State<BlocLoginScreen> {
           }
         },
         child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(AppSizes.loginPadding),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Logo/Title
-                  const Icon(
-                    Icons.school,
-                    size: AppSizes.loginLogoSize,
-                    color: AppColors.loginPrimaryColor,
-                  ),
-                  const SizedBox(height: AppSizes.loginSpacingMD),
-                  const Text(
-                    AppConstants.labelSchoolTracker,
-                    style: TextStyle(
-                      fontSize: AppSizes.loginTitleFontSize,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.loginPrimaryColor,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: AppSizes.loginSpacingLG),
-
-                  // Login ID Field
-                  TextFormField(
-                    controller: _loginIdCtl,
-                    decoration: const InputDecoration(
-                      labelText: AppConstants.labelLoginId,
-                      prefixIcon: Icon(Icons.person),
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return AppConstants.msgEnterLoginId;
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: AppSizes.loginSpacingSM),
-
-                  // Password Field
-                  TextFormField(
-                    controller: _passwordCtl,
-                    obscureText: _obscurePassword,
-                    decoration: InputDecoration(
-                      labelText: AppConstants.labelPassword,
-                      prefixIcon: const Icon(Icons.lock),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscurePassword ? Icons.visibility : Icons.visibility_off,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return SingleChildScrollView(
+                padding: const EdgeInsets.all(AppSizes.loginPadding),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Logo/Title
+                        const Icon(
+                          Icons.school,
+                          size: AppSizes.loginLogoSize,
+                          color: AppColors.loginPrimaryColor,
                         ),
-                        onPressed: () {
-                          setState(() {
-                            _obscurePassword = !_obscurePassword;
-                          });
-                        },
-                      ),
-                      border: const OutlineInputBorder(),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return AppConstants.msgEnterPassword;
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: AppSizes.loginSpacingMD),
-
-                  // Login Button
-                  BlocBuilder<AuthBloc, AuthState>(
-                    builder: (context, state) {
-                      final isLoading = state is AuthLoading;
-                      
-                      return ElevatedButton(
-                        onPressed: isLoading ? null : _doLogin,
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(
-                            vertical: AppSizes.loginButtonPaddingV,
+                        const SizedBox(height: AppSizes.loginSpacingMD),
+                        const Text(
+                          AppConstants.labelSchoolTracker,
+                          style: TextStyle(
+                            fontSize: AppSizes.loginTitleFontSize,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.loginPrimaryColor,
                           ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(
-                              AppSizes.loginButtonRadius,
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: AppSizes.loginSpacingLG),
+
+                        // Login ID Field
+                        TextFormField(
+                          controller: _loginIdCtl,
+                          decoration: const InputDecoration(
+                            labelText: AppConstants.labelLoginId,
+                            prefixIcon: Icon(Icons.person),
+                            border: OutlineInputBorder(),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return AppConstants.msgEnterLoginId;
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: AppSizes.loginSpacingSM),
+
+                        // Password Field
+                        TextFormField(
+                          controller: _passwordCtl,
+                          obscureText: _obscurePassword,
+                          decoration: InputDecoration(
+                            labelText: AppConstants.labelPassword,
+                            prefixIcon: const Icon(Icons.lock),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _obscurePassword = !_obscurePassword;
+                                });
+                              },
                             ),
+                            border: const OutlineInputBorder(),
                           ),
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return AppConstants.msgEnterPassword;
+                            }
+                            return null;
+                          },
                         ),
-                        child: isLoading
-                            ? const SizedBox(
-                                height: AppSizes.loginProgressSize,
-                                width: AppSizes.loginProgressSize,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: AppSizes.loginProgressStroke,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    AppColors.loginTextWhite,
+                        const SizedBox(height: AppSizes.loginSpacingMD),
+
+                        // Login Button
+                        BlocBuilder<AuthBloc, AuthState>(
+                          builder: (context, state) {
+                            final isLoading = state is AuthLoading;
+
+                            return ElevatedButton(
+                              onPressed: isLoading ? null : _doLogin,
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: AppSizes.loginButtonPaddingV,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(
+                                    AppSizes.loginButtonRadius,
                                   ),
                                 ),
-                              )
-                            : const Text(
-                                AppConstants.labelLogin,
-                                style: TextStyle(fontSize: AppSizes.loginTextFontSize),
                               ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: AppSizes.loginSpacingSM),
+                              child: isLoading
+                                  ? const SizedBox(
+                                      height: AppSizes.loginProgressSize,
+                                      width: AppSizes.loginProgressSize,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: AppSizes.loginProgressStroke,
+                                        valueColor: AlwaysStoppedAnimation<Color>(
+                                          AppColors.loginTextWhite,
+                                        ),
+                                      ),
+                                    )
+                                  : const Text(
+                                      AppConstants.labelLogin,
+                                      style: TextStyle(fontSize: AppSizes.loginTextFontSize),
+                                    ),
+                            );
+                          },
+                        ),
+                        const SizedBox(height: AppSizes.loginSpacingSM),
 
-                  // Register School Link
-                  TextButton(
-                    onPressed: () {
-                      Navigator.pushNamed(context, AppRoutes.registerSchool);
-                    },
-                    child: const Text(AppConstants.labelRegisterSchoolLink),
-                  ),
-                  const SizedBox(height: AppSizes.loginSpacingXS),
+                        // Register School Link
+                        TextButton(
+                          onPressed: () {
+                            Navigator.pushNamed(context, AppRoutes.registerSchool);
+                          },
+                          child: const Text(AppConstants.labelRegisterSchoolLink),
+                        ),
+                        const SizedBox(height: AppSizes.loginSpacingXS),
 
-                  // Forgot Password Link
-                  TextButton(
-                    onPressed: () {
-                      Navigator.pushNamed(context, AppRoutes.forgotPassword);
-                    },
-                    child: const Text(AppConstants.labelForgotPassword),
+                        // Forgot Password Link
+                        TextButton(
+                          onPressed: () {
+                            Navigator.pushNamed(context, AppRoutes.forgotPassword);
+                          },
+                          child: const Text(AppConstants.labelForgotPassword),
+                        ),
+                      ],
+                    ),
                   ),
-                ],
-              ),
-            ),
+                ),
+              );
+            },
           ),
         ),
       ),

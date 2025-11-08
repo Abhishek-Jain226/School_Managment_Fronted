@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
@@ -10,10 +12,12 @@ import '../../bloc/auth/auth_state.dart';
 import '../../bloc/driver/driver_bloc.dart';
 import '../../bloc/driver/driver_event.dart';
 import '../../bloc/driver/driver_state.dart';
+import '../../data/models/driver_dashboard.dart';
 import '../../data/models/trip.dart';
 import '../../app_routes.dart';
 import '../../services/websocket_notification_service.dart';
 import '../../data/models/websocket_notification.dart';
+import '../../services/location_tracking_service.dart';
 
 class BlocDriverDashboard extends StatefulWidget {
   const BlocDriverDashboard({super.key});
@@ -23,15 +27,21 @@ class BlocDriverDashboard extends StatefulWidget {
 }
 
 class _BlocDriverDashboardState extends State<BlocDriverDashboard> {
+  static const String _tripSessionEndedResult = 'tripSessionEnded';
+
   String _selectedTripType = AppConstants.tripTypeMorningPickup;
   Trip? _selectedTrip;
   bool _isTripActive = false;
   Timer? _locationTimer;
+  int? _driverId;
+  String? _driverName;
+  String? _schoolName;
+  String? _driverPhotoBase64;
+  Uint8List? _driverPhotoBytes;
   
   final WebSocketNotificationService _wsService = WebSocketNotificationService();
+  final LocationTrackingService _locationService = LocationTrackingService();
   StreamSubscription<WebSocketNotification>? _notificationSubscription;
-  StreamSubscription<WebSocketNotification>? _tripUpdateSubscription;
-  Timer? _refreshTimer;
 
   @override
   void initState() {
@@ -39,7 +49,6 @@ class _BlocDriverDashboardState extends State<BlocDriverDashboard> {
     // Check authentication and get driver ID
     _loadDriverData();
     _initializeWebSocket();
-    _startAutoRefresh();
   }
 
   String _formatTripTime(DateTime? dt) {
@@ -53,8 +62,7 @@ class _BlocDriverDashboardState extends State<BlocDriverDashboard> {
   void dispose() {
     _locationTimer?.cancel();
     _notificationSubscription?.cancel();
-    _tripUpdateSubscription?.cancel();
-    _refreshTimer?.cancel();
+    _locationService.dispose();
     super.dispose();
   }
 
@@ -73,16 +81,6 @@ class _BlocDriverDashboardState extends State<BlocDriverDashboard> {
         },
       );
 
-      // Listen to trip updates
-      _tripUpdateSubscription = _wsService.tripUpdateStream.listen(
-        (notification) {
-          debugPrint('${AppConstants.msgReceivedTripUpdate}${notification.message}');
-          _refreshDashboard();
-        },
-        onError: (error) {
-          debugPrint('${AppConstants.msgTripUpdateStreamError}$error');
-        },
-      );
     }).catchError((error) {
       debugPrint('${AppConstants.msgWebSocketInitError}$error');
     });
@@ -102,9 +100,6 @@ class _BlocDriverDashboardState extends State<BlocDriverDashboard> {
           ),
         );
       }
-      
-      // Always refresh dashboard data
-      _refreshDashboard();
     }
   }
   
@@ -137,31 +132,11 @@ class _BlocDriverDashboardState extends State<BlocDriverDashboard> {
     }
   }
 
-  void _refreshDashboard() {
-    final authState = context.read<AuthBloc>().state;
-    if (authState is AuthAuthenticated && authState.driverId != null) {
-      context.read<DriverBloc>().add(
-        DriverDashboardRequested(driverId: authState.driverId!),
-      );
-    }
-  }
-
-  void _startAutoRefresh() {
-    // Auto-refresh dashboard every 30 seconds
-    _refreshTimer = Timer.periodic(
-      const Duration(seconds: AppSizes.driverAutoRefreshSeconds),
-      (timer) {
-        if (mounted) {
-          _refreshDashboard();
-        }
-      },
-    );
-  }
-
   void _loadDriverData() {
     // Get driver ID from auth state
     final authState = context.read<AuthBloc>().state;
     if (authState is AuthAuthenticated && authState.driverId != null) {
+      _driverId = authState.driverId;
       context.read<DriverBloc>().add(
         DriverDashboardRequested(driverId: authState.driverId!),
       );
@@ -221,6 +196,8 @@ class _BlocDriverDashboardState extends State<BlocDriverDashboard> {
   void _onTripSelected(Trip? trip) {
     setState(() {
       _selectedTrip = trip;
+      // Always set trip as inactive when selected on dashboard
+      // Trip will be active only when driver clicks "Start Trip" and navigates to trip details page
       _isTripActive = false;
     });
   }
@@ -232,26 +209,47 @@ class _BlocDriverDashboardState extends State<BlocDriverDashboard> {
     final hasPermission = await _requestLocationPermission();
     if (!hasPermission || !mounted) return;
 
-    setState(() {
-      _isTripActive = true;
-    });
-
-    // Start location tracking
-    _startLocationTracking();
-
-    // Navigate to student management
-    final authState = context.read<AuthBloc>().state;
-    if (mounted && authState is AuthAuthenticated && authState.driverId != null) {
-      Navigator.pushNamed(
-        context,
-        AppRoutes.simplifiedStudentManagement,
-        arguments: {
-          'trip': _selectedTrip,
-          'driverId': authState.driverId!,
-          'isTripActive': _isTripActive,
-        },
+    // Get current location
+    Position? position;
+    try {
+      position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 10),
       );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to get location: ${e.toString()}'),
+            backgroundColor: AppColors.driverErrorColor,
+          ),
+        );
+      }
+      return;
     }
+
+    if (position == null || !mounted) return;
+
+    // Call backend to start trip
+    final authState = context.read<AuthBloc>().state;
+    if (authState is! AuthAuthenticated || authState.driverId == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text(AppConstants.msgDriverIdNotFound)),
+        );
+      }
+      return;
+    }
+
+    // Dispatch event to start trip in backend with location
+    context.read<DriverBloc>().add(
+      DriverStartTripRequested(
+        driverId: authState.driverId!,
+        tripId: _selectedTrip!.tripId,
+        latitude: position.latitude,
+        longitude: position.longitude,
+      ),
+    );
   }
 
   void _stopTrip() {
@@ -261,6 +259,8 @@ class _BlocDriverDashboardState extends State<BlocDriverDashboard> {
       _isTripActive = false;
     });
 
+    // Stop location tracking
+    _locationService.stopLocationTracking();
     _locationTimer?.cancel();
 
     // End trip in backend
@@ -273,6 +273,79 @@ class _BlocDriverDashboardState extends State<BlocDriverDashboard> {
         ),
       );
     }
+  }
+
+  void _handleTripSessionResult(dynamic result) {
+    if (result != _tripSessionEndedResult) return;
+
+    // Stop location tracking when trip session ends
+    _locationService.stopLocationTracking();
+    _locationTimer?.cancel();
+    setState(() {
+      _isTripActive = false;
+    });
+
+    final authState = context.read<AuthBloc>().state;
+    if (authState is AuthAuthenticated && authState.driverId != null) {
+      context.read<DriverBloc>().add(
+        DriverRefreshRequested(driverId: authState.driverId!),
+      );
+    }
+  }
+
+  Future<void> _viewStudentsForSelectedTrip() async {
+    final trip = _selectedTrip;
+    if (trip == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text(AppConstants.msgSelectTripFirst)),
+        );
+      }
+      return;
+    }
+
+    // Always show read-only view for View Student button
+    final authState = context.read<AuthBloc>().state;
+    if (authState is! AuthAuthenticated || authState.driverId == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text(AppConstants.msgDriverIdNotFound)),
+        );
+      }
+      return;
+    }
+
+    await Navigator.pushNamed(
+      context,
+      AppRoutes.simplifiedStudentManagement,
+      arguments: {
+        'trip': trip,
+        'driverId': authState.driverId!,
+        'isReadOnly': true, // Always read-only for View Student
+      },
+    );
+  }
+
+  Future<void> _showTripStudentsPreview(Trip trip) async {
+    final authState = context.read<AuthBloc>().state;
+    if (authState is! AuthAuthenticated || authState.driverId == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text(AppConstants.msgDriverIdNotFound)),
+        );
+      }
+      return;
+    }
+
+    await Navigator.pushNamed(
+      context,
+      AppRoutes.simplifiedStudentManagement,
+      arguments: {
+        'trip': trip,
+        'driverId': authState.driverId!,
+        'isReadOnly': true,
+      },
+    );
   }
 
   Future<bool> _requestLocationPermission() async {
@@ -335,44 +408,20 @@ class _BlocDriverDashboardState extends State<BlocDriverDashboard> {
     );
   }
 
-  void _startLocationTracking() {
-    _locationTimer = Timer.periodic(
-      const Duration(seconds: AppSizes.driverLocationUpdateSeconds),
-      (timer) {
-        _sendLocationUpdate();
-      },
-    );
-  }
-
-  void _sendLocationUpdate() async {
-    try {
-      final position = await Geolocator.getCurrentPosition();
-      if (!mounted) return;
-      
-      final authState = context.read<AuthBloc>().state;
-      if (authState is AuthAuthenticated && authState.driverId != null && mounted) {
-        context.read<DriverBloc>().add(
-          DriverUpdateLocationRequested(
-            driverId: authState.driverId!,
-            latitude: position.latitude,
-            longitude: position.longitude,
-          ),
-        );
-      }
-    } catch (e) {
-      // Handle location error
-    }
-  }
+  // Old location tracking methods removed - now using LocationTrackingService
+  // The LocationTrackingService handles all location updates via saveLocationUpdate API
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: _buildMenuAction(),
+        titleSpacing: 0,
         title: const Text(AppConstants.labelDriverDashboard),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: _showLogoutConfirmation,
+          Padding(
+            padding: const EdgeInsets.only(right: AppSizes.driverSpacingSM),
+            child: _buildProfileAction(),
           ),
         ],
       ),
@@ -386,6 +435,49 @@ class _BlocDriverDashboardState extends State<BlocDriverDashboard> {
                 backgroundColor: AppColors.driverSuccessColor,
               ),
             );
+            
+            // Initialize background location tracking after successful trip start
+            if (state.actionType == AppConstants.actionTypeStartTrip && _selectedTrip != null) {
+              final authState = context.read<AuthBloc>().state;
+              if (authState is AuthAuthenticated && authState.driverId != null) {
+                // Update local state to mark trip as active
+                setState(() {
+                  _isTripActive = true;
+                });
+                
+                // Start location tracking service in the background
+                _locationService.startLocationTracking(
+                  driverId: authState.driverId!,
+                  tripId: _selectedTrip!.tripId,
+                  updateInterval: const Duration(seconds: 15), // Configurable 10-30 seconds
+                ).then((trackingStarted) {
+                  if (!trackingStarted && mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Failed to start location tracking. Location updates may not be available.'),
+                        duration: Duration(seconds: 3),
+                      ),
+                    );
+                  }
+                });
+                
+                // Navigate to student management page after successful trip start
+                if (mounted) {
+                  Navigator.pushNamed(
+                    context,
+                    AppRoutes.simplifiedStudentManagement,
+                    arguments: {
+                      'trip': _selectedTrip,
+                      'driverId': authState.driverId!,
+                      'isReadOnly': false,
+                    },
+                  ).then((result) {
+                    if (!mounted) return;
+                    _handleTripSessionResult(result);
+                  });
+                }
+              }
+            }
           } else if (state is DriverError) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -393,6 +485,34 @@ class _BlocDriverDashboardState extends State<BlocDriverDashboard> {
                 backgroundColor: AppColors.driverErrorColor,
               ),
             );
+          } else if (state is DriverProfileLoaded) {
+            Navigator.pushNamed(
+              context,
+              AppRoutes.driverProfile,
+              arguments: state.profile,
+            ).then((_) {
+              if (!mounted) return;
+              final authState = context.read<AuthBloc>().state;
+              if (authState is AuthAuthenticated && authState.driverId != null) {
+                context.read<DriverBloc>().add(
+                  DriverDashboardRequested(driverId: authState.driverId!),
+                );
+              }
+            });
+          } else if (state is DriverReportsLoaded) {
+            Navigator.pushNamed(
+              context,
+              AppRoutes.driverReports,
+              arguments: state.reports,
+            ).then((_) {
+              if (!mounted) return;
+              final authState = context.read<AuthBloc>().state;
+              if (authState is AuthAuthenticated && authState.driverId != null) {
+                context.read<DriverBloc>().add(
+                  DriverDashboardRequested(driverId: authState.driverId!),
+                );
+              }
+            });
           }
         },
         child: BlocBuilder<DriverBloc, DriverState>(
@@ -401,7 +521,38 @@ class _BlocDriverDashboardState extends State<BlocDriverDashboard> {
               // Only show loading if dashboard hasn't loaded yet
               return const Center(child: CircularProgressIndicator());
             } else if (state is DriverDashboardLoaded) {
+              _syncSelectedTripWithLatestData(state);
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) {
+                  _updateDriverHeaderInfo(state.dashboard);
+                }
+              });
               return _buildDashboard(state);
+            } else if (state is DriverRefreshing &&
+                state.dashboard != null &&
+                state.morningTrips != null &&
+                state.afternoonTrips != null) {
+              final loadingState = DriverDashboardLoaded(
+                dashboard: state.dashboard!,
+                reports: state.reports,
+                morningTrips: state.morningTrips!,
+                afternoonTrips: state.afternoonTrips!,
+              );
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted && state.dashboard != null) {
+                  _updateDriverHeaderInfo(state.dashboard!);
+                }
+              });
+              return Stack(
+                children: [
+                  _buildDashboard(loadingState),
+                  const Positioned(
+                    top: AppSizes.driverSpacingMD,
+                    right: AppSizes.driverSpacingMD,
+                    child: CircularProgressIndicator(),
+                  ),
+                ],
+              );
             } else if (state is DriverProfileLoaded || state is DriverReportsLoaded) {
               // If profile/reports loaded but dashboard state lost, reload dashboard
               final authState = context.read<AuthBloc>().state;
@@ -440,6 +591,46 @@ class _BlocDriverDashboardState extends State<BlocDriverDashboard> {
     );
   }
 
+  void _syncSelectedTripWithLatestData(DriverDashboardLoaded state) {
+    if (_selectedTrip == null) return;
+    final currentTripId = _selectedTrip!.tripId;
+
+    Trip? updatedTrip;
+    String? updatedTripType;
+
+    for (final trip in state.morningTrips) {
+      if (trip.tripId == currentTripId) {
+        updatedTrip = trip;
+        updatedTripType = AppConstants.tripTypeMorningPickup;
+        break;
+      }
+    }
+
+    if (updatedTrip == null) {
+      for (final trip in state.afternoonTrips) {
+        if (trip.tripId == currentTripId) {
+          updatedTrip = trip;
+          updatedTripType = AppConstants.tripTypeAfternoonDrop;
+          break;
+        }
+      }
+    }
+
+    if (updatedTrip == null) {
+      _selectedTrip = null;
+      _isTripActive = false;
+      return;
+    }
+
+    _selectedTrip = updatedTrip;
+    // Don't set trip as active based on database status
+    // Trip will be active only when driver clicks "Start Trip" and navigates to trip details page
+    _isTripActive = false;
+    if (updatedTripType != null && _selectedTripType != updatedTripType) {
+      _selectedTripType = updatedTripType;
+    }
+  }
+
   Widget _buildDrawer() {
     return Drawer(
       child: ListView(
@@ -454,117 +645,186 @@ class _BlocDriverDashboardState extends State<BlocDriverDashboard> {
               ),
             ),
           ),
-          BlocListener<DriverBloc, DriverState>(
-            listener: (context, state) {
-              if (state is DriverProfileLoaded) {
-                // Navigate to profile page
-                Navigator.pushNamed(
-                  context,
-                  AppRoutes.driverProfile,
-                  arguments: state.profile,
-                ).then((_) {
-                  // Reload dashboard when returning from profile page
-                  if (mounted) {
-                    final authState = context.read<AuthBloc>().state;
-                    if (authState is AuthAuthenticated && authState.driverId != null) {
-                      context.read<DriverBloc>().add(
-                        DriverDashboardRequested(driverId: authState.driverId!),
-                      );
-                    }
-                  }
-                });
-              } else if (state is DriverReportsLoaded) {
-                // Navigate to reports page
-                Navigator.pushNamed(
-                  context,
-                  AppRoutes.driverReports,
-                  arguments: state.reports,
-                ).then((_) {
-                  // Reload dashboard when returning from reports page
-                  if (mounted) {
-                    final authState = context.read<AuthBloc>().state;
-                    if (authState is AuthAuthenticated && authState.driverId != null) {
-                      context.read<DriverBloc>().add(
-                        DriverDashboardRequested(driverId: authState.driverId!),
-                      );
-                    }
-                  }
-                });
-              } else if (state is DriverError && state.actionType == AppConstants.actionTypeLoadProfile) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(state.message),
-                    backgroundColor: AppColors.driverErrorColor,
+          BlocBuilder<DriverBloc, DriverState>(
+            builder: (context, state) {
+              return Column(
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.person),
+                    title: const Text(AppConstants.labelProfile),
+                    onTap: () {
+                      Navigator.pop(context);
+                      final authState = context.read<AuthBloc>().state;
+                      if (authState is AuthAuthenticated && authState.driverId != null) {
+                        context.read<DriverBloc>().add(
+                          DriverProfileRequested(driverId: authState.driverId!),
+                        );
+                      }
+                    },
                   ),
-                );
-              } else if (state is DriverError && state.actionType == AppConstants.actionTypeLoadReports) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(state.message),
-                    backgroundColor: AppColors.driverErrorColor,
-                  ),
-                );
-              }
-            },
-            child: BlocBuilder<DriverBloc, DriverState>(
-              builder: (context, state) {
-                return Column(
-                  children: [
-                    ListTile(
-                      leading: const Icon(Icons.person),
-                      title: const Text(AppConstants.labelProfile),
-                      onTap: () {
-                        Navigator.pop(context);
-                        // Load profile first, then navigate
+                  ListTile(
+                    leading: const Icon(Icons.analytics),
+                    title: const Text(AppConstants.labelReports),
+                    onTap: () {
+                      Navigator.pop(context);
+                      if (state is DriverDashboardLoaded && state.reports != null) {
+                        Navigator.pushNamed(
+                          context,
+                          AppRoutes.driverReports,
+                          arguments: state.reports,
+                        ).then((_) {
+                          if (mounted) {
+                            final authState = context.read<AuthBloc>().state;
+                            if (authState is AuthAuthenticated && authState.driverId != null) {
+                              context.read<DriverBloc>().add(
+                                DriverDashboardRequested(driverId: authState.driverId!),
+                              );
+                            }
+                          }
+                        });
+                      } else {
                         final authState = context.read<AuthBloc>().state;
                         if (authState is AuthAuthenticated && authState.driverId != null) {
                           context.read<DriverBloc>().add(
-                            DriverProfileRequested(driverId: authState.driverId!),
+                            DriverReportsRequested(driverId: authState.driverId!),
                           );
                         }
-                      },
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.analytics),
-                      title: const Text(AppConstants.labelReports),
-                      onTap: () {
-                        Navigator.pop(context);
-                        // Check if reports are already loaded in dashboard
-                        if (state is DriverDashboardLoaded && state.reports != null) {
-                          Navigator.pushNamed(
-                            context,
-                            AppRoutes.driverReports,
-                            arguments: state.reports,
-                          ).then((_) {
-                            // Reload dashboard when returning from reports page
-                            if (mounted) {
-                              final authState = context.read<AuthBloc>().state;
-                              if (authState is AuthAuthenticated && authState.driverId != null) {
-                                context.read<DriverBloc>().add(
-                                  DriverDashboardRequested(driverId: authState.driverId!),
-                                );
-                              }
-                            }
-                          });
-                        } else {
-                          // Load reports first, then navigate
-                          final authState = context.read<AuthBloc>().state;
-                          if (authState is AuthAuthenticated && authState.driverId != null) {
-                            context.read<DriverBloc>().add(
-                              DriverReportsRequested(driverId: authState.driverId!),
-                            );
-                          }
-                        }
-                      },
-                    ),
-                  ],
-                );
-              },
+                      }
+                    },
+                  ),
+                  const Divider(),
+                  ListTile(
+                    leading: const Icon(Icons.logout),
+                    title: const Text(AppConstants.actionLogout),
+                    onTap: () {
+                      Navigator.pop(context);
+                      _showLogoutConfirmation();
+                    },
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMenuAction() {
+    return Builder(
+      builder: (context) {
+        return IconButton(
+          tooltip: AppConstants.labelDriverMenu,
+          icon: const Icon(Icons.menu),
+          onPressed: () => Scaffold.of(context).openDrawer(),
+        );
+      },
+    );
+  }
+
+  Widget _buildProfileAction() {
+    final displayName = (_driverName != null && _driverName!.isNotEmpty)
+        ? _driverName!
+        : (_driverId != null ? '#$_driverId' : AppConstants.labelDriver);
+    final schoolName = (_schoolName != null && _schoolName!.isNotEmpty)
+        ? _schoolName!
+        : AppConstants.labelSchool;
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(AppSizes.radiusMD),
+      onTap: _onProfileTapped,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          CircleAvatar(
+            radius: 20,
+            backgroundColor: AppColors.driverPrimaryColor,
+            backgroundImage: _driverPhotoBytes != null ? MemoryImage(_driverPhotoBytes!) : null,
+            child: _driverPhotoBytes == null
+                ? const Icon(
+                    Icons.person,
+                    color: AppColors.driverTextWhite,
+                  )
+                : null,
+          ),
+          const SizedBox(width: AppSizes.driverSpacingSM),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 160),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  displayName,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: AppSizes.driverSpacingXS),
+                Text(
+                  schoolName,
+                  style: const TextStyle(fontSize: 12, color: AppColors.driverGreyColor),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ),
           ),
         ],
       ),
     );
+  }
+
+  void _onProfileTapped() {
+    final authState = context.read<AuthBloc>().state;
+    if (authState is AuthAuthenticated && authState.driverId != null) {
+      context.read<DriverBloc>().add(
+        DriverProfileRequested(driverId: authState.driverId!),
+      );
+    }
+  }
+
+  void _updateDriverHeaderInfo(DriverDashboard dashboard) {
+    final photoBase64 = dashboard.driverPhoto;
+    Uint8List? photoBytes;
+    if (photoBase64 != null && photoBase64.isNotEmpty) {
+      photoBytes = _decodeBase64Image(photoBase64);
+    }
+
+    bool shouldUpdate = false;
+
+    if (_driverId != dashboard.driverId) {
+      _driverId = dashboard.driverId;
+      shouldUpdate = true;
+    }
+
+    if (_driverName != dashboard.driverName) {
+      _driverName = dashboard.driverName;
+      shouldUpdate = true;
+    }
+
+    if (_schoolName != dashboard.schoolName) {
+      _schoolName = dashboard.schoolName;
+      shouldUpdate = true;
+    }
+
+    if (photoBase64 != _driverPhotoBase64) {
+      _driverPhotoBase64 = photoBase64;
+      _driverPhotoBytes = photoBytes;
+      shouldUpdate = true;
+    }
+
+    if (shouldUpdate && mounted) {
+      setState(() {});
+    }
+  }
+
+  Uint8List? _decodeBase64Image(String data) {
+    try {
+      final sanitized = data.contains(',') ? data.split(',').last : data;
+      return base64Decode(sanitized);
+    } catch (e) {
+      debugPrint('Error decoding driver image: $e');
+      return null;
+    }
   }
 
   Widget _buildDashboard(DriverDashboardLoaded state) {
@@ -577,11 +837,12 @@ class _BlocDriverDashboardState extends State<BlocDriverDashboard> {
       },
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(AppSizes.driverPadding),
+        physics: const AlwaysScrollableScrollPhysics(),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Performance Summary
-            _buildPerformanceSummary(state),
+            _buildPerformanceSummary(context, state),
             const SizedBox(height: AppSizes.driverSpacingMD),
 
             // Trip Type Selection
@@ -600,70 +861,74 @@ class _BlocDriverDashboardState extends State<BlocDriverDashboard> {
     );
   }
 
-  Widget _buildPerformanceSummary(DriverDashboardLoaded state) {
+  Widget _buildPerformanceSummary(BuildContext context, DriverDashboardLoaded state) {
     final reports = state.reports;
     if (reports == null) return const SizedBox.shrink();
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSizes.driverPadding),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              AppConstants.labelDriverPerformanceSummary,
-              style: TextStyle(
-                fontSize: AppSizes.driverHeaderFontSize,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: AppSizes.driverSpacingMD),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildStatCard(
-                    AppConstants.labelTotalTrips,
-                    reports.totalTripsCompleted.toString(),
-                    Icons.directions_bus,
-                    AppColors.driverPrimaryColor,
-                  ),
-                ),
-                const SizedBox(width: AppSizes.driverSpacingSM),
-                Expanded(
-                  child: _buildStatCard(
-                    AppConstants.labelTotalStudents,
-                    reports.totalStudentsTransported.toString(),
-                    Icons.people,
-                    AppColors.driverSuccessColor,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSizes.driverSpacingSM),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildStatCard(
-                    AppConstants.labelStudentsPickedUp,
-                    reports.monthPickups.toString(),
-                    Icons.arrow_upward,
-                    AppColors.driverWarningColor,
-                  ),
-                ),
-                const SizedBox(width: AppSizes.driverSpacingSM),
-                Expanded(
-                  child: _buildStatCard(
-                    AppConstants.labelStudentsDropped,
-                    reports.monthDrops.toString(),
-                    Icons.arrow_downward,
-                    AppColors.driverPurpleColor,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
+    final metrics = [
+      _DriverMetric(
+        title: AppConstants.labelTotalTrips,
+        value: reports.totalTripsCompleted.toString(),
+        icon: Icons.directions_bus,
+        color: AppColors.driverPrimaryColor,
       ),
+      _DriverMetric(
+        title: AppConstants.labelTotalStudents,
+        value: reports.totalStudentsTransported.toString(),
+        icon: Icons.people,
+        color: AppColors.driverSuccessColor,
+      ),
+      _DriverMetric(
+        title: AppConstants.labelStudentsPickedUp,
+        value: reports.monthPickups.toString(),
+        icon: Icons.arrow_upward,
+        color: AppColors.driverWarningColor,
+      ),
+      _DriverMetric(
+        title: AppConstants.labelStudentsDropped,
+        value: reports.monthDrops.toString(),
+        icon: Icons.arrow_downward,
+        color: AppColors.driverPurpleColor,
+      ),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompact = constraints.maxWidth < 600;
+        final columns = isCompact ? 2 : 4;
+
+        return Card(
+          margin: EdgeInsets.zero,
+          child: Padding(
+            padding: const EdgeInsets.all(AppSizes.driverPadding),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  AppConstants.labelDriverPerformanceSummary,
+                  style: TextStyle(
+                    fontSize: AppSizes.driverHeaderFontSize,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: AppSizes.driverSpacingMD),
+                GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: columns,
+                    crossAxisSpacing: AppSizes.driverSpacingSM,
+                    mainAxisSpacing: AppSizes.driverSpacingSM,
+                    childAspectRatio: isCompact ? 1.3 : 1.6,
+                  ),
+                  itemCount: metrics.length,
+                  itemBuilder: (context, index) => _DriverPerformanceTile(metric: metrics[index]),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -796,19 +1061,18 @@ class _BlocDriverDashboardState extends State<BlocDriverDashboard> {
             const SizedBox(height: AppSizes.driverSpacingXXS),
             Text('${AppConstants.labelTrip} ${_selectedTrip!.tripName}'),
             Text('${AppConstants.labelTime}: ${_selectedTrip!.scheduledTime ?? _formatTripTime(_selectedTrip!.tripStartTime)}'),
-            Text('${AppConstants.labelStatus}: ${_isTripActive ? AppConstants.labelActiveTripStatus : AppConstants.labelInactiveTripStatus}'),
             const SizedBox(height: AppSizes.driverSpacingMD),
+            // Always show Start Trip and View Student buttons on dashboard
+            // End Trip button is only on the trip details page
             Row(
               children: [
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: _isTripActive ? _stopTrip : _startTrip,
-                    icon: Icon(_isTripActive ? Icons.stop : Icons.play_arrow),
-                    label: Text(_isTripActive ? AppConstants.labelStopTrip : AppConstants.labelStartTrip),
+                    onPressed: _startTrip,
+                    icon: const Icon(Icons.play_arrow),
+                    label: const Text(AppConstants.labelStartTrip),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: _isTripActive 
-                          ? AppColors.driverErrorColor 
-                          : AppColors.driverSuccessColor,
+                      backgroundColor: AppColors.driverSuccessColor,
                       foregroundColor: AppColors.driverTextWhite,
                     ),
                   ),
@@ -816,28 +1080,11 @@ class _BlocDriverDashboardState extends State<BlocDriverDashboard> {
                 const SizedBox(width: AppSizes.driverSpacingSM),
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: _isTripActive
-                        ? () {
-                            final authState = context.read<AuthBloc>().state;
-                            if (authState is AuthAuthenticated && authState.driverId != null) {
-                              Navigator.pushNamed(
-                                context,
-                                AppRoutes.simplifiedStudentManagement,
-                                arguments: {
-                                  'trip': _selectedTrip,
-                                  'driverId': authState.driverId!,
-                                  'isTripActive': _isTripActive,
-                                },
-                              );
-                            }
-                          }
-                        : null,
+                    onPressed: _viewStudentsForSelectedTrip,
                     icon: const Icon(Icons.people),
                     label: const Text(AppConstants.labelViewStudents),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: _isTripActive 
-                          ? AppColors.driverPrimaryColor 
-                          : AppColors.driverGreyColor,
+                      backgroundColor: AppColors.driverPrimaryColor,
                       foregroundColor: AppColors.driverTextWhite,
                     ),
                   ),
@@ -870,6 +1117,63 @@ class _BlocDriverDashboardState extends State<BlocDriverDashboard> {
           ElevatedButton(
             onPressed: _loadDriverData,
             child: const Text(AppConstants.labelRetry),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DriverMetric {
+  const _DriverMetric({
+    required this.title,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
+
+  final String title;
+  final String value;
+  final IconData icon;
+  final Color color;
+}
+
+class _DriverPerformanceTile extends StatelessWidget {
+  const _DriverPerformanceTile({required this.metric});
+
+  final _DriverMetric metric;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSizes.driverStatCardPadding),
+      decoration: BoxDecoration(
+        color: metric.color.withValues(alpha: AppSizes.driverStatBgOpacity),
+        borderRadius: BorderRadius.circular(AppSizes.driverStatBorderRadius),
+        border: Border.all(
+          color: metric.color.withValues(alpha: AppSizes.driverStatBorderOpacity),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircleAvatar(
+            backgroundColor: metric.color.withValues(alpha: AppSizes.driverStatIconBgOpacity),
+            child: Icon(metric.icon, color: metric.color),
+          ),
+          const SizedBox(height: AppSizes.driverSpacingSM),
+          Text(
+            metric.value,
+            style: TextStyle(
+              fontSize: AppSizes.driverStatValueFontSize,
+              fontWeight: FontWeight.bold,
+              color: metric.color,
+            ),
+          ),
+          Text(
+            metric.title,
+            style: const TextStyle(fontSize: AppSizes.driverStatTitleFontSize),
           ),
         ],
       ),

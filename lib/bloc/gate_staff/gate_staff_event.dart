@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import '../../data/models/websocket_notification.dart';
 
 abstract class GateStaffEvent extends Equatable {
   const GateStaffEvent();
@@ -57,5 +58,14 @@ class GateStaffRefreshRequested extends GateStaffEvent {
 
   @override
   List<Object> get props => [userId];
+}
+
+class GateStaffRealtimeNotificationReceived extends GateStaffEvent {
+  final WebSocketNotification notification;
+
+  const GateStaffRealtimeNotificationReceived({required this.notification});
+
+  @override
+  List<Object> get props => [notification];
 }
 

@@ -21,16 +21,18 @@ class VehicleOwnerDashboardLoaded extends VehicleOwnerState {
   final List<dynamic> vehicles;
   final List<dynamic> drivers;
   final List<dynamic> trips;
+  final List<dynamic> notifications;
 
   const VehicleOwnerDashboardLoaded({
     required this.dashboard,
     required this.vehicles,
     required this.drivers,
     required this.trips,
+    required this.notifications,
   });
 
   @override
-  List<Object> get props => [dashboard, vehicles, drivers, trips];
+  List<Object> get props => [dashboard, vehicles, drivers, trips, notifications];
 }
 
 class VehicleOwnerProfileLoaded extends VehicleOwnerState {
@@ -67,6 +69,15 @@ class VehicleOwnerTripsLoaded extends VehicleOwnerState {
 
   @override
   List<Object> get props => [trips];
+}
+
+class VehicleOwnerNotificationsLoaded extends VehicleOwnerState {
+  final List<dynamic> notifications;
+
+  const VehicleOwnerNotificationsLoaded({required this.notifications});
+
+  @override
+  List<Object> get props => [notifications];
 }
 
 class VehicleOwnerReportsLoaded extends VehicleOwnerState {
@@ -111,14 +122,16 @@ class VehicleOwnerRefreshing extends VehicleOwnerState {
   final List<dynamic>? vehicles;
   final List<dynamic>? drivers;
   final List<dynamic>? trips;
+  final List<dynamic>? notifications;
 
   const VehicleOwnerRefreshing({
     this.dashboard,
     this.vehicles,
     this.drivers,
     this.trips,
+    this.notifications,
   });
 
   @override
-  List<Object?> get props => [dashboard, vehicles, drivers, trips];
+  List<Object?> get props => [dashboard, vehicles, drivers, trips, notifications];
 }

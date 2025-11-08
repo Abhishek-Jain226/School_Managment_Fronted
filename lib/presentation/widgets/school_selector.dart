@@ -37,6 +37,7 @@ class _SchoolSelectorState extends State<SchoolSelector> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final userId = prefs.getInt(AppConstants.keyUserId);
+      final storedSchoolName = prefs.getString(AppConstants.keyCurrentSchoolName);
       
       if (userId == null) {
         _showError(AppConstants.errorUserNotFound);
@@ -63,6 +64,17 @@ class _SchoolSelectorState extends State<SchoolSelector> {
               _selectedSchoolId = _schools.first[AppConstants.keySchoolId];
               _selectedSchoolName = _schools.first[AppConstants.keySchoolName];
               widget.onSchoolSelected(_selectedSchoolId, _selectedSchoolName);
+            } else if (_selectedSchoolId != null) {
+              final matchedSchool = _schools.firstWhere(
+                (school) => school[AppConstants.keySchoolId] == _selectedSchoolId,
+                orElse: () => const <String, dynamic>{},
+              );
+              final matchedName = matchedSchool[AppConstants.keySchoolName];
+              if (matchedName is String && matchedName.isNotEmpty) {
+                _selectedSchoolName = matchedName;
+              } else if (storedSchoolName != null && storedSchoolName.isNotEmpty) {
+                _selectedSchoolName = storedSchoolName;
+              }
             }
           });
         } else {

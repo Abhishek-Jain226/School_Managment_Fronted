@@ -1,17 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../../services/parent_service.dart';
-import '../../utils/constants.dart';
+
 import '../../bloc/parent/parent_bloc.dart';
 import '../../bloc/parent/parent_event.dart';
 import '../../bloc/parent/parent_state.dart';
-import '../../bloc/auth/auth_bloc.dart';
-import '../../bloc/auth/auth_state.dart';
+import '../../utils/constants.dart';
 
 class ParentProfileUpdatePage extends StatefulWidget {
   final Map<String, dynamic>? profileData;
-  
+
   const ParentProfileUpdatePage({super.key, this.profileData});
 
   @override
@@ -19,489 +16,409 @@ class ParentProfileUpdatePage extends StatefulWidget {
 }
 
 class _ParentProfileUpdatePageState extends State<ParentProfileUpdatePage> {
-  final ParentService _parentService = ParentService();
   final _formKey = GlobalKey<FormState>();
-  
-  int? _userId;
-  bool _isLoading = false;
-  bool _isSaving = false;
-  String _error = '';
-  
-  // Form controllers
-  final _userNameController = TextEditingController();
+
+  final _nameController = TextEditingController();
   final _emailController = TextEditingController();
-  final _contactNumberController = TextEditingController();
-  final _currentPasswordController = TextEditingController();
-  final _newPasswordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController();
-  
-  bool _obscureCurrentPassword = true;
-  bool _obscureNewPassword = true;
-  bool _obscureConfirmPassword = true;
+  final _contactController = TextEditingController();
+
+  Map<String, dynamic>? _profilePayload;
+  int? _parentId;
+  String? _studentName;
+  String? _schoolName;
+  bool _isEditing = false;
+  bool _isSaving = false;
+  String? _error;
+
+  Map<String, dynamic> get _profileData {
+    final payload = _profilePayload;
+    if (payload == null) return const <String, dynamic>{};
+    final data = payload[AppConstants.keyData];
+    if (data is Map<String, dynamic>) {
+      return data;
+    }
+    return payload;
+  }
+
+  Map<String, dynamic> get _dashboardData {
+    final payload = _profilePayload;
+    final data = payload?['dashboard'];
+    if (data is Map<String, dynamic>) {
+      return data;
+    }
+    return const <String, dynamic>{};
+  }
 
   @override
   void initState() {
     super.initState();
-    // If profile data passed from navigation, use it; otherwise load via BLoC
-    if (widget.profileData != null) {
-      _loadProfileData(widget.profileData!);
-    } else {
-      _loadUserId();
-    }
-  }
-  
-  void _loadProfileData(Map<String, dynamic> profileData) {
-    // Extract profile data from response
-    final data = profileData[AppConstants.keyData] ?? profileData;
-    setState(() {
-      _userNameController.text = data['parentName'] ?? data['name'] ?? data['userName'] ?? '';
-      _emailController.text = data['email'] ?? '';
-      _contactNumberController.text = data['contactNumber'] ?? data['phone'] ?? '';
-    });
+    _profilePayload = widget.profileData;
+    _initializeFields();
   }
 
   @override
   void dispose() {
-    _userNameController.dispose();
+    _nameController.dispose();
     _emailController.dispose();
-    _contactNumberController.dispose();
-    _currentPasswordController.dispose();
-    _newPasswordController.dispose();
-    _confirmPasswordController.dispose();
+    _contactController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadUserId() async {
-    final prefs = await SharedPreferences.getInstance();
+  void _initializeFields() {
+    final sources = <Map<String, dynamic>>[
+      _profileData,
+      _dashboardData,
+    ];
+
+    for (final source in sources) {
+      _parentId ??= _readInt(source, [AppConstants.keyUserId, 'parentId']);
+      _studentName ??= _readString(source, [AppConstants.keyStudentName, 'student']);
+      _schoolName ??= _readString(source, [AppConstants.keySchoolName]);
+
+      final name = _readString(source, [AppConstants.keyParentName, AppConstants.keyName, AppConstants.keyUserName]);
+      if (name.isNotEmpty && (!_isEditing || _nameController.text.isEmpty)) {
+        _nameController.text = name;
+      }
+
+      final email = _readString(source, [AppConstants.keyEmail]);
+      if (email.isNotEmpty && (!_isEditing || _emailController.text.isEmpty)) {
+        _emailController.text = email;
+      }
+
+      final contact = _readString(source, [AppConstants.keyContactNumber, 'phone']);
+      if (contact.isNotEmpty && (!_isEditing || _contactController.text.isEmpty)) {
+        _contactController.text = contact;
+      }
+    }
+  }
+
+  String _readString(Map<String, dynamic> source, List<String> keys) {
+    final result = _findInMap(source, keys);
+    return result ?? '';
+  }
+
+  int? _readInt(Map<String, dynamic> source, List<String> keys) {
+    final result = _findInMap(source, keys);
+    if (result == null) return null;
+    return int.tryParse(result);
+  }
+
+  String? _findInMap(Map<String, dynamic> map, List<String> keys) {
+    for (final key in keys) {
+      final value = map[key];
+      if (value is String && value.trim().isNotEmpty) {
+        return value.trim();
+      }
+      if (value is num) {
+        return value.toString();
+      }
+    }
+    for (final entry in map.entries) {
+      final value = entry.value;
+      if (value is Map<String, dynamic>) {
+        final nested = _findInMap(value, keys);
+        if (nested != null && nested.isNotEmpty) {
+          return nested;
+        }
+      } else if (value is List) {
+        for (final item in value) {
+          if (item is Map<String, dynamic>) {
+            final nested = _findInMap(item, keys);
+            if (nested != null && nested.isNotEmpty) {
+              return nested;
+            }
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  void _toggleEditing() {
     setState(() {
-      _userId = prefs.getInt(AppConstants.keyUserId);
+      _isEditing = !_isEditing;
+      _error = null;
     });
-    
-    if (_userId != null) {
-      _loadUserData();
-    } else {
-      setState(() {
-        _error = AppConstants.msgUserIdNotFoundLogin;
-        _isLoading = false;
-      });
-    }
   }
 
-  Future<void> _loadUserData() async {
-    if (_userId == null) return;
-    
-    setState(() => _isLoading = true);
-    
-    try {
-      // Try to get parent profile via BLoC first
-      final authState = context.read<AuthBloc>().state;
-      if (authState is AuthAuthenticated && authState.userId != null) {
-        // Request profile via BLoC
-        context.read<ParentBloc>().add(
-          ParentProfileRequested(parentId: authState.userId!),
-        );
-        // Wait for BLoC to load profile, or fallback to direct service call
-      }
-      
-      // Fallback: Get parent data by userId directly
-      final response = await _parentService.getParentByUserId(_userId!);
-      
-      if (response['success'] == true && response['data'] != null) {
-        final data = response['data'];
-        setState(() {
-          _userNameController.text = data['parentName'] ?? data['name'] ?? data['userName'] ?? '';
-          _emailController.text = data['email'] ?? '';
-          _contactNumberController.text = data['contactNumber'] ?? data['phone'] ?? '';
-        });
-      } else {
-        // Try getParentProfile as fallback
-        final profileResponse = await _parentService.getParentProfile(_userId!);
-        if (profileResponse['success'] == true) {
-          final profileData = profileResponse[AppConstants.keyData] ?? profileResponse;
-          setState(() {
-            _userNameController.text = profileData['parentName'] ?? profileData['name'] ?? profileData['userName'] ?? '';
-            _emailController.text = profileData['email'] ?? '';
-            _contactNumberController.text = profileData['contactNumber'] ?? profileData['phone'] ?? '';
-          });
-        }
-      }
-    } catch (e) {
-      debugPrint('🔍 Error loading user data: $e');
-      setState(() {
-        _error = '${AppConstants.msgErrorLoadingUserData}$e';
-      });
-    } finally {
-      setState(() => _isLoading = false);
-    }
+  void _cancelEditing() {
+    setState(() {
+      _isEditing = false;
+      _isSaving = false;
+      _error = null;
+    });
+    _initializeFields();
   }
 
-  Future<void> _updateProfile() async {
-    if (!_formKey.currentState!.validate()) return;
-    
-    setState(() => _isSaving = true);
-    _error = ''; // Clear previous errors
-    
-    try {
-      final request = {
-        'userName': _userNameController.text.trim(),
-        'email': _emailController.text.trim(),
-        'contactNumber': _contactNumberController.text.trim(),
-        'createdBy': 'PARENT',
-      };
-      
-      // Add password if provided
-      if (_newPasswordController.text.isNotEmpty) {
-        request['password'] = _newPasswordController.text.trim();
-      }
-      
-      // Use BLoC to update profile
-      final authState = context.read<AuthBloc>().state;
-      if (authState is AuthAuthenticated && authState.userId != null) {
-        context.read<ParentBloc>().add(
-          ParentUpdateRequested(
-            parentId: authState.userId!,
-            parentData: request,
-          ),
-        );
-        // State updates will be handled by BlocListener
-      } else {
-        // Fallback to direct service call
-        final response = await _parentService.updateParentProfile(_userId!, request);
-        
-        if (response['success'] == true) {
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(AppConstants.msgProfileUpdatedSuccessfully),
-              backgroundColor: AppColors.statusSuccess,
-            ),
-          );
-          
-          // Clear password fields
-          _currentPasswordController.clear();
-          _newPasswordController.clear();
-          _confirmPasswordController.clear();
-          
-          // Go back to dashboard
-          Navigator.pop(context);
-        } else {
-          setState(() {
-            _error = response['message'] ?? AppConstants.msgFailedToUpdateProfile;
-            _isSaving = false;
-          });
-        }
-      }
-    } catch (e) {
-      debugPrint('🔍 Error updating profile: $e');
-      setState(() {
-        _error = '${AppConstants.msgErrorUpdatingProfile}$e';
-        _isSaving = false;
-      });
+  void _saveProfile() {
+    if (_parentId == null || !_formKey.currentState!.validate()) {
+      return;
     }
+
+    setState(() {
+      _isSaving = true;
+      _error = null;
+    });
+
+    final payload = <String, dynamic>{
+      'userName': _nameController.text.trim(),
+      'email': _emailController.text.trim(),
+      'contactNumber': _contactController.text.trim(),
+      'createdBy': 'PARENT',
+    };
+
+    context.read<ParentBloc>().add(
+          ParentUpdateRequested(parentId: _parentId!, parentData: payload),
+        );
   }
 
   @override
   Widget build(BuildContext context) {
     return BlocListener<ParentBloc, ParentState>(
       listener: (context, state) {
-        if (state is ParentProfileLoaded) {
-          // Load profile data from BLoC
-          _loadProfileData(state.profile);
-          setState(() => _isLoading = false);
-        } else if (state is ParentError && state.actionType == AppConstants.actionTypeLoadProfile) {
-          setState(() {
-            _error = state.message;
-            _isLoading = false;
-          });
-        } else if (state is ParentActionSuccess && state.actionType == AppConstants.actionTypeUpdateProfile) {
-          // Profile updated successfully
+        if (state is ParentActionSuccess && state.actionType == AppConstants.actionTypeUpdateProfile) {
           setState(() {
             _isSaving = false;
+            _isEditing = false;
           });
-          
-          // Clear password fields
-          _currentPasswordController.clear();
-          _newPasswordController.clear();
-          _confirmPasswordController.clear();
-          
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.message),
-                backgroundColor: AppColors.statusSuccess,
-              ),
-            );
-            Navigator.pop(context);
-          }
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(state.message),
+              backgroundColor: AppColors.statusSuccess,
+            ),
+          );
         } else if (state is ParentError && state.actionType == AppConstants.actionTypeUpdateProfile) {
           setState(() {
-            _error = state.message;
             _isSaving = false;
+            _error = state.message;
+          });
+        } else if (state is ParentProfileLoaded) {
+          setState(() {
+            _profilePayload = {
+              ...state.profile,
+              if (_dashboardData.isNotEmpty) 'dashboard': _dashboardData,
+            };
+            _isSaving = false;
+            _isEditing = false;
+          });
+          _initializeFields();
+          setState(() {
+            _error = null;
           });
         }
       },
       child: Scaffold(
         appBar: AppBar(
-          title: const Row(
-            children: [
-              Icon(Icons.edit, size: AppSizes.parentProfileIconSize),
-              SizedBox(width: AppSizes.parentProfileIconSpacing),
-              Text(AppConstants.labelUpdateProfile),
-            ],
-          ),
+          title: const Text(AppConstants.labelProfileInformation),
+          actions: [
+            if (_isEditing) ...[
+              IconButton(
+                icon: const Icon(Icons.close),
+                tooltip: AppConstants.actionCancel,
+                onPressed: _isSaving ? null : _cancelEditing,
+              ),
+              IconButton(
+                icon: _isSaving
+                    ? const SizedBox(
+                        width: AppSizes.parentProfileLoadingSize,
+                        height: AppSizes.parentProfileLoadingSize,
+                        child: CircularProgressIndicator(strokeWidth: AppSizes.parentProfileLoadingStroke),
+                      )
+                    : const Icon(Icons.save),
+                tooltip: AppConstants.actionSave,
+                onPressed: _isSaving ? null : _saveProfile,
+              ),
+            ] else
+              IconButton(
+                icon: const Icon(Icons.edit),
+                tooltip: AppConstants.actionEdit,
+                onPressed: _toggleEditing,
+              ),
+          ],
         ),
-        body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _error.isNotEmpty && _userNameController.text.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(_error, style: const TextStyle(color: AppColors.errorColor, fontSize: AppSizes.parentProfileErrorFontSize)),
-                      const SizedBox(height: AppSizes.parentProfileErrorSpacing),
-                      ElevatedButton(
-                        onPressed: _loadUserData,
-                        child: const Text(AppConstants.labelRetry),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(AppSizes.parentPadding),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (_studentName != null || _schoolName != null)
+                  Card(
+                    elevation: AppSizes.parentProfileCardElevation,
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppSizes.parentPadding),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            AppConstants.labelProfileInformation,
+                            style: TextStyle(
+                              fontSize: AppSizes.parentProfileTitleFontSize,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: AppSizes.parentSpacingSM),
+                          if (_studentName != null && _studentName!.isNotEmpty)
+                            _InfoTile(
+                              icon: Icons.badge,
+                              label: AppConstants.labelStudent,
+                              value: _studentName!,
+                            ),
+                          if (_schoolName != null && _schoolName!.isNotEmpty)
+                            _InfoTile(
+                              icon: Icons.school,
+                              label: AppConstants.labelSchool,
+                              value: _schoolName!,
+                            ),
+                          if (_parentId != null)
+                            _InfoTile(
+                              icon: Icons.numbers,
+                              label: AppConstants.labelUserId,
+                              value: '#$_parentId',
+                            ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
-                )
-              : SingleChildScrollView(
-                  padding: const EdgeInsets.all(AppSizes.parentProfilePadding),
-                  child: Form(
-                    key: _formKey,
+                const SizedBox(height: AppSizes.parentSpacingMD),
+                Card(
+                  elevation: AppSizes.parentProfileCardElevation,
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppSizes.parentPadding),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Error Message
-                        if (_error.isNotEmpty)
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(AppSizes.parentProfileErrorPadding),
-                            margin: const EdgeInsets.only(bottom: AppSizes.parentProfileSpacing),
-                            decoration: BoxDecoration(
-                              color: AppColors.errorColor.withValues(alpha: AppSizes.parentProfileErrorOpacity),
-                              border: Border.all(color: AppColors.errorColor),
-                              borderRadius: BorderRadius.circular(AppSizes.parentProfileErrorRadius),
-                            ),
-                            child: Text(
-                              _error,
-                              style: const TextStyle(color: AppColors.errorColor),
-                            ),
-                          ),
-                        
-                        // Profile Information Card
-                        Card(
-                          elevation: AppSizes.parentProfileCardElevation,
-                          child: Padding(
-                            padding: const EdgeInsets.all(AppSizes.parentProfilePadding),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  AppConstants.labelProfileInformation,
-                                  style: TextStyle(fontSize: AppSizes.parentProfileTitleFontSize, fontWeight: FontWeight.bold),
-                                ),
-                                const SizedBox(height: AppSizes.parentProfileSpacing),
-                                
-                                // User Name
-                                TextFormField(
-                                  controller: _userNameController,
-                                  decoration: const InputDecoration(
-                                    labelText: AppConstants.labelFullName,
-                                    prefixIcon: Icon(Icons.person),
-                                    border: OutlineInputBorder(),
-                                  ),
-                                  validator: (value) {
-                                    if (value == null || value.trim().isEmpty) {
-                                      return AppConstants.msgEnterFullName;
-                                    }
-                                    return null;
-                                  },
-                                ),
-                                const SizedBox(height: AppSizes.parentProfileSpacing),
-                                
-                                // Email
-                                TextFormField(
-                                  controller: _emailController,
-                                  decoration: const InputDecoration(
-                                    labelText: AppConstants.labelEmail,
-                                    prefixIcon: Icon(Icons.email),
-                                    border: OutlineInputBorder(),
-                                  ),
-                                  keyboardType: TextInputType.emailAddress,
-                                  validator: (value) {
-                                    if (value == null || value.trim().isEmpty) {
-                                      return AppConstants.msgEnterEmail;
-                                    }
-                                    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
-                                      return AppConstants.msgEnterValidEmail;
-                                    }
-                                    return null;
-                                  },
-                                ),
-                                const SizedBox(height: AppSizes.parentProfileSpacing),
-                                
-                                // Contact Number
-                                TextFormField(
-                                  controller: _contactNumberController,
-                                  decoration: const InputDecoration(
-                                    labelText: AppConstants.labelContactNumber,
-                                    prefixIcon: Icon(Icons.phone),
-                                    border: OutlineInputBorder(),
-                                  ),
-                                  keyboardType: TextInputType.phone,
-                                  validator: (value) {
-                                    if (value == null || value.trim().isEmpty) {
-                                      return AppConstants.msgEnterContactNumber;
-                                    }
-                                    if (value.length < AppSizes.parentProfileContactMinLength) {
-                                      return AppConstants.msgContactNumberMinLength;
-                                    }
-                                    return null;
-                                  },
-                                ),
-                              ],
-                            ),
+                        const Text(
+                          AppConstants.labelPersonalInformation,
+                          style: TextStyle(
+                            fontSize: AppSizes.parentProfileTitleFontSize,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                        const SizedBox(height: AppSizes.parentProfileSpacing),
-                        
-                        // Password Change Card
-                        Card(
-                          elevation: AppSizes.parentProfileCardElevation,
-                          child: Padding(
-                            padding: const EdgeInsets.all(AppSizes.parentProfilePadding),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  AppConstants.labelChangePasswordOptional,
-                                  style: TextStyle(fontSize: AppSizes.parentProfileTitleFontSize, fontWeight: FontWeight.bold),
-                                ),
-                                const SizedBox(height: AppSizes.parentProfileSpacingSM),
-                                const Text(
-                                  AppConstants.labelPasswordHint,
-                                  style: TextStyle(color: AppColors.textSecondary, fontSize: AppSizes.parentProfileHintFontSize),
-                                ),
-                                const SizedBox(height: AppSizes.parentProfileSpacing),
-                                
-                                // Current Password
-                                TextFormField(
-                                  controller: _currentPasswordController,
-                                  decoration: InputDecoration(
-                                    labelText: AppConstants.labelCurrentPassword,
-                                    prefixIcon: const Icon(Icons.lock),
-                                    border: const OutlineInputBorder(),
-                                    suffixIcon: IconButton(
-                                      icon: Icon(_obscureCurrentPassword ? Icons.visibility : Icons.visibility_off),
-                                      onPressed: () {
-                                        setState(() {
-                                          _obscureCurrentPassword = !_obscureCurrentPassword;
-                                        });
-                                      },
-                                    ),
-                                  ),
-                                  obscureText: _obscureCurrentPassword,
-                                ),
-                                const SizedBox(height: AppSizes.parentProfileSpacing),
-                                
-                                // New Password
-                                TextFormField(
-                                  controller: _newPasswordController,
-                                  decoration: InputDecoration(
-                                    labelText: AppConstants.labelNewPassword,
-                                    prefixIcon: const Icon(Icons.lock_outline),
-                                    border: const OutlineInputBorder(),
-                                    suffixIcon: IconButton(
-                                      icon: Icon(_obscureNewPassword ? Icons.visibility : Icons.visibility_off),
-                                      onPressed: () {
-                                        setState(() {
-                                          _obscureNewPassword = !_obscureNewPassword;
-                                        });
-                                      },
-                                    ),
-                                  ),
-                                  obscureText: _obscureNewPassword,
-                                  validator: (value) {
-                                    if (_newPasswordController.text.isNotEmpty) {
-                                      if (value == null || value.length < AppSizes.parentProfilePasswordMinLength) {
-                                        return AppConstants.msgPasswordMinLength;
-                                      }
-                                    }
-                                    return null;
-                                  },
-                                ),
-                                const SizedBox(height: AppSizes.parentProfileSpacing),
-                                
-                                // Confirm Password
-                                TextFormField(
-                                  controller: _confirmPasswordController,
-                                  decoration: InputDecoration(
-                                    labelText: AppConstants.labelConfirmNewPassword,
-                                    prefixIcon: const Icon(Icons.lock_outline),
-                                    border: const OutlineInputBorder(),
-                                    suffixIcon: IconButton(
-                                      icon: Icon(_obscureConfirmPassword ? Icons.visibility : Icons.visibility_off),
-                                      onPressed: () {
-                                        setState(() {
-                                          _obscureConfirmPassword = !_obscureConfirmPassword;
-                                        });
-                                      },
-                                    ),
-                                  ),
-                                  obscureText: _obscureConfirmPassword,
-                                  validator: (value) {
-                                    if (_newPasswordController.text.isNotEmpty) {
-                                      if (value != _newPasswordController.text) {
-                                        return AppConstants.msgPasswordsDoNotMatch;
-                                      }
-                                    }
-                                    return null;
-                                  },
-                                ),
-                              ],
-                            ),
+                        const SizedBox(height: AppSizes.parentSpacingSM),
+                        TextFormField(
+                          controller: _nameController,
+                          enabled: _isEditing,
+                          decoration: const InputDecoration(
+                            labelText: AppConstants.labelFullName,
+                            prefixIcon: Icon(Icons.person),
+                            border: OutlineInputBorder(),
                           ),
+                          validator: (value) {
+                            if (!_isEditing) return null;
+                            if (value == null || value.trim().isEmpty) {
+                              return AppConstants.msgEnterFullName;
+                            }
+                            return null;
+                          },
                         ),
-                        const SizedBox(height: AppSizes.parentProfileSpacingLG),
-                        
-                        // Save Button
-                        SizedBox(
-                          width: double.infinity,
-                          height: AppSizes.parentProfileButtonHeight,
-                          child: ElevatedButton(
-                            onPressed: _isSaving ? null : _updateProfile,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primaryColor,
-                              foregroundColor: AppColors.textWhite,
-                            ),
-                            child: _isSaving
-                                ? const Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      SizedBox(
-                                        width: AppSizes.parentProfileLoadingSize,
-                                        height: AppSizes.parentProfileLoadingSize,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: AppSizes.parentProfileLoadingStroke,
-                                          valueColor: AlwaysStoppedAnimation<Color>(AppColors.textWhite),
-                                        ),
-                                      ),
-                                      SizedBox(width: AppSizes.parentProfileLoadingSpacing),
-                                      Text(AppConstants.labelUpdating),
-                                    ],
-                                  )
-                                : const Text(
-                                    AppConstants.labelUpdateProfile,
-                                    style: TextStyle(fontSize: AppSizes.parentProfileButtonFontSize, fontWeight: FontWeight.bold),
-                                  ),
+                        const SizedBox(height: AppSizes.parentSpacingMD),
+                        TextFormField(
+                          controller: _emailController,
+                          enabled: _isEditing,
+                          decoration: const InputDecoration(
+                            labelText: AppConstants.labelEmail,
+                            prefixIcon: Icon(Icons.email),
+                            border: OutlineInputBorder(),
                           ),
+                          validator: (value) {
+                            if (!_isEditing) return null;
+                            if (value == null || value.trim().isEmpty) {
+                              return AppConstants.msgEnterEmail;
+                            }
+                            final regex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+                            if (!regex.hasMatch(value.trim())) {
+                              return AppConstants.msgEnterValidEmail;
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: AppSizes.parentSpacingMD),
+                        TextFormField(
+                          controller: _contactController,
+                          enabled: _isEditing,
+                          decoration: const InputDecoration(
+                            labelText: AppConstants.labelContactNumber,
+                            prefixIcon: Icon(Icons.phone),
+                            border: OutlineInputBorder(),
+                          ),
+                          validator: (value) {
+                            if (!_isEditing) return null;
+                            if (value == null || value.trim().isEmpty) {
+                              return AppConstants.msgEnterContactNumber;
+                            }
+                            if (value.trim().length < AppSizes.parentProfileContactMinLength) {
+                              return AppConstants.msgContactNumberMinLength;
+                            }
+                            return null;
+                          },
                         ),
                       ],
                     ),
                   ),
                 ),
+                if (_error != null && _error!.isNotEmpty) ...[
+                  const SizedBox(height: AppSizes.parentSpacingMD),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(AppSizes.parentProfileErrorPadding),
+                    decoration: BoxDecoration(
+                      color: AppColors.errorColor.withValues(alpha: 0.1),
+                      border: Border.all(color: AppColors.errorColor),
+                      borderRadius: BorderRadius.circular(AppSizes.parentProfileErrorRadius),
+                    ),
+                    child: Text(
+                      _error!,
+                      style: const TextStyle(color: AppColors.errorColor),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _InfoTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+
+  const _InfoTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSizes.parentSpacingSM),
+      child: Row(
+        children: [
+          Icon(icon, color: AppColors.parentPrimaryColor),
+          const SizedBox(width: AppSizes.parentSpacingSM),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(value.isNotEmpty ? value : AppConstants.labelNA),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

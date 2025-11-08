@@ -41,6 +41,7 @@ class StudentRequest {
   final int? classId;
   final int? sectionId;
   final String createdBy;
+  final String? parentRelation; // ✅ Added parentRelation field
 
   StudentRequest({
     required this.firstName,
@@ -56,6 +57,7 @@ class StudentRequest {
     this.classId,
     this.sectionId,
     required this.createdBy,
+    this.parentRelation, // ✅ Added parentRelation parameter
   });
 
   Map<String, dynamic> toJson() => {
@@ -72,5 +74,6 @@ class StudentRequest {
     if (classId != null) AppConstants.keyClassId: classId,
     if (sectionId != null) AppConstants.keySectionId: sectionId,
     AppConstants.keyCreatedBy: createdBy,
+    if (parentRelation != null) AppConstants.keyParentRelation: parentRelation, // ✅ Added parentRelation to JSON
   };
 }

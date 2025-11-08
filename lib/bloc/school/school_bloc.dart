@@ -3,15 +3,24 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../utils/constants.dart';
 import '../../services/school_service.dart';
+import '../../services/websocket_notification_service.dart';
+import '../../data/models/websocket_notification.dart';
 import 'school_event.dart';
 import 'school_state.dart';
 
 class SchoolBloc extends Bloc<SchoolEvent, SchoolState> {
   final SchoolService _schoolService;
-  Timer? _refreshTimer;
+  final WebSocketNotificationService _webSocketService;
+  StreamSubscription<WebSocketNotification>? _notificationSubscription;
+  StreamSubscription<WebSocketNotification>? _tripUpdateSubscription;
+  int? _currentSchoolId;
+  bool _isRealtimeRefreshInProgress = false;
 
-  SchoolBloc({required SchoolService schoolService})
-      : _schoolService = schoolService,
+  SchoolBloc({
+    required SchoolService schoolService,
+    required WebSocketNotificationService webSocketService,
+  })  : _schoolService = schoolService,
+        _webSocketService = webSocketService,
         super(const SchoolInitial()) {
     on<SchoolDashboardRequested>(_onDashboardRequested);
     on<SchoolProfileRequested>(_onProfileRequested);
@@ -20,8 +29,13 @@ class SchoolBloc extends Bloc<SchoolEvent, SchoolState> {
     on<SchoolStaffRequested>(_onStaffRequested);
     on<SchoolVehiclesRequested>(_onVehiclesRequested);
     on<SchoolTripsRequested>(_onTripsRequested);
+    on<SchoolNotificationsRequested>(_onNotificationsRequested);
     on<SchoolReportsRequested>(_onReportsRequested);
     on<SchoolRefreshRequested>(_onRefreshRequested);
+    on<SchoolRealtimeNotificationReceived>(_onRealtimeNotificationReceived);
+
+    unawaited(_webSocketService.initialize());
+    _subscribeToRealtimeStreams();
   }
 
   Future<void> _onDashboardRequested(
@@ -39,6 +53,8 @@ class SchoolBloc extends Bloc<SchoolEvent, SchoolState> {
       final staff = await _schoolService.getSchoolStaff(event.schoolId);
       final vehicles = await _schoolService.getSchoolVehicles(event.schoolId);
       final trips = await _schoolService.getSchoolTrips(event.schoolId);
+      final notificationsResponse = await _schoolService.getSchoolNotifications(event.schoolId);
+      final notifications = notificationsResponse[AppConstants.keyData] ?? [];
       
       emit(SchoolDashboardLoaded(
         dashboard: dashboardResponse,
@@ -46,10 +62,9 @@ class SchoolBloc extends Bloc<SchoolEvent, SchoolState> {
         staff: staff,
         vehicles: vehicles,
         trips: trips,
+        notifications: notifications,
       ));
-      
-      // Start auto-refresh timer
-      _startRefreshTimer(event.schoolId);
+      _currentSchoolId = event.schoolId;
       
     } catch (e) {
       debugPrint('${AppConstants.errorFailedToLoadSchoolDashboard}: ${e.toString()}');
@@ -175,6 +190,24 @@ class SchoolBloc extends Bloc<SchoolEvent, SchoolState> {
     }
   }
 
+  Future<void> _onNotificationsRequested(
+    SchoolNotificationsRequested event,
+    Emitter<SchoolState> emit,
+  ) async {
+    try {
+      final notificationsResponse = await _schoolService.getSchoolNotifications(event.schoolId);
+      final notifications = notificationsResponse[AppConstants.keyData] ?? [];
+      emit(SchoolNotificationsLoaded(notifications: notifications));
+    } catch (e) {
+      debugPrint('${AppConstants.errorFailedToFetchSchoolNotifications}: ${e.toString()}');
+      emit(SchoolError(
+        message: '${AppConstants.errorFailedToFetchSchoolNotifications}: ${e.toString()}',
+        errorCode: AppConstants.errorCodeSchoolNotifications,
+        actionType: AppConstants.actionTypeLoadNotifications,
+      ));
+    }
+  }
+
   Future<void> _onReportsRequested(
     SchoolReportsRequested event,
     Emitter<SchoolState> emit,
@@ -196,32 +229,136 @@ class SchoolBloc extends Bloc<SchoolEvent, SchoolState> {
     SchoolRefreshRequested event,
     Emitter<SchoolState> emit,
   ) async {
-    // Emit refreshing state to show loading indicator
-    if (state is SchoolDashboardLoaded) {
-      final currentState = state as SchoolDashboardLoaded;
-      emit(SchoolRefreshing(
-        dashboard: currentState.dashboard,
-        students: currentState.students,
-        staff: currentState.staff,
-        vehicles: currentState.vehicles,
-        trips: currentState.trips,
-      ));
-    }
-    
-    // Refresh dashboard data
-    add(SchoolDashboardRequested(schoolId: event.schoolId));
+    await _refreshDashboardData(
+      schoolId: event.schoolId,
+      emit: emit,
+      emitRefreshingState: true,
+    );
   }
 
-  void _startRefreshTimer(int schoolId) {
-    _refreshTimer?.cancel();
-    _refreshTimer = Timer.periodic(AppDurations.autoRefreshSchool, (timer) {
-      add(SchoolRefreshRequested(schoolId: schoolId));
-    });
+  Future<void> _onRealtimeNotificationReceived(
+    SchoolRealtimeNotificationReceived event,
+    Emitter<SchoolState> emit,
+  ) async {
+    if (_currentSchoolId == null) return;
+    if (_isRealtimeRefreshInProgress) return;
+
+    _isRealtimeRefreshInProgress = true;
+    try {
+      await _refreshDashboardData(
+        schoolId: _currentSchoolId!,
+        emit: emit,
+        emitRefreshingState: false,
+      );
+    } finally {
+      _isRealtimeRefreshInProgress = false;
+    }
   }
 
   @override
   Future<void> close() {
-    _refreshTimer?.cancel();
+    _notificationSubscription?.cancel();
+    _tripUpdateSubscription?.cancel();
     return super.close();
+  }
+
+  void _subscribeToRealtimeStreams() {
+    _notificationSubscription ??=
+        _webSocketService.notificationStream.listen(_handleNotification, onError: _handleStreamError);
+    _tripUpdateSubscription ??=
+        _webSocketService.tripUpdateStream.listen(_handleNotification, onError: _handleStreamError);
+  }
+
+  void _handleNotification(WebSocketNotification notification) {
+    if (!_isNotificationRelevant(notification)) return;
+    add(SchoolRealtimeNotificationReceived(notification: notification));
+  }
+
+  void _handleStreamError(Object error) {
+    debugPrint('${AppConstants.msgNotificationStreamError}$error');
+  }
+
+  bool _isNotificationRelevant(WebSocketNotification notification) {
+    if (_currentSchoolId == null) return false;
+
+    if (notification.schoolId != null && notification.schoolId == _currentSchoolId) {
+      return true;
+    }
+
+    final targetRole = notification.targetRole?.toUpperCase();
+    if (targetRole == AppConstants.roleSchoolAdmin) {
+      return true;
+    }
+
+    final dataSchoolId = notification.data != null
+        ? notification.data![AppConstants.keySchoolId]
+        : null;
+    if (dataSchoolId != null) {
+      if (dataSchoolId is int && dataSchoolId == _currentSchoolId) {
+        return true;
+      }
+      if (dataSchoolId is String) {
+        final parsed = int.tryParse(dataSchoolId);
+        if (parsed != null && parsed == _currentSchoolId) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  Future<void> _refreshDashboardData({
+    required int schoolId,
+    required Emitter<SchoolState> emit,
+    required bool emitRefreshingState,
+  }) async {
+    SchoolDashboardLoaded? previousState;
+
+    if (state is SchoolDashboardLoaded) {
+      previousState = state as SchoolDashboardLoaded;
+      if (emitRefreshingState) {
+        emit(SchoolRefreshing(
+          dashboard: previousState.dashboard,
+          students: previousState.students,
+          staff: previousState.staff,
+          vehicles: previousState.vehicles,
+          trips: previousState.trips,
+          notifications: previousState.notifications,
+        ));
+      }
+    }
+
+    try {
+      final dashboardResponse = await _schoolService.getSchoolDashboard(schoolId);
+      final students = await _schoolService.getSchoolStudents(schoolId);
+      final staff = await _schoolService.getSchoolStaff(schoolId);
+      final vehicles = await _schoolService.getSchoolVehicles(schoolId);
+      final trips = await _schoolService.getSchoolTrips(schoolId);
+      final notificationsResponse = await _schoolService.getSchoolNotifications(schoolId);
+      final notifications = notificationsResponse[AppConstants.keyData] ?? [];
+
+      _currentSchoolId = schoolId;
+
+      emit(SchoolDashboardLoaded(
+        dashboard: dashboardResponse,
+        students: students,
+        staff: staff,
+        vehicles: vehicles,
+        trips: trips,
+        notifications: notifications,
+      ));
+    } catch (e) {
+      debugPrint('${AppConstants.errorFailedToLoadSchoolDashboard}: ${e.toString()}');
+      if (previousState != null) {
+        emit(previousState);
+      } else {
+        emit(SchoolError(
+          message: '${AppConstants.errorFailedToLoadSchoolDashboard}: ${e.toString()}',
+          errorCode: AppConstants.errorCodeSchoolDashboard,
+          actionType: AppConstants.actionTypeLoadDashboard,
+        ));
+      }
+    }
   }
 }

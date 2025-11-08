@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import '../../data/models/websocket_notification.dart';
 
 abstract class SchoolEvent extends Equatable {
   const SchoolEvent();
@@ -74,6 +75,15 @@ class SchoolTripsRequested extends SchoolEvent {
   List<Object> get props => [schoolId];
 }
 
+class SchoolNotificationsRequested extends SchoolEvent {
+  final int schoolId;
+
+  const SchoolNotificationsRequested({required this.schoolId});
+
+  @override
+  List<Object> get props => [schoolId];
+}
+
 class SchoolReportsRequested extends SchoolEvent {
   final int schoolId;
 
@@ -90,4 +100,13 @@ class SchoolRefreshRequested extends SchoolEvent {
 
   @override
   List<Object> get props => [schoolId];
+}
+
+class SchoolRealtimeNotificationReceived extends SchoolEvent {
+  final WebSocketNotification notification;
+
+  const SchoolRealtimeNotificationReceived({required this.notification});
+
+  @override
+  List<Object> get props => [notification];
 }

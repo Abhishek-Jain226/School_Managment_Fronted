@@ -22,21 +22,18 @@ class _BlocAppAdminDashboardState extends State<BlocAppAdminDashboard> {
   final WebSocketNotificationService _wsService = WebSocketNotificationService();
   StreamSubscription<WebSocketNotification>? _notificationSubscription;
   StreamSubscription<WebSocketNotification>? _systemAlertSubscription;
-  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
     _loadAppAdminData();
     _initializeWebSocket();
-    _startAutoRefresh();
   }
 
   @override
   void dispose() {
     _notificationSubscription?.cancel();
     _systemAlertSubscription?.cancel();
-    _refreshTimer?.cancel();
     super.dispose();
   }
 
@@ -85,12 +82,14 @@ class _BlocAppAdminDashboardState extends State<BlocAppAdminDashboard> {
             content: Text(notification.message),
             backgroundColor: _getNotificationColor(notification.type),
             duration: AppDurations.snackbarDefault,
+            action: SnackBarAction(
+              label: AppConstants.actionRefreshCaps,
+              textColor: AppColors.appAdminTextWhite,
+              onPressed: _requestRefresh,
+            ),
           ),
         );
       }
-      
-      // Always refresh dashboard data
-      _refreshDashboard();
     }
   }
   
@@ -135,7 +134,6 @@ class _BlocAppAdminDashboardState extends State<BlocAppAdminDashboard> {
           ],
         ),
       );
-      _refreshDashboard();
     }
   }
 
@@ -153,17 +151,8 @@ class _BlocAppAdminDashboardState extends State<BlocAppAdminDashboard> {
     }
   }
 
-  void _refreshDashboard() {
-    context.read<AppAdminBloc>().add(const AppAdminDashboardRequested());
-  }
-
-  void _startAutoRefresh() {
-    // Auto-refresh dashboard every 30 seconds
-    _refreshTimer = Timer.periodic(AppDurations.autoRefresh, (timer) {
-      if (mounted) {
-        _refreshDashboard();
-      }
-    });
+  void _requestRefresh() {
+    context.read<AppAdminBloc>().add(const AppAdminRefreshRequested());
   }
 
   Future<void> _showLogoutConfirmation() async {
@@ -227,9 +216,7 @@ class _BlocAppAdminDashboardState extends State<BlocAppAdminDashboard> {
             ).then((_) {
               // Reload dashboard when returning from profile page
               if (mounted) {
-                context.read<AppAdminBloc>().add(
-                  const AppAdminDashboardRequested(),
-                );
+                _requestRefresh();
               }
             });
           } else if (state is AppAdminError) {
@@ -256,13 +243,30 @@ class _BlocAppAdminDashboardState extends State<BlocAppAdminDashboard> {
               return const Center(child: CircularProgressIndicator());
             } else if (state is AppAdminDashboardLoaded) {
               return _buildDashboard(state);
+            } else if (state is AppAdminRefreshing &&
+                state.dashboard != null &&
+                state.schools != null &&
+                state.systemStats != null) {
+              final loadingState = AppAdminDashboardLoaded(
+                dashboard: state.dashboard!,
+                schools: state.schools!,
+                systemStats: state.systemStats!,
+              );
+              return Stack(
+                children: [
+                  _buildDashboard(loadingState),
+                  const Positioned(
+                    top: AppSizes.appAdminSpacingSM,
+                    right: AppSizes.appAdminSpacingSM,
+                    child: CircularProgressIndicator(),
+                  ),
+                ],
+              );
             } else if (state is AppAdminProfileLoaded) {
               // If profile loaded but dashboard state lost, reload dashboard
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (mounted) {
-                  context.read<AppAdminBloc>().add(
-                    const AppAdminDashboardRequested(),
-                  );
+                _requestRefresh();
                 }
               });
               return const Center(child: CircularProgressIndicator());
@@ -351,10 +355,11 @@ class _BlocAppAdminDashboardState extends State<BlocAppAdminDashboard> {
   Widget _buildDashboard(AppAdminDashboardLoaded state) {
     return RefreshIndicator(
       onRefresh: () async {
-        _loadAppAdminData();
+        _requestRefresh();
       },
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(AppSizes.appAdminPadding),
+        physics: const AlwaysScrollableScrollPhysics(),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

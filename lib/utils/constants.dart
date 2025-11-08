@@ -14,7 +14,22 @@ class AppConstants {
   /// ========================================
   
   // Base URLs
-  static const String baseUrl = 'http://10.245.176.208:9001';
+  // IMPORTANT: For mobile testing, use your computer's local IP address (NOT localhost or 127.0.0.1)
+  // 
+  // To find your IP address:
+  // - Windows: Run "ipconfig" in Command Prompt, look for "IPv4 Address" under your Wi-Fi adapter
+  // - Mac/Linux: Run "ifconfig" in Terminal, look for "inet" under your network interface
+  // 
+  // Common IP ranges:
+  // - 192.168.x.x (most common home networks)
+  // - 10.0.x.x or 10.x.x.x (some corporate networks)
+  // - 172.16.x.x to 172.31.x.x (some networks)
+  //
+  // Example: 'http://192.168.1.100:9001'
+  // 
+  // NOTE: Phone and computer MUST be on the same Wi-Fi network!
+  // NOTE: Update this IP address if your computer's IP changes
+  static const String baseUrl = 'http://127.0.0.1:9001'; // Updated with current IP address (Ethernet 4)
   static const String apiBase = '$baseUrl/api';
   
   // HTTP Headers
@@ -61,8 +76,13 @@ class AppConstants {
   // Gate Staff Endpoints
   static const String gateStaffEndpoint = '$apiBase/gate-staff';
   
-  // WebSocket
-  static const String wsUrl = 'ws://10.245.176.208:9001/ws/websocket';
+  // WebSocket URL
+  // IMPORTANT: Must match the baseUrl IP address above!
+  // Use the same IP address as baseUrl, but with 'ws://' protocol instead of 'http://'
+  // 
+  // Example: If baseUrl is 'http://192.168.1.100:9001'
+  //          Then wsUrl should be 'ws://192.168.1.100:9001/ws/websocket'
+  static const String wsUrl = 'ws://127.0.0.1:9001/ws/websocket'; // Updated with current IP address (must match baseUrl)
   static const String wsPath = '/ws/websocket';
   static const String wsProtocolHttp = 'http://';
   static const String wsProtocolHttps = 'https://';
@@ -460,6 +480,21 @@ class AppConstants {
   static const String notificationTypeTripCompleted = 'TRIP_COMPLETED';
   static const String notificationTypeStudentPickup = 'STUDENT_PICKUP';
   static const String notificationTypeStudentDrop = 'STUDENT_DROP';
+  static const String notificationTypeArrivalNotification = 'ARRIVAL_NOTIFICATION';
+  static const String notificationTypeLocationUpdate = 'LOCATION_UPDATE';
+  
+  /// ========================================
+  /// PARENT NOTIFICATION MESSAGES (User-Friendly)
+  /// ========================================
+  
+  static const String msgParentTripStarted = "Your child's trip has started";
+  static const String msgParentVehicleComing = "School Vehicle is coming in next 5 minutes";
+  static const String msgParentChildPickedUp = "Your child has been picked up";
+  static const String msgParentChildDroppedToSchool = "Your child has been dropped to school";
+  static const String msgParentChildPickedFromSchool = "Your child has been picked up from school";
+  static const String msgParentChildDroppedToHome = "Your child has been dropped to home";
+  static const String msgParentTripEnded = "Your child's trip has ended";
+  static const String msgParentTripCompleted = "Your child's trip has been completed";
 
   /// ========================================
   /// COMMON STRINGS
@@ -740,6 +775,7 @@ class AppConstants {
   static const String errorFailedToAssignVehicle = 'Failed to assign vehicle';
   static const String errorFailedToGetVehiclesInTransit = 'Failed to get vehicles in transit';
   static const String errorFailedToGetTodayAttendance = 'Failed to get today\'s attendance';
+  static const String errorFailedToFetchSchoolNotifications = 'Failed to fetch school notifications';
   static const String errorFailedToGetSchoolDetails = 'Failed to get school details';
   static const String errorFailedToGetStaffList = 'Failed to get staff list';
   static const String errorFailedToUpdateStaffStatus = 'Failed to update staff status';
@@ -778,6 +814,7 @@ class AppConstants {
   static const String errorFailedToMarkAttendance = 'Failed to mark attendance';
   static const String errorFailedToSendNotification = 'Failed to send notification';
   static const String errorFailedToUpdateLocation = 'Failed to update location';
+  static const String errorFailedToStartTrip = 'Failed to start trip';
   static const String errorFailedToEndTrip = 'Failed to end trip';
   static const String errorFailedToSend5MinAlert = 'Failed to send 5-minute alert';
   static const String errorFailedToMarkPickupHome = 'Failed to mark pickup from home';
@@ -812,6 +849,7 @@ class AppConstants {
   static const String errorFailedToLoadVehicleOwnerVehicles = 'Failed to load vehicles';
   static const String errorFailedToLoadVehicleOwnerDrivers = 'Failed to load drivers';
   static const String errorFailedToLoadVehicleOwnerTrips = 'Failed to load trips';
+  static const String errorFailedToFetchVehicleOwnerNotifications = 'Failed to fetch vehicle owner notifications';
   static const String errorFailedToLoadVehicleOwnerReports = 'Failed to load reports';
   static const String errorFailedToAddVehicle = 'Failed to add vehicle';
   static const String errorFailedToAddDriver = 'Failed to add driver';
@@ -1106,6 +1144,7 @@ class AppConstants {
   static const String labelInactiveTripStatus = 'Inactive';
   static const String labelStopTrip = 'Stop Trip';
   static const String labelStartTrip = 'Start Trip';
+  static const String labelEndTrip = 'End Trip';
   static const String labelViewStudents = 'View Students';
   static const String labelLocationPermissionRequired = 'Location Permission Required';
   static const String labelLocationSettings = 'Location Settings';
@@ -1184,6 +1223,13 @@ class AppConstants {
   static const String labelActiveTrips = 'Active Trips';
   static const String labelAttendance = 'Attendance';
   static const String labelQuickStats = 'Quick Stats';
+  static const String labelPresentDays = 'Present Days';
+  static const String labelAbsentDays = 'Absent Days';
+  static const String labelLateDays = 'Late Days';
+  static const String labelRecentTrips = 'Recent Trips';
+  static const String labelTodayAttendance = "Today's Attendance";
+  static const String labelArrivalTime = 'Arrival Time';
+  static const String labelDepartureTime = 'Departure Time';
   static const String labelChildrenStatus = 'Children Status';
   static const String labelRecentNotifications = 'Recent Notifications';
   static const String labelTrackVehicle = 'Track Vehicle';
@@ -1215,6 +1261,7 @@ class AppConstants {
   
   // School Admin Dashboard Labels
   static const String labelSchoolAdminDashboard = 'School Admin Dashboard';
+  static const String labelSchoolAdmin = 'School Admin';
   static const String labelSchoolAdminMenu = 'School Admin Menu';
   static const String labelDashboard = 'Dashboard';
   static const String labelSchoolProfile = 'School Profile';
@@ -1366,6 +1413,9 @@ class AppConstants {
   static const String msgClassUpdatedSuccessfully = 'Class updated successfully';
   static const String msgClassCreatedSuccessfully = 'Class created successfully';
   static const String msgOperationFailed = 'Operation failed';
+  static const String msgStudentIdMissing = 'Student information is unavailable.';
+  static const String msgConfirmDeactivateStudent = 'Are you sure you want to deactivate this student?';
+  static const String msgConfirmActivateStudent = 'Are you sure you want to activate this student?';
   static const String msgDeleteConfirmation = 'Are you sure you want to delete "';
   static const String msgClassDeletedSuccessfully = 'Class deleted successfully';
   static const String msgFailedToDeleteClass = 'Failed to delete class';
@@ -1467,7 +1517,7 @@ class AppConstants {
   static const String labelTripCompletionRate = 'Trip Completion Rate';
   static const String labelPunctualityScore = 'Punctuality Score';
   static const String labelSafetyRecord = 'Safety Record';
-  static const String labelRecentTrips = 'Recent Trips';
+  //static const String labelRecentTrips = 'Recent Trips';
   static const String labelAttendanceRecords = 'Attendance Records';
   static const String labelKm = ' km';
   static const String labelTripsSlash = ' trips • ';
@@ -2128,6 +2178,7 @@ Privacy Policy & Terms & Conditions
   static const String errorCodeAttendance = 'ATTENDANCE_ERROR';
   static const String errorCodeNotification = 'NOTIFICATION_ERROR';
   static const String errorCodeLocationUpdate = 'LOCATION_UPDATE_ERROR';
+  static const String errorCodeStartTrip = 'START_TRIP_ERROR';
   static const String errorCodeEndTrip = 'END_TRIP_ERROR';
   static const String errorCode5MinAlert = '5MIN_ALERT_ERROR';
   static const String errorCodePickupHome = 'PICKUP_HOME_ERROR';
@@ -2156,6 +2207,7 @@ Privacy Policy & Terms & Conditions
   static const String errorCodeSchoolStaff = 'STAFF_LOAD_ERROR';
   static const String errorCodeSchoolVehicles = 'VEHICLES_LOAD_ERROR';
   static const String errorCodeSchoolTrips = 'TRIPS_LOAD_ERROR';
+  static const String errorCodeSchoolNotifications = 'NOTIFICATIONS_LOAD_ERROR';
   static const String errorCodeSchoolReports = 'REPORTS_LOAD_ERROR';
   static const String errorCodeVehicleOwnerDashboard = 'DASHBOARD_LOAD_ERROR';
   static const String errorCodeVehicleOwnerProfile = 'PROFILE_LOAD_ERROR';
@@ -2163,6 +2215,7 @@ Privacy Policy & Terms & Conditions
   static const String errorCodeVehicleOwnerVehicles = 'VEHICLES_LOAD_ERROR';
   static const String errorCodeVehicleOwnerDrivers = 'DRIVERS_LOAD_ERROR';
   static const String errorCodeVehicleOwnerTrips = 'TRIPS_LOAD_ERROR';
+  static const String errorCodeVehicleOwnerNotifications = 'NOTIFICATIONS_LOAD_ERROR';
   static const String errorCodeVehicleOwnerReports = 'REPORTS_LOAD_ERROR';
   static const String errorCodeAddVehicle = 'ADD_VEHICLE_ERROR';
   static const String errorCodeAddDriver = 'ADD_DRIVER_ERROR';
@@ -2186,6 +2239,7 @@ Privacy Policy & Terms & Conditions
   static const String actionTypeMarkAttendance = 'MARK_ATTENDANCE';
   static const String actionTypeSendNotification = 'SEND_NOTIFICATION';
   static const String actionTypeUpdateLocation = 'UPDATE_LOCATION';
+  static const String actionTypeStartTrip = 'START_TRIP';
   static const String actionTypeEndTrip = 'END_TRIP';
   static const String actionTypeSend5MinAlert = 'SEND_5MIN_ALERT';
   static const String actionTypeMarkPickupHome = 'MARK_PICKUP_HOME';
@@ -2219,6 +2273,7 @@ Privacy Policy & Terms & Conditions
   static const String msgOtpSentSuccessfully = 'OTP sent successfully';
   static const String msgPasswordResetSuccessfully = 'Password reset successfully';
   static const String msgNotificationSent = 'Notification sent successfully';
+  static const String msgTripStarted = 'Trip started successfully';
   static const String msgTripEnded = 'Trip ended successfully';
   static const String msg5MinuteAlert = '5-minute alert sent successfully';
   static const String msgPickupFromHome = 'Pickup from home marked successfully';
@@ -2320,7 +2375,7 @@ Privacy Policy & Terms & Conditions
   static const String labelSplashTitle = 'School Tracker';
   static const String labelSplashSubtitle = 'Track your school activities seamlessly';
   static const List<Color> splashGradientColors = [Color(0xFF36D1DC), Color(0xFF5B86E5)];
-  static const Color splashIconBg = const Color.fromRGBO(255, 255, 255, 0.2);
+  static const Color splashIconBg = Color.fromRGBO(255, 255, 255, 0.2);
   static const double splashIconPadding = 30.0;
   static const double splashIconSize = 100.0;
   static const double splashCircleAvatarShadowBlur = 10.0;
@@ -2332,7 +2387,7 @@ Privacy Policy & Terms & Conditions
   static const double splashTitleLetterSpacing = 1.2;
   static const double splashTitleShadowBlur = 5;
   static const Color splashTitleShadowColor = Colors.black38;
-  static const Offset splashTitleShadowOffset = const Offset(1, 1);
+  static const Offset splashTitleShadowOffset = Offset(1, 1);
   static const double splashSpacingTitleToSubtitle = 15.0;
   static const double splashSpacingIconToTitle = 30.0;
   static const double splashSpacingSubtitleToLoader = 50.0;
@@ -2492,6 +2547,9 @@ Privacy Policy & Terms & Conditions
   static const String msgStudentAssignedToTripSuccess = 'Student assigned to trip successfully';
   static const String msgFailedToAssignStudent = 'Failed to assign student';
   static const String msgErrorAssigningStudent = 'Error assigning student';
+  static const String msgAssignmentUpdatedSuccess = 'Assignment updated successfully';
+  static const String msgFailedToUpdateAssignment = 'Failed to update assignment';
+  static const String msgErrorUpdatingAssignment = 'Error updating assignment';
   static const String msgErrorRemovingAssignment = 'Error removing assignment';
   static const String msgConfirmRemoveStudentFromTrip = 'Are you sure you want to remove this student from the trip?';
   static const String actionEditOrder = 'Edit Order';
@@ -2773,6 +2831,7 @@ class AppColors {
   static const schoolAdminErrorColor = Colors.red;
   static const schoolAdminWarningColor = Colors.orange;
   static const schoolAdminPurpleColor = Colors.purple;
+  static const schoolAdminInfoColor = Colors.cyan;
   static const schoolAdminTextWhite = Colors.white;
   static const schoolAdminGreyColor = Colors.grey;
   
@@ -3214,6 +3273,7 @@ class AppSizes {
   static const double driverStatBorderRadius = 8.0;
   static const double driverStatBgOpacity = 0.1;
   static const double driverStatBorderOpacity = 0.3;
+  static const double driverStatIconBgOpacity = 0.12;
   static const double driverErrorIconSize = 64.0;
   static const double driverErrorTextSize = 16.0;
   static const int driverAutoRefreshSeconds = 30;
@@ -3273,6 +3333,7 @@ class AppSizes {
   static const double schoolAdminBadgePaddingH = 8.0;
   static const double schoolAdminBadgePaddingV = 4.0;
   static const double schoolAdminBadgeRadius = 12.0;
+  static const double schoolAdminAvatarRadius = 18.0;
   
   // Vehicle Owner Dashboard Sizes
   static const double vehicleOwnerPadding = 16.0;
@@ -3291,6 +3352,7 @@ class AppSizes {
   static const double vehicleOwnerErrorIconSize = 64.0;
   static const double vehicleOwnerErrorTextSize = 16.0;
   static const double vehicleOwnerTooltipPaddingRight = 8.0;
+  static const double vehicleOwnerAvatarRadius = 18.0;
   
   // Bulk Student Import Sizes
   static const double bulkImportPadding = 16.0;

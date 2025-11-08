@@ -21,6 +21,7 @@ class SchoolDashboardLoaded extends SchoolState {
   final List<dynamic> staff;
   final List<dynamic> vehicles;
   final List<dynamic> trips;
+  final List<dynamic> notifications;
 
   const SchoolDashboardLoaded({
     required this.dashboard,
@@ -28,10 +29,11 @@ class SchoolDashboardLoaded extends SchoolState {
     required this.staff,
     required this.vehicles,
     required this.trips,
+    required this.notifications,
   });
 
   @override
-  List<Object> get props => [dashboard, students, staff, vehicles, trips];
+  List<Object> get props => [dashboard, students, staff, vehicles, trips, notifications];
 }
 
 class SchoolProfileLoaded extends SchoolState {
@@ -79,6 +81,15 @@ class SchoolTripsLoaded extends SchoolState {
   List<Object> get props => [trips];
 }
 
+class SchoolNotificationsLoaded extends SchoolState {
+  final List<dynamic> notifications;
+
+  const SchoolNotificationsLoaded({required this.notifications});
+
+  @override
+  List<Object> get props => [notifications];
+}
+
 class SchoolReportsLoaded extends SchoolState {
   final Map<String, dynamic> reports;
 
@@ -122,6 +133,7 @@ class SchoolRefreshing extends SchoolState {
   final List<dynamic>? staff;
   final List<dynamic>? vehicles;
   final List<dynamic>? trips;
+  final List<dynamic>? notifications;
 
   const SchoolRefreshing({
     this.dashboard,
@@ -129,8 +141,9 @@ class SchoolRefreshing extends SchoolState {
     this.staff,
     this.vehicles,
     this.trips,
+    this.notifications,
   });
 
   @override
-  List<Object?> get props => [dashboard, students, staff, vehicles, trips];
+  List<Object?> get props => [dashboard, students, staff, vehicles, trips, notifications];
 }

@@ -1,19 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../data/models/trip.dart';
 import '../../services/driver_service.dart';
+import '../../services/location_tracking_service.dart';
+import '../../bloc/driver/driver_bloc.dart';
+import '../../bloc/driver/driver_event.dart';
 import '../../utils/constants.dart';
 
 
 class SimplifiedStudentManagementPage extends StatefulWidget {
   final Trip trip;
   final int driverId;
+  final bool isReadOnly;
 
   const SimplifiedStudentManagementPage({
     super.key,
     required this.trip,
     required this.driverId,
+    this.isReadOnly = false,
   });
 
   @override
@@ -29,10 +35,16 @@ class _SimplifiedStudentManagementPageState extends State<SimplifiedStudentManag
   @override
   void initState() {
     super.initState();
-    _requestLocationPermissionsAndStartTrip();
+    if (widget.isReadOnly) {
+      _isTripActive = false;
+    } else {
+      _requestLocationPermissionsAndStartTrip();
+    }
   }
 
   Future<void> _requestLocationPermissionsAndStartTrip() async {
+    if (widget.isReadOnly) return;
+    
     if (_hasRequestedPermissions) return;
     
     setState(() {
@@ -168,14 +180,16 @@ class _SimplifiedStudentManagementPageState extends State<SimplifiedStudentManag
     return Scaffold(
       appBar: AppBar(
         title: Text(AppConstants.labelStudents + ' - ${widget.trip.tripName}'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () {
-              setState(() {});
-            },
-          ),
-        ],
+        actions: widget.isReadOnly
+            ? null
+            : [
+                IconButton(
+                  icon: const Icon(Icons.refresh),
+                  onPressed: () {
+                    setState(() {});
+                  },
+                ),
+              ],
       ),
       body: Column(
         children: [
@@ -200,6 +214,27 @@ class _SimplifiedStudentManagementPageState extends State<SimplifiedStudentManag
                   ),
           ),
         ],
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSizes.paddingMD),
+          child: widget.isReadOnly
+              ? OutlinedButton.icon(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close),
+                  label: const Text(AppConstants.actionClose),
+                )
+              : ElevatedButton.icon(
+                  onPressed: _isLoading || !_isTripActive ? null : _endTrip,
+                  icon: const Icon(Icons.flag),
+                  label: const Text(AppConstants.labelEndTrip),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.driverErrorColor,
+                    foregroundColor: AppColors.driverTextWhite,
+                    padding: const EdgeInsets.symmetric(vertical: AppSizes.paddingSM),
+                  ),
+                ),
+        ),
       ),
     );
   }
@@ -350,7 +385,7 @@ class _SimplifiedStudentManagementPageState extends State<SimplifiedStudentManag
               children: [
                 CircleAvatar(
                   radius: AppSizes.iconXL / 2,
-                  backgroundColor: statusColor.withOpacity(0.1),
+                  backgroundColor: statusColor.withValues(alpha: 0.1),
                   child: Icon(statusIcon, color: statusColor, size: AppSizes.iconMD),
                 ),
                 const SizedBox(width: AppSizes.marginMD),
@@ -414,7 +449,7 @@ class _SimplifiedStudentManagementPageState extends State<SimplifiedStudentManag
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingSM, vertical: AppSizes.paddingXS),
                       decoration: BoxDecoration(
-                        color: statusColor.withOpacity(0.1),
+                        color: statusColor.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(AppSizes.radiusSM),
                         border: Border.all(color: statusColor, width: 1),
                       ),
@@ -448,6 +483,10 @@ class _SimplifiedStudentManagementPageState extends State<SimplifiedStudentManag
   }
 
   Widget _buildActionButtons(TripStudent student, bool isMorningTrip) {
+    if (widget.isReadOnly) {
+      return const SizedBox.shrink();
+    }
+
     // If trip is not active, show disabled buttons with message
     if (!_isTripActive) {
       return Container(
@@ -455,7 +494,7 @@ class _SimplifiedStudentManagementPageState extends State<SimplifiedStudentManag
         decoration: BoxDecoration(
           color: AppColors.backgroundColor,
           borderRadius: BorderRadius.circular(AppSizes.radiusSM),
-          border: Border.all(color: AppColors.textSecondary.withOpacity(0.3)),
+          border: Border.all(color: AppColors.textSecondary.withValues(alpha: 0.3)),
         ),
         child: Column(
           children: [
@@ -607,7 +646,7 @@ class _SimplifiedStudentManagementPageState extends State<SimplifiedStudentManag
         _isLoading = true;
       });
 
-      final response = await _driverService.send5MinuteAlert(widget.driverId, widget.trip.tripId);
+      final response = await _driverService.send5MinuteAlert(widget.driverId, widget.trip.tripId, student.studentId);
       
       if (response[AppConstants.keySuccess] == true) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -732,4 +771,42 @@ class _SimplifiedStudentManagementPageState extends State<SimplifiedStudentManag
       });
     }
   }
+
+    Future<void> _endTrip() async {
+      if (_isLoading) return;
+      setState(() {
+        _isLoading = true;
+      });
+
+      try {
+        // Stop background location tracking service before ending trip
+        final locationService = LocationTrackingService();
+        locationService.stopLocationTracking();
+
+        // Call backend endTrip API to update trip_status
+        context.read<DriverBloc>().add(
+          DriverEndTripRequested(
+            driverId: widget.driverId,
+            tripId: widget.trip.tripId,
+          ),
+        );
+        
+        if (!mounted) return;
+        setState(() {
+          _isTripActive = false;
+          _isLoading = false;
+        });
+        
+        // Note: Success message will be shown by BlocListener
+        Navigator.pop(context, 'tripSessionEnded');
+      } catch (e) {
+        if (!mounted) return;
+        setState(() {
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${AppConstants.errorFailedToEndTrip}: $e')),  
+        );
+      }
+    }
 }

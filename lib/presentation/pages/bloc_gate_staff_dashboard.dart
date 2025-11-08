@@ -25,7 +25,6 @@ class _BlocGateStaffDashboardState extends State<BlocGateStaffDashboard> {
   int? _userId;
   bool _isConnected = false;
   StreamSubscription<WebSocketNotification>? _notificationSubscription;
-  Timer? _autoRefreshTimer;
 
   @override
   void initState() {
@@ -37,7 +36,6 @@ class _BlocGateStaffDashboardState extends State<BlocGateStaffDashboard> {
   @override
   void dispose() {
     _notificationSubscription?.cancel();
-    _autoRefreshTimer?.cancel();
     super.dispose();
   }
 
@@ -107,18 +105,11 @@ class _BlocGateStaffDashboardState extends State<BlocGateStaffDashboard> {
             label: AppConstants.actionRefreshCaps,
             textColor: Colors.white,
             onPressed: () {
-              if (_userId != null) {
-                context.read<GateStaffBloc>().add(
-                  GateStaffDashboardRequested(userId: _userId!),
-                );
-              }
+              _requestRefresh();
             },
           ),
         ),
       );
-    }
-    if (_isRelevantNotification(notification)) {
-      _refreshDashboard();
     }
   }
 
@@ -139,19 +130,10 @@ class _BlocGateStaffDashboardState extends State<BlocGateStaffDashboard> {
     }
   }
 
-  bool _isRelevantNotification(WebSocketNotification notification) {
-    return notification.type == NotificationType.attendanceUpdate ||
-           notification.type == NotificationType.tripUpdate ||
-           notification.type == NotificationType.vehicleAssignmentRequest ||
-           notification.type.toUpperCase() == 'GATE_ENTRY' ||
-           notification.type.toUpperCase() == 'GATE_EXIT' ||
-           notification.type.toUpperCase() == 'ARRIVAL_NOTIFICATION';
-  }
-
-  void _refreshDashboard() {
+  void _requestRefresh() {
     if (_userId != null) {
       context.read<GateStaffBloc>().add(
-        GateStaffDashboardRequested(userId: _userId!),
+        GateStaffRefreshRequested(userId: _userId!),
       );
     }
   }
@@ -260,7 +242,7 @@ class _BlocGateStaffDashboardState extends State<BlocGateStaffDashboard> {
           ),
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: _refreshDashboard,
+            onPressed: _requestRefresh,
             tooltip: AppConstants.labelRefresh,
           ),
           IconButton(
@@ -331,7 +313,7 @@ class _BlocGateStaffDashboardState extends State<BlocGateStaffDashboard> {
                     ),
                     const SizedBox(height: AppSizes.gateStaffSpacingMD),
                     ElevatedButton(
-                      onPressed: _refreshDashboard,
+                      onPressed: _requestRefresh,
                       child: const Text(AppConstants.labelRetry),
                     ),
                   ],
@@ -355,10 +337,11 @@ class _BlocGateStaffDashboardState extends State<BlocGateStaffDashboard> {
 
     return RefreshIndicator(
       onRefresh: () async {
-        _refreshDashboard();
+        _requestRefresh();
       },
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(AppSizes.gateStaffPadding),
+        physics: const AlwaysScrollableScrollPhysics(),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

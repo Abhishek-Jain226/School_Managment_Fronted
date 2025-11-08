@@ -2,16 +2,29 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../services/driver_service.dart';
+import '../../services/websocket_notification_service.dart';
+import '../../data/models/websocket_notification.dart';
+import '../../data/models/trip.dart';
 import '../../utils/constants.dart';
 import 'driver_event.dart';
 import 'driver_state.dart';
 
 class DriverBloc extends Bloc<DriverEvent, DriverState> {
   final DriverService _driverService;
-  Timer? _refreshTimer;
+  final WebSocketNotificationService _webSocketService;
+  StreamSubscription<WebSocketNotification>? _tripUpdateSubscription;
+  StreamSubscription<WebSocketNotification>? _pickupSubscription;
+  StreamSubscription<WebSocketNotification>? _dropSubscription;
+  StreamSubscription<WebSocketNotification>? _arrivalSubscription;
+  int? _currentDriverId;
+  final Set<int> _activeTripIds = <int>{};
+  bool _isRealtimeRefreshInProgress = false;
 
-  DriverBloc({required DriverService driverService})
-      : _driverService = driverService,
+  DriverBloc({
+    required DriverService driverService,
+    required WebSocketNotificationService webSocketService,
+  })  : _driverService = driverService,
+        _webSocketService = webSocketService,
         super(const DriverInitial()) {
     on<DriverDashboardRequested>(_onDashboardRequested);
     on<DriverTripsRequested>(_onTripsRequested);
@@ -21,6 +34,7 @@ class DriverBloc extends Bloc<DriverEvent, DriverState> {
     on<DriverMarkAttendanceRequested>(_onMarkAttendanceRequested);
     on<DriverSendNotificationRequested>(_onSendNotificationRequested);
     on<DriverUpdateLocationRequested>(_onUpdateLocationRequested);
+    on<DriverStartTripRequested>(_onStartTripRequested);
     on<DriverEndTripRequested>(_onEndTripRequested);
     on<DriverSend5MinuteAlertRequested>(_onSend5MinuteAlertRequested);
     on<DriverMarkPickupFromHomeRequested>(_onMarkPickupFromHomeRequested);
@@ -28,6 +42,10 @@ class DriverBloc extends Bloc<DriverEvent, DriverState> {
     on<DriverMarkPickupFromSchoolRequested>(_onMarkPickupFromSchoolRequested);
     on<DriverMarkDropToHomeRequested>(_onMarkDropToHomeRequested);
     on<DriverRefreshRequested>(_onRefreshRequested);
+    on<DriverRealtimeNotificationReceived>(_onRealtimeNotificationReceived);
+
+    unawaited(_webSocketService.initialize());
+    _subscribeToRealtimeStreams();
   }
 
   Future<void> _onDashboardRequested(
@@ -50,15 +68,20 @@ class DriverBloc extends Bloc<DriverEvent, DriverState> {
       final morningTrips = trips.where((trip) => trip.tripType == AppConstants.tripTypeMorningPickup).toList();
       final afternoonTrips = trips.where((trip) => trip.tripType == AppConstants.tripTypeAfternoonDrop).toList();
       
+      final selectedTripType = state is DriverDashboardLoaded
+          ? (state as DriverDashboardLoaded).selectedTripType
+          : AppConstants.tripTypeMorningPickup;
+
+      _currentDriverId = event.driverId;
+      _updateActiveTripIds(morningTrips, afternoonTrips);
+
       emit(DriverDashboardLoaded(
         dashboard: dashboard,
         reports: reports,
         morningTrips: morningTrips,
         afternoonTrips: afternoonTrips,
+        selectedTripType: selectedTripType,
       ));
-      
-      // Start auto-refresh timer
-      _startRefreshTimer(event.driverId);
       
     } catch (e) {
       debugPrint('${AppConstants.errorFailedToLoadDriverDashboard}: ${e.toString()}');
@@ -79,6 +102,10 @@ class DriverBloc extends Bloc<DriverEvent, DriverState> {
       final morningTrips = trips.where((trip) => trip.tripType == AppConstants.tripTypeMorningPickup).toList();
       final afternoonTrips = trips.where((trip) => trip.tripType == AppConstants.tripTypeAfternoonDrop).toList();
       
+      if (_currentDriverId == event.driverId) {
+        _updateActiveTripIds(morningTrips, afternoonTrips);
+      }
+
       emit(DriverTripsLoaded(
         trips: trips,
         morningTrips: morningTrips,
@@ -248,6 +275,36 @@ class DriverBloc extends Bloc<DriverEvent, DriverState> {
     }
   }
 
+  Future<void> _onStartTripRequested(
+    DriverStartTripRequested event,
+    Emitter<DriverState> emit,
+  ) async {
+    try {
+      final response = await _driverService.startTrip(
+        event.driverId,
+        event.tripId,
+        event.latitude,
+        event.longitude,
+      );
+      
+      emit(DriverActionSuccess(
+        message: response[AppConstants.keyMessage] ?? AppConstants.msgTripStarted,
+        actionType: AppConstants.actionTypeStartTrip,
+      ));
+      
+      // Refresh dashboard after starting trip
+      add(DriverDashboardRequested(driverId: event.driverId));
+      
+    } catch (e) {
+      debugPrint('${AppConstants.errorFailedToStartTrip}: ${e.toString()}');
+      emit(DriverError(
+        message: '${AppConstants.errorFailedToStartTrip}: ${e.toString()}',
+        errorCode: AppConstants.errorCodeStartTrip,
+        actionType: AppConstants.actionTypeStartTrip,
+      ));
+    }
+  }
+
   Future<void> _onEndTripRequested(
     DriverEndTripRequested event,
     Emitter<DriverState> emit,
@@ -278,7 +335,7 @@ class DriverBloc extends Bloc<DriverEvent, DriverState> {
     Emitter<DriverState> emit,
   ) async {
     try {
-      final response = await _driverService.send5MinuteAlert(event.driverId, event.tripId);
+      final response = await _driverService.send5MinuteAlert(event.driverId, event.tripId, event.studentId);
       
       emit(DriverActionSuccess(
         message: response[AppConstants.keyMessage] ?? AppConstants.msg5MinuteAlert,
@@ -415,31 +472,156 @@ class DriverBloc extends Bloc<DriverEvent, DriverState> {
     DriverRefreshRequested event,
     Emitter<DriverState> emit,
   ) async {
-    // Emit refreshing state to show loading indicator
-    if (state is DriverDashboardLoaded) {
-      final currentState = state as DriverDashboardLoaded;
-      emit(DriverRefreshing(
-        dashboard: currentState.dashboard,
-        reports: currentState.reports,
-        morningTrips: currentState.morningTrips,
-        afternoonTrips: currentState.afternoonTrips,
-      ));
-    }
-    
-    // Refresh dashboard data
-    add(DriverDashboardRequested(driverId: event.driverId));
+    await _refreshDashboardData(
+      driverId: event.driverId,
+      emit: emit,
+      emitRefreshingState: true,
+    );
   }
 
-  void _startRefreshTimer(int driverId) {
-    _refreshTimer?.cancel();
-    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
-      add(DriverRefreshRequested(driverId: driverId));
-    });
+  Future<void> _onRealtimeNotificationReceived(
+    DriverRealtimeNotificationReceived event,
+    Emitter<DriverState> emit,
+  ) async {
+    if (_currentDriverId == null) return;
+    if (_isRealtimeRefreshInProgress) return;
+
+    _isRealtimeRefreshInProgress = true;
+    try {
+      await _refreshDashboardData(
+        driverId: _currentDriverId!,
+        emit: emit,
+        emitRefreshingState: false,
+      );
+    } finally {
+      _isRealtimeRefreshInProgress = false;
+    }
   }
 
   @override
   Future<void> close() {
-    _refreshTimer?.cancel();
+    _tripUpdateSubscription?.cancel();
+    _pickupSubscription?.cancel();
+    _dropSubscription?.cancel();
+    _arrivalSubscription?.cancel();
     return super.close();
+  }
+
+  void _subscribeToRealtimeStreams() {
+    _tripUpdateSubscription ??=
+        _webSocketService.tripUpdateStream.listen(_handleNotification, onError: _handleStreamError);
+    _pickupSubscription ??=
+        _webSocketService.pickupStream.listen(_handleNotification, onError: _handleStreamError);
+    _dropSubscription ??=
+        _webSocketService.dropStream.listen(_handleNotification, onError: _handleStreamError);
+    _arrivalSubscription ??=
+        _webSocketService.arrivalStream.listen(_handleNotification, onError: _handleStreamError);
+  }
+
+  void _handleNotification(WebSocketNotification notification) {
+    if (!_isNotificationRelevant(notification)) return;
+    add(DriverRealtimeNotificationReceived(notification: notification));
+  }
+
+  void _handleStreamError(Object error) {
+    debugPrint('${AppConstants.logWebSocketNotificationProcessed} Stream error: $error');
+  }
+
+  bool _isNotificationRelevant(WebSocketNotification notification) {
+    if (_currentDriverId == null) return false;
+
+    final targetUserRaw = notification.targetUser;
+    if (targetUserRaw != null) {
+      final targetUserId = int.tryParse(targetUserRaw);
+      if (targetUserId != null && targetUserId == _currentDriverId) {
+        return true;
+      }
+      if (targetUserRaw == _currentDriverId.toString()) {
+        return true;
+      }
+    }
+
+    if (notification.tripId != null && _activeTripIds.contains(notification.tripId)) {
+      return true;
+    }
+
+    final dataDriverId = notification.data != null
+        ? notification.data![AppConstants.keyDriverId]
+        : null;
+    if (dataDriverId != null) {
+      if (dataDriverId is int && dataDriverId == _currentDriverId) {
+        return true;
+      }
+      if (dataDriverId is String) {
+        final parsed = int.tryParse(dataDriverId);
+        if (parsed != null && parsed == _currentDriverId) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  void _updateActiveTripIds(List<Trip> morningTrips, List<Trip> afternoonTrips) {
+    _activeTripIds
+      ..clear()
+      ..addAll(morningTrips.map((trip) => trip.tripId))
+      ..addAll(afternoonTrips.map((trip) => trip.tripId));
+  }
+
+  Future<void> _refreshDashboardData({
+    required int driverId,
+    required Emitter<DriverState> emit,
+    required bool emitRefreshingState,
+  }) async {
+    DriverDashboardLoaded? previousState;
+
+    if (state is DriverDashboardLoaded) {
+      previousState = state as DriverDashboardLoaded;
+      if (emitRefreshingState) {
+        emit(DriverRefreshing(
+          dashboard: previousState.dashboard,
+          reports: previousState.reports,
+          morningTrips: previousState.morningTrips,
+          afternoonTrips: previousState.afternoonTrips,
+        ));
+      }
+    }
+
+    try {
+      final dashboard = await _driverService.getDriverDashboard(driverId);
+      final reports = await _driverService.getDriverReports(driverId);
+      final trips = await _driverService.getAssignedTrips(driverId);
+
+      final morningTrips =
+          trips.where((trip) => trip.tripType == AppConstants.tripTypeMorningPickup).toList();
+      final afternoonTrips =
+          trips.where((trip) => trip.tripType == AppConstants.tripTypeAfternoonDrop).toList();
+
+      final selectedTripType = previousState?.selectedTripType ?? AppConstants.tripTypeMorningPickup;
+
+      _currentDriverId = driverId;
+      _updateActiveTripIds(morningTrips, afternoonTrips);
+
+      emit(DriverDashboardLoaded(
+        dashboard: dashboard,
+        reports: reports,
+        morningTrips: morningTrips,
+        afternoonTrips: afternoonTrips,
+        selectedTripType: selectedTripType,
+      ));
+    } catch (e) {
+      debugPrint('${AppConstants.errorFailedToLoadDriverDashboard}: ${e.toString()}');
+      if (previousState != null) {
+        emit(previousState);
+      } else {
+        emit(DriverError(
+          message: '${AppConstants.errorFailedToLoadDriverDashboard}: ${e.toString()}',
+          errorCode: AppConstants.errorCodeDriverDashboard,
+          actionType: AppConstants.actionTypeLoadDashboard,
+        ));
+      }
+    }
   }
 }

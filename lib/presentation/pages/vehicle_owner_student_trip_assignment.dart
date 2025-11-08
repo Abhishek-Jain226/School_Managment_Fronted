@@ -259,6 +259,107 @@ class _VehicleOwnerStudentTripAssignmentPageState extends State<VehicleOwnerStud
     }
   }
 
+  void _showEditAssignmentDialog(Map<String, dynamic> assignment) {
+    if (_trips.isEmpty) {
+      _showError(AppConstants.msgNoTripsOrStudentsAvailable);
+      return;
+    }
+
+    final currentTripId = assignment[AppConstants.keyTripId]?.toString();
+    final currentPickupOrder = assignment[AppConstants.keyPickupOrder] ?? 1;
+    
+    String? selectedTripId = currentTripId;
+    int pickupOrder = currentPickupOrder is int ? currentPickupOrder : int.tryParse(currentPickupOrder.toString()) ?? 1;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Edit Trip Assignment'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<String>(
+                value: selectedTripId,
+                decoration: const InputDecoration(
+                  labelText: AppConstants.labelSelectTrip,
+                  border: OutlineInputBorder(),
+                ),
+                items: _trips
+                    .where((t) => t[AppConstants.keyIsActive] == true)
+                    .map((trip) => DropdownMenuItem(
+                          value: trip[AppConstants.keyTripId].toString(),
+                          child: Text(trip[AppConstants.keyTripName] ?? AppConstants.labelUnknownTrip),
+                        ))
+                    .toList(),
+                onChanged: (value) {
+                  setDialogState(() {
+                    selectedTripId = value;
+                  });
+                },
+              ),
+              const SizedBox(height: AppSizes.marginMD),
+              TextFormField(
+                initialValue: pickupOrder.toString(),
+                decoration: const InputDecoration(
+                  labelText: AppConstants.labelPickupOrder,
+                  border: OutlineInputBorder(),
+                  helperText: AppConstants.hintPickupOrder,
+                ),
+                keyboardType: TextInputType.number,
+                onChanged: (value) {
+                  pickupOrder = int.tryParse(value) ?? 1;
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text(AppConstants.actionCancel),
+            ),
+            ElevatedButton(
+              onPressed: selectedTripId != null
+                  ? () {
+                      Navigator.pop(ctx);
+                      _updateAssignment(
+                        assignment[AppConstants.keyTripStudentId],
+                        int.parse(selectedTripId!),
+                        pickupOrder,
+                      );
+                    }
+                  : null,
+              child: const Text('Update'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _updateAssignment(int assignmentId, int tripId, int pickupOrder) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userName = prefs.getString(AppConstants.keyUserName) ?? AppConstants.labelVehicleOwner;
+      
+      final response = await _tripStudentService.updateTripStudent(
+        tripStudentId: assignmentId,
+        tripId: tripId,
+        pickupOrder: pickupOrder,
+        updatedBy: userName,
+      );
+      
+      if (response[AppConstants.keySuccess] == true) {
+        _showSuccess(AppConstants.msgAssignmentUpdatedSuccess);
+        await _loadAssignmentsData(); // Refresh the assignments list
+      } else {
+        _showError('${AppConstants.msgFailedToUpdateAssignment}: ${response[AppConstants.keyMessage]}');
+      }
+    } catch (e) {
+      _showError('${AppConstants.msgErrorUpdatingAssignment}: $e');
+    }
+  }
+
   Future<void> _removeAssignment(int assignmentId) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -509,8 +610,7 @@ class _VehicleOwnerStudentTripAssignmentPageState extends State<VehicleOwnerStud
                                       onSelected: (value) {
                                         switch (value) {
                                           case 'edit':
-                                            // TODO: Navigate to edit assignment
-                                            _showSuccess(AppConstants.msgEditFunctionalityComingSoon);
+                                            _showEditAssignmentDialog(assignment);
                                             break;
                                           case 'remove':
                                             _removeAssignment(assignment[AppConstants.keyTripStudentId]);

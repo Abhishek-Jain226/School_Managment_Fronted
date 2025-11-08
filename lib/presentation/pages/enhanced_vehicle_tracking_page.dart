@@ -11,7 +11,14 @@ import '../../data/models/trip.dart';
 import '../../utils/constants.dart';
 
 class EnhancedVehicleTrackingPage extends StatefulWidget {
-  const EnhancedVehicleTrackingPage({super.key});
+  final int? tripId;
+  final int? studentId;
+  
+  const EnhancedVehicleTrackingPage({
+    super.key,
+    this.tripId,
+    this.studentId,
+  });
 
   @override
   State<EnhancedVehicleTrackingPage> createState() => _EnhancedVehicleTrackingPageState();
@@ -30,6 +37,7 @@ class _EnhancedVehicleTrackingPageState extends State<EnhancedVehicleTrackingPag
   String? _error;
   int? _userId;
   bool _isConnected = false;
+  bool _isMapInitialized = false;
   
   // Location tracking data
   LatLng? _driverLocation;
@@ -70,7 +78,148 @@ class _EnhancedVehicleTrackingPageState extends State<EnhancedVehicleTrackingPag
     setState(() {
       _userId = prefs.getInt(AppConstants.keyUserId);
     });
-    _loadActiveTrip();
+    
+    debugPrint('🔍 EnhancedVehicleTrackingPage initialized');
+    debugPrint('🔍 widget.tripId: ${widget.tripId}');
+    debugPrint('🔍 widget.studentId: ${widget.studentId}');
+    debugPrint('🔍 _userId: $_userId');
+    
+    // If tripId is provided, use it directly, otherwise load active trip
+    if (widget.tripId != null) {
+      debugPrint('✅ Loading trip by ID: ${widget.tripId}, studentId: ${widget.studentId}');
+      _loadTripById(widget.tripId!, widget.studentId);
+    } else {
+      debugPrint('⚠️ No tripId provided, loading active trip...');
+      _loadActiveTrip();
+    }
+  }
+  
+  Future<void> _loadTripById(int tripId, int? studentId) async {
+    if (_userId == null) {
+      debugPrint('❌ Cannot load trip: userId is null');
+      return;
+    }
+    
+    try {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+
+      debugPrint('🔍 Loading trip by ID: $tripId for userId: $_userId');
+      
+      // First, try getParentTrips (most reliable - uses TripStudent)
+      debugPrint('🔍 Attempting to load from getParentTrips (uses TripStudent)...');
+      try {
+        final parentTrips = await _parentService.getParentTrips(_userId!);
+        
+        if (parentTrips.isNotEmpty) {
+          final trips = parentTrips.cast<Map<String, dynamic>>();
+          debugPrint('🔍 Found ${trips.length} trips from getParentTrips');
+          debugPrint('🔍 Trip IDs: ${trips.map((t) => t['tripId']).join(", ")}');
+          debugPrint('🔍 Trip statuses: ${trips.map((t) => '${t['tripId']}: ${t['tripStatus']}').join(", ")}');
+          
+          // Find the specific trip by ID
+          final trip = trips.firstWhere(
+            (t) => t['tripId'] == tripId,
+            orElse: () => <String, dynamic>{},
+          );
+          
+          if (trip.isNotEmpty && trip['tripId'] == tripId) {
+            debugPrint('✅ Trip $tripId found in getParentTrips! Status: ${trip['tripStatus']}');
+            
+            // Load trip regardless of status if we have tripId from notification
+            debugPrint('✅ Loading trip $tripId (Status: ${trip['tripStatus']})');
+            setState(() {
+              _activeTrip = Trip.fromJson(trip);
+              _driverName = trip['driverName']?.toString();
+              _vehicleNumber = trip['vehicleNumber']?.toString();
+            });
+            
+            // Set destination based on trip type
+            _setDestinationLocation();
+            _startETAUpdates();
+            
+            setState(() {
+              _isLoading = false;
+            });
+            return; // Success, exit early
+          } else {
+            debugPrint('⚠️ Trip $tripId not found in getParentTrips');
+          }
+        } else {
+          debugPrint('⚠️ No trips found in getParentTrips');
+        }
+      } catch (e) {
+        debugPrint('⚠️ Error loading from getParentTrips: $e');
+        // Continue to fallback
+      }
+      
+      // Fallback: Try getStudentTrips
+      debugPrint('🔍 Fallback: Trying getStudentTrips...');
+      final studentResponse = await _parentService.getStudentByParentUserId(_userId!);
+      
+      if (studentResponse['success'] == true && studentResponse['data'] != null) {
+        final studentData = studentResponse['data'];
+        final actualStudentId = studentId ?? studentData['studentId'];
+        
+        debugPrint('🔍 Student ID: $actualStudentId');
+        
+        // Get trips for this student
+        final tripsResponse = await _parentService.getStudentTrips(actualStudentId);
+        
+        if (tripsResponse['success'] == true && tripsResponse['data'] != null) {
+          final trips = tripsResponse['data'] as List;
+          
+          debugPrint('🔍 Searching for trip ID: $tripId in ${trips.length} trips from getStudentTrips');
+          debugPrint('🔍 Available trip IDs: ${trips.map((t) => t['tripId']).join(", ")}');
+          debugPrint('🔍 Available trip statuses: ${trips.map((t) => '${t['tripId']}: ${t['tripStatus']}').join(", ")}');
+          
+          // Find the specific trip by ID
+          final trip = trips.firstWhere(
+            (t) => t['tripId'] == tripId,
+            orElse: () => null,
+          );
+          
+          if (trip != null) {
+            debugPrint('✅ Trip $tripId found in getStudentTrips! Status: ${trip['tripStatus']}');
+            
+            // Load trip regardless of status if we have tripId from notification
+            debugPrint('✅ Loading trip $tripId (Status: ${trip['tripStatus']})');
+            setState(() {
+              _activeTrip = Trip.fromJson(trip);
+              _driverName = trip['driverName']?.toString();
+              _vehicleNumber = trip['vehicleNumber']?.toString();
+            });
+            
+            // Set destination based on trip type
+            _setDestinationLocation();
+            _startETAUpdates();
+            
+            setState(() {
+              _isLoading = false;
+            });
+            return; // Success, exit early
+          } else {
+            debugPrint('❌ Trip $tripId not found in getStudentTrips either');
+          }
+        } else {
+          debugPrint('⚠️ getStudentTrips response not successful or no data');
+        }
+      }
+      
+      // If still not found, try to load any active trip as last resort
+      debugPrint('⚠️ Trip $tripId not found in any source, trying to load any active trip...');
+      _loadActiveTrip();
+      
+    } catch (e) {
+      debugPrint('❌ Error loading trip by ID: $e');
+      debugPrint('❌ Stack trace: ${StackTrace.current}');
+      setState(() {
+        _error = 'Failed to load trip: ${e.toString()}';
+        _isLoading = false;
+      });
+    }
   }
 
   void _initializeWebSocket() {
@@ -103,23 +252,29 @@ class _EnhancedVehicleTrackingPageState extends State<EnhancedVehicleTrackingPag
     }
   }
 
-  void _handleLocationUpdate(websocket.WebSocketNotification notification) {
-    if (notification.data != null) {
-      final lat = notification.data!['latitude'] as double?;
-      final lng = notification.data!['longitude'] as double?;
-      
-      if (lat != null && lng != null) {
-        setState(() {
-          _driverLocation = LatLng(lat, lng);
-          _lastLocationUpdate = DateTime.now();
-        });
-        
-        _updateMapMarkers();
-        _updateETA();
-        _getAddressFromCoordinates(lat, lng);
+    void _handleLocationUpdate(websocket.WebSocketNotification notification) {
+      // Only process location updates when trip is active
+      if (_activeTrip == null) {
+        debugPrint('${AppConstants.msgReceivedNotificationVehicleTracking}Location update ignored - no active trip');
+        return;
+      }
+
+      if (notification.data != null) {
+        final lat = notification.data!['latitude'] as double?;
+        final lng = notification.data!['longitude'] as double?;
+
+        if (lat != null && lng != null) {
+          setState(() {
+            _driverLocation = LatLng(lat, lng);
+            _lastLocationUpdate = DateTime.now();
+          });
+
+          _updateMapMarkers();
+          _updateETA();
+          _getAddressFromCoordinates(lat, lng);
+        }
       }
     }
-  }
 
   Future<void> _loadActiveTrip() async {
     if (_userId == null) return;
@@ -143,11 +298,53 @@ class _EnhancedVehicleTrackingPageState extends State<EnhancedVehicleTrackingPag
         if (tripsResponse['success'] == true && tripsResponse['data'] != null) {
           final trips = tripsResponse['data'] as List;
           
-          // Find active trip
-          final activeTrip = trips.firstWhere(
-            (trip) => trip['tripStatus'] == 'IN_PROGRESS' || trip['tripStatus'] == 'STARTED',
-            orElse: () => null,
-          );
+          debugPrint('🔍 Searching for active trip. Total trips: ${trips.length}');
+          if (trips.isNotEmpty) {
+            debugPrint('🔍 All trips: ${trips.map((t) => 'ID: ${t['tripId']}, Status: ${t['tripStatus']}').join("; ")}');
+          }
+          
+          // Find active trip - also check if tripId was provided
+          dynamic activeTrip;
+          if (widget.tripId != null) {
+            debugPrint('🔍 Looking for specific trip ID: ${widget.tripId}');
+            // Try to find the specific trip by ID first - don't check status if we have tripId
+            activeTrip = trips.firstWhere(
+              (trip) => trip['tripId'] == widget.tripId,
+              orElse: () => null,
+            );
+            
+            if (activeTrip != null) {
+              debugPrint('✅ Found trip by ID: ${widget.tripId}, Status: ${activeTrip['tripStatus']}');
+            } else {
+              debugPrint('⚠️ Trip ${widget.tripId} not found in trips list');
+            }
+          }
+          
+          // If not found by ID, find any active trip
+          if (activeTrip == null) {
+            debugPrint('🔍 Searching for any active trip...');
+            activeTrip = trips.firstWhere(
+              (trip) {
+                final status = trip['tripStatus']?.toString() ?? '';
+                return status == 'IN_PROGRESS' || 
+                       status == 'STARTED' ||
+                       status == 'IN PROGRESS';
+              },
+              orElse: () => null,
+            );
+          }
+          
+          debugPrint('🔍 Active trip found: ${activeTrip != null}');
+          if (activeTrip != null) {
+            debugPrint('🔍 Trip ID: ${activeTrip['tripId']}, Status: ${activeTrip['tripStatus']}');
+            debugPrint('🔍 Driver Name: ${activeTrip['driverName']}');
+            debugPrint('🔍 Vehicle Number: ${activeTrip['vehicleNumber']}');
+          } else {
+            debugPrint('❌ No active trip found. Total trips: ${trips.length}');
+            if (trips.isNotEmpty) {
+              debugPrint('⚠️ Available trip statuses: ${trips.map((t) => '${t['tripId']}: ${t['tripStatus']}').join(", ")}');
+            }
+          }
           
           if (activeTrip != null) {
             setState(() {
@@ -159,8 +356,53 @@ class _EnhancedVehicleTrackingPageState extends State<EnhancedVehicleTrackingPag
             // Set destination based on trip type
             _setDestinationLocation();
             _startETAUpdates();
+          } else {
+            // No active trip found - clear trip data and stop tracking
+            _etaUpdateTimer?.cancel();
+            setState(() {
+              _activeTrip = null;
+              _driverLocation = null;
+              _destinationLocation = null;
+              _driverName = null;
+              _vehicleNumber = null;
+              _lastLocationUpdate = null;
+              _estimatedArrivalTime = null;
+              _currentAddress = null;
+              _markers.clear();
+              _polylines.clear();
+            });
           }
+        } else {
+          // No trips data - clear trip data and stop tracking
+          _etaUpdateTimer?.cancel();
+          setState(() {
+            _activeTrip = null;
+            _driverLocation = null;
+            _destinationLocation = null;
+            _driverName = null;
+            _vehicleNumber = null;
+            _lastLocationUpdate = null;
+            _estimatedArrivalTime = null;
+            _currentAddress = null;
+            _markers.clear();
+            _polylines.clear();
+          });
         }
+      } else {
+        // No student data - clear trip data and stop tracking
+        _etaUpdateTimer?.cancel();
+        setState(() {
+          _activeTrip = null;
+          _driverLocation = null;
+          _destinationLocation = null;
+          _driverName = null;
+          _vehicleNumber = null;
+          _lastLocationUpdate = null;
+          _estimatedArrivalTime = null;
+          _currentAddress = null;
+          _markers.clear();
+          _polylines.clear();
+        });
       }
       
       setState(() {
@@ -283,7 +525,16 @@ class _EnhancedVehicleTrackingPageState extends State<EnhancedVehicleTrackingPag
   }
 
   void _onMapCreated(GoogleMapController controller) {
-    _updateMapMarkers();
+    try {
+      _isMapInitialized = true;
+      _updateMapMarkers();
+    } catch (e) {
+      debugPrint('❌ Error initializing map: $e');
+      setState(() {
+        _error = 'Failed to initialize map. Please ensure Google Maps API key is configured.';
+        _isMapInitialized = false;
+      });
+    }
   }
 
   String _formatTime(DateTime dateTime) {
@@ -436,19 +687,85 @@ class _EnhancedVehicleTrackingPageState extends State<EnhancedVehicleTrackingPag
                         
                         // Google Map
                         Expanded(
-                          child: GoogleMap(
-                            onMapCreated: _onMapCreated,
-                            initialCameraPosition: _initialPosition,
-                            markers: _markers,
-                            polylines: _polylines,
-                            myLocationEnabled: true,
-                            myLocationButtonEnabled: true,
-                            zoomControlsEnabled: true,
-                            mapType: MapType.normal,
-                            onTap: (LatLng position) {
-                              // Handle map tap if needed
-                            },
-                          ),
+                          child: _activeTrip != null && _driverLocation != null
+                              ? Builder(
+                                  builder: (context) {
+                                    try {
+                                      return GoogleMap(
+                                        onMapCreated: _onMapCreated,
+                                        initialCameraPosition: CameraPosition(
+                                          target: _driverLocation!,
+                                          zoom: 15.0,
+                                        ),
+                                        markers: _markers,
+                                        polylines: _polylines,
+                                        myLocationEnabled: true,
+                                        myLocationButtonEnabled: true,
+                                        zoomControlsEnabled: true,
+                                        mapType: MapType.normal,
+                                        onTap: (LatLng position) {
+                                          // Handle map tap if needed
+                                        },
+                                      );
+                                    } catch (e) {
+                                      debugPrint('❌ Error rendering GoogleMap: $e');
+                                      return Center(
+                                        child: Column(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            const Icon(
+                                              Icons.error_outline,
+                                              size: 64,
+                                              color: Colors.red,
+                                            ),
+                                            const SizedBox(height: 16),
+                                            const Text(
+                                              'Google Maps Error',
+                                              style: TextStyle(
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 8),
+                                            const Padding(
+                                              padding: EdgeInsets.symmetric(horizontal: 32),
+                                              child: Text(
+                                                'Please configure Google Maps API key in web/index.html',
+                                                textAlign: TextAlign.center,
+                                                style: TextStyle(fontSize: 14),
+                                              ),
+                                            ),
+                                            const SizedBox(height: 16),
+                                            ElevatedButton(
+                                              onPressed: () {
+                                                setState(() {
+                                                  _error = null;
+                                                });
+                                                _loadActiveTrip();
+                                              },
+                                              child: const Text('Retry'),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    }
+                                  },
+                                )
+                              : Center(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const CircularProgressIndicator(),
+                                      const SizedBox(height: 16),
+                                      Text(
+                                        _activeTrip == null
+                                            ? 'Loading trip information...'
+                                            : 'Waiting for driver location...',
+                                        style: const TextStyle(fontSize: 16),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                         ),
                         
                         // Trip Information Panel

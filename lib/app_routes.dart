@@ -14,6 +14,7 @@ import 'package:school_tracker/presentation/pages/bloc_gate_staff_dashboard.dart
 import 'package:school_tracker/presentation/pages/attendance_history_page.dart';
 import 'package:school_tracker/presentation/pages/monthly_report_page.dart';
 import 'package:school_tracker/presentation/pages/parent_profile_update_page.dart';
+import 'package:school_tracker/presentation/pages/parent_profile_view_page.dart';
 import 'package:school_tracker/presentation/pages/pending_vehicle_requests_page.dart';
 import 'package:school_tracker/presentation/pages/privacy_policy_screen.dart';
 import 'package:school_tracker/presentation/pages/register_driver_screen.dart';
@@ -88,6 +89,7 @@ class AppRoutes {
   static const String enhancedVehicleTracking = '/enhanced-vehicle-tracking';
   static const String attendanceHistory = '/attendance-history';
   static const String monthlyReport = '/monthly-report';
+  static const String parentProfileView = '/parent-profile-view';
   static const String parentProfileUpdate = '/parent-profile-update';
 
    static const String registerDriver = '/register-driver';
@@ -150,9 +152,21 @@ static const String createTrip = '/createTrip';
 
     registerVehicleOwner: (_) => const RegisterVehicleOwnerScreen(),
     vehicleTracking: (_) => const VehicleTrackingPage(),
-    enhancedVehicleTracking: (_) => const EnhancedVehicleTrackingPage(),
+    enhancedVehicleTracking: (context) {
+      final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+      return EnhancedVehicleTrackingPage(
+        tripId: args?['tripId'] as int?,
+        studentId: args?['studentId'] as int?,
+      );
+    },
     attendanceHistory: (_) => const AttendanceHistoryPage(),
     monthlyReport: (_) => const MonthlyReportPage(),
+    parentProfileView: (context) {
+      final args = ModalRoute.of(context)?.settings.arguments;
+      return ParentProfileViewPage(
+        profileData: args is Map<String, dynamic> ? args : null,
+      );
+    },
     parentProfileUpdate: (context) {
       final args = ModalRoute.of(context)?.settings.arguments;
       return ParentProfileUpdatePage(
@@ -179,7 +193,12 @@ static const String createTrip = '/createTrip';
       final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
       final trip = args['trip'] as Trip;
       final driverId = args['driverId'] as int;
-      return SimplifiedStudentManagementPage(trip: trip, driverId: driverId);
+      final isReadOnly = args['isReadOnly'] as bool? ?? false;
+      return SimplifiedStudentManagementPage(
+        trip: trip,
+        driverId: driverId,
+        isReadOnly: isReadOnly,
+      );
     },
 
     registerVehicle: (context) => const RegisterVehicleScreen(),

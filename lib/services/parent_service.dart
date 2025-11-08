@@ -115,28 +115,60 @@ class ParentService {
 
   /// 🔹 Get Parent Dashboard
   Future<ParentDashboard> getParentDashboard(int userId) async {
-    final token = await _auth.getToken();
-    final url = Uri.parse("$base/parents/$userId/dashboard");
-    debugPrint("🔍 ParentService: getParentDashboard URL: $url");
-    debugPrint("🔍 ParentService: getParentDashboard userId: $userId");
+    try {
+      final token = await _auth.getToken();
+      final url = Uri.parse("$base/parents/$userId/dashboard");
+      debugPrint("🔍 [Parent Dashboard] URL: $url");
+      debugPrint("🔍 [Parent Dashboard] Base URL: $base");
+      debugPrint("🔍 [Parent Dashboard] userId: $userId");
 
-    final headers = _buildHeaders(token);
-
-    final resp = await http.get(url, headers: headers);
-    debugPrint("🔍 ParentService: getParentDashboard response status: ${resp.statusCode}");
-    debugPrint("🔍 ParentService: getParentDashboard response body: ${resp.body}");
-
-    if (resp.statusCode == 200) {
-      final responseData = jsonDecode(resp.body) as Map<String, dynamic>;
-      debugPrint("🔍 ParentService: getParentDashboard responseData: $responseData");
-
-      if (responseData[AppConstants.keySuccess] == true && responseData[AppConstants.keyData] != null) {
-        return ParentDashboard.fromJson(responseData[AppConstants.keyData]);
-      } else {
-        throw Exception("${AppConstants.errorFailedToGet} parent dashboard: ${responseData[AppConstants.keyMessage]}");
+      if (token == null || token.isEmpty) {
+        debugPrint('❌ [Parent Dashboard] No authentication token found');
+        throw Exception('Authentication required. Please login again.');
       }
-    } else {
-      throw Exception("Parent dashboard ${AppConstants.errorRequestFailedColon}: ${resp.statusCode} ${resp.body}");
+
+      final headers = _buildHeaders(token);
+
+      debugPrint("🔍 [Parent Dashboard] Making GET request...");
+      final resp = await http.get(url, headers: headers).timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          debugPrint('❌ [Parent Dashboard] Request timeout after 30 seconds');
+          throw Exception('Request timeout: Backend server is not responding. Please check if backend is running.');
+        },
+      );
+      
+      debugPrint("🔍 [Parent Dashboard] Response status: ${resp.statusCode}");
+      debugPrint("🔍 [Parent Dashboard] Response body length: ${resp.body.length}");
+
+      if (resp.statusCode == 200) {
+        try {
+          final responseData = jsonDecode(resp.body) as Map<String, dynamic>;
+          debugPrint("🔍 [Parent Dashboard] Response data parsed successfully");
+
+          if (responseData[AppConstants.keySuccess] == true && responseData[AppConstants.keyData] != null) {
+            return ParentDashboard.fromJson(responseData[AppConstants.keyData]);
+          } else {
+            throw Exception("${AppConstants.errorFailedToGet} parent dashboard: ${responseData[AppConstants.keyMessage]}");
+          }
+        } catch (e) {
+          debugPrint('❌ [Parent Dashboard] Failed to parse response: $e');
+          throw Exception('Failed to parse response: ${e.toString()}');
+        }
+      } else {
+        debugPrint('❌ [Parent Dashboard] Error response: ${resp.statusCode} - ${resp.body}');
+        throw Exception("Parent dashboard ${AppConstants.errorRequestFailedColon}: ${resp.statusCode} ${resp.body}");
+      }
+    } on http.ClientException catch (e) {
+      debugPrint('❌ [Parent Dashboard] ClientException: ${e.message}');
+      debugPrint('❌ [Parent Dashboard] URI: ${e.uri}');
+      throw Exception('Cannot connect to backend server at $base.\n\nPlease ensure:\n1. Backend server is running\n2. Backend is accessible\n3. No firewall blocking the connection\n\nError: ${e.message}');
+    } on Exception catch (e) {
+      debugPrint('❌ [Parent Dashboard] Exception: ${e.toString()}');
+      rethrow;
+    } catch (e) {
+      debugPrint('❌ [Parent Dashboard] Unexpected error: ${e.toString()}');
+      throw Exception('Unexpected error: ${e.toString()}');
     }
   }
 

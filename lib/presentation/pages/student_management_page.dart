@@ -27,7 +27,6 @@ class _StudentManagementPageState extends State<StudentManagementPage> {
   // Real-time updates
   bool _isConnected = false;
   StreamSubscription<WebSocketNotification>? _notificationSubscription;
-  Timer? _autoRefreshTimer;
   
   // Filter states
   String? _selectedClass;
@@ -37,6 +36,14 @@ class _StudentManagementPageState extends State<StudentManagementPage> {
   // Dynamic classes and sections from API
   List<String> _classes = [];
   List<String> _sections = [];
+  Map<String, List<String>> _sectionsByClass = {};
+
+  String? _normalizeString(dynamic value) {
+    if (value == null) return null;
+    final text = value.toString().trim();
+    if (text.isEmpty || text.toLowerCase() == 'null') return null;
+    return text;
+  }
 
   @override
   void initState() {
@@ -48,7 +55,6 @@ class _StudentManagementPageState extends State<StudentManagementPage> {
   @override
   void dispose() {
     _notificationSubscription?.cancel();
-    _autoRefreshTimer?.cancel();
     super.dispose();
   }
 
@@ -66,7 +72,6 @@ class _StudentManagementPageState extends State<StudentManagementPage> {
           });
         },
       );
-      _startAutoRefresh();
     });
   }
 
@@ -89,14 +94,6 @@ class _StudentManagementPageState extends State<StudentManagementPage> {
     return notification.type == NotificationType.attendanceUpdate ||
            notification.type == NotificationType.vehicleAssignmentRequest ||
            notification.type == NotificationType.vehicleAssignmentApproved;
-  }
-
-  void _startAutoRefresh() {
-    _autoRefreshTimer = Timer.periodic(AppDurations.autoRefresh, (timer) {
-      if (mounted) {
-        _loadStudents();
-      }
-    });
   }
 
   Future<void> _loadStudents() async {
@@ -145,44 +142,209 @@ class _StudentManagementPageState extends State<StudentManagementPage> {
 
   void _extractClassesAndSections() {
     final classes = <String>{};
-    final sections = <String>{};
-    
+    final allSections = <String>{};
+    final sectionsByClass = <String, Set<String>>{};
+
     for (final student in _students) {
-      if (student['className'] != null) {
-        classes.add(student['className'].toString());
-      }
-      if (student['section'] != null) {
-        sections.add(student['section'].toString());
+      final className = _normalizeString(student['className'] ?? student['class']);
+      final sectionName = _normalizeString(student['section'] ?? student['sectionName']);
+
+      if (className != null) {
+        classes.add(className);
+        final classSections = sectionsByClass.putIfAbsent(className, () => <String>{});
+        if (sectionName != null) {
+          classSections.add(sectionName);
+          allSections.add(sectionName);
+        }
+      } else if (sectionName != null) {
+        allSections.add(sectionName);
       }
     }
-    
-    setState(() {
-      _classes = classes.toList()..sort();
-      _sections = sections.toList()..sort();
+
+    final sortedClasses = classes.toList()..sort();
+    final sortedSections = allSections.toList()..sort();
+    final mappedSections = sectionsByClass.map((key, value) {
+      final list = value.toList()..sort();
+      return MapEntry(key, list);
     });
+
+    setState(() {
+      _classes = sortedClasses;
+      _sections = sortedSections;
+      _sectionsByClass = mappedSections;
+
+      // Reset selected section if it no longer exists for the chosen class
+      final availableSections = _sectionsForClass(_selectedClass);
+      if (_selectedSection != null && !availableSections.contains(_selectedSection)) {
+        _selectedSection = null;
+      }
+    });
+  }
+
+  List<String> _sectionsForClass(String? className) {
+    if (className == null || className.isEmpty) {
+      return _sections;
+    }
+    return _sectionsByClass[className] ?? _sections;
+  }
+
+  void _onClassChanged(String? value) {
+    final normalized = _normalizeString(value);
+    setState(() {
+      _selectedClass = normalized;
+      final availableSections = _sectionsForClass(normalized);
+      if (_selectedSection != null && !availableSections.contains(_selectedSection)) {
+        _selectedSection = null;
+      }
+    });
+    _applyFilters();
+  }
+
+  void _onSectionChanged(String? value) {
+    setState(() {
+      _selectedSection = _normalizeString(value);
+    });
+    _applyFilters();
+  }
+
+  String _getStudentDisplayName(Map<String, dynamic> student) {
+    final directName = _normalizeString(student['studentName'] ?? student['name']);
+    if (directName != null) {
+      return directName;
+    }
+
+    final firstName = _normalizeString(student['firstName'] ?? student['studentFirstName']);
+    final middleName = _normalizeString(student['middleName']);
+    final lastName = _normalizeString(student['lastName'] ?? student['studentLastName']);
+
+    final parts = [firstName, middleName, lastName]
+        .whereType<String>()
+        .toList();
+
+    if (parts.isNotEmpty) {
+      return parts.join(' ');
+    }
+
+    return AppConstants.labelUnknown;
+  }
+
+  Future<void> _showStudentDetailsDialog(Map<String, dynamic> student) async {
+    final className = _normalizeString(student['className'] ?? student['class']) ?? AppConstants.labelNA;
+    final sectionName = _normalizeString(student['section'] ?? student['sectionName']) ?? AppConstants.labelNA;
+    final parentDisplay = _normalizeString(student['parentName'] ?? student['fatherName'] ?? student['motherName']) ?? AppConstants.labelNA;
+    final contactNumber = _normalizeString(student['primaryContactNumber'] ?? student['contactNumber']) ?? AppConstants.labelNA;
+
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(_getStudentDisplayName(student)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('${AppConstants.labelClass}: $className'),
+              Text('${AppConstants.labelSection}: $sectionName'),
+              Text('${AppConstants.labelParent}: $parentDisplay'),
+              Text('${AppConstants.labelContactWithColon}$contactNumber'),
+              Text('${AppConstants.labelStatus}: ${(student['isActive'] == true) ? AppConstants.labelActive : AppConstants.labelInactive}'),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text(AppConstants.actionClose),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _editStudent(Map<String, dynamic> student) async {
+    final studentId = student['studentId'];
+    if (studentId is! int) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppConstants.msgStudentIdMissing)),
+      );
+      return;
+    }
+
+    await Navigator.pushNamed(
+      context,
+      AppRoutes.studentProfile,
+      arguments: studentId,
+    );
+
+    if (mounted) {
+      _loadStudents();
+    }
+  }
+
+  Future<void> _confirmToggleStudentStatus(Map<String, dynamic> student) async {
+    final studentId = student['studentId'];
+    if (studentId is! int) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppConstants.msgStudentIdMissing)),
+      );
+      return;
+    }
+
+    final currentlyActive = student['isActive'] == true;
+    final confirmation = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(currentlyActive ? AppConstants.actionDeactivate : AppConstants.actionActivate),
+          content: Text(
+            currentlyActive
+                ? AppConstants.msgConfirmDeactivateStudent
+                : AppConstants.msgConfirmActivateStudent,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text(AppConstants.actionCancel),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: currentlyActive ? AppColors.errorColor : AppColors.successColor,
+                foregroundColor: AppColors.textWhite,
+              ),
+              child: Text(currentlyActive ? AppConstants.actionDeactivate : AppConstants.actionActivate),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmation == true) {
+      await _toggleStudentStatus(studentId, currentlyActive);
+    }
   }
 
   void _applyFilters() {
     setState(() {
       _filteredStudents = _students.where((student) {
-        // Class filter
-        if (_selectedClass != null && student['className'] != _selectedClass) {
+        final studentClass = _normalizeString(student['className'] ?? student['class']);
+        final studentSection = _normalizeString(student['section'] ?? student['sectionName']);
+
+        if (_selectedClass != null && studentClass != _selectedClass) {
           return false;
         }
-        
-        // Section filter
-        if (_selectedSection != null && student['section'] != _selectedSection) {
+
+        if (_selectedSection != null && studentSection != _selectedSection) {
           return false;
         }
-        
-        // Status filter
+
         if (_statusFilter == 'active' && student['isActive'] != true) {
           return false;
         }
         if (_statusFilter == 'inactive' && student['isActive'] != false) {
           return false;
         }
-        
+
         return true;
       }).toList();
     });
@@ -254,44 +416,36 @@ class _StudentManagementPageState extends State<StudentManagementPage> {
                 Row(
                   children: [
                     Expanded(
-                      child: DropdownButtonFormField<String>(
-                        value: _selectedClass,
+                      child: DropdownButtonFormField<String?>(
+                        initialValue: _selectedClass,
                         decoration: const InputDecoration(
                           labelText: AppConstants.labelClass,
                           border: OutlineInputBorder(),
                           contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         ),
                         items: [
-                          const DropdownMenuItem(value: null, child: Text(AppConstants.labelAllClasses)),
-                          ..._classes.map((cls) => DropdownMenuItem(value: cls, child: Text(cls))),
+                          const DropdownMenuItem<String?>(value: null, child: Text(AppConstants.labelAllClasses)),
+                          ..._classes.map((cls) => DropdownMenuItem<String?>(value: cls, child: Text(cls))),
                         ],
-                        onChanged: (value) {
-                          setState(() {
-                            _selectedClass = value;
-                          });
-                          _applyFilters();
-                        },
+                        onChanged: _onClassChanged,
                       ),
                     ),
                     const SizedBox(width: AppSizes.marginSM),
                     Expanded(
-                      child: DropdownButtonFormField<String>(
-                        value: _selectedSection,
+                      child: DropdownButtonFormField<String?>(
+                        initialValue: _selectedSection,
                         decoration: const InputDecoration(
                           labelText: AppConstants.labelSection,
                           border: OutlineInputBorder(),
                           contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         ),
                         items: [
-                          const DropdownMenuItem(value: null, child: Text(AppConstants.labelAllSections)),
-                          ..._sections.map((section) => DropdownMenuItem(value: section, child: Text(section))),
+                          const DropdownMenuItem<String?>(value: null, child: Text(AppConstants.labelAllSections)),
+                          ..._sectionsForClass(_selectedClass).map(
+                            (section) => DropdownMenuItem<String?>(value: section, child: Text(section)),
+                          ),
                         ],
-                        onChanged: (value) {
-                          setState(() {
-                            _selectedSection = value;
-                          });
-                          _applyFilters();
-                        },
+                        onChanged: _onSectionChanged,
                       ),
                     ),
                   ],
@@ -402,68 +556,62 @@ class _StudentManagementPageState extends State<StudentManagementPage> {
                                     ),
                                   ),
                                   title: Text(
-                                    student['studentName'] ?? AppConstants.labelUnknown,
+                                    _getStudentDisplayName(student),
                                     style: const TextStyle(fontWeight: FontWeight.bold),
                                   ),
                                   subtitle: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Text('${AppConstants.labelClass}: ${student['className'] ?? AppConstants.labelNA} - ${student['section'] ?? AppConstants.labelNA}'),
-                                      Text('${AppConstants.labelParent}: ${student['parentName'] ?? AppConstants.labelNA}'),
-                                      Text('${AppConstants.labelContactWithColon}${student['primaryContactNumber'] ?? AppConstants.labelNA}'),
+                                      Text('${AppConstants.labelClass}: ${_normalizeString(student['className'] ?? student['class']) ?? AppConstants.labelNA} - ${_normalizeString(student['section'] ?? student['sectionName']) ?? AppConstants.labelNA}'),
+                                      Text('${AppConstants.labelParent}: ${_normalizeString(student['parentName'] ?? student['fatherName'] ?? student['motherName']) ?? AppConstants.labelNA}'),
+                                      Text('${AppConstants.labelContactWithColon}${_normalizeString(student['primaryContactNumber'] ?? student['contactNumber']) ?? AppConstants.labelNA}'),
                                     ],
                                   ),
-                                  trailing: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Switch(
-                                        value: student['isActive'] == true,
-                                        onChanged: (value) {
-                                          _toggleStudentStatus(
-                                            student['studentId'], 
-                                            student['isActive'] == true
-                                          );
-                                        },
-                                        activeColor: AppColors.successColor,
-                                      ),
-                                      PopupMenuButton<String>(
-                                        onSelected: (value) {
-                                          if (value == 'edit') {
-                                            // Navigate to edit student page
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              const SnackBar(content: Text(AppConstants.msgEditFunctionalityNotImplemented)),
-                                            );
-                                          } else if (value == 'view') {
-                                            // Navigate to student details page
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              const SnackBar(content: Text(AppConstants.labelViewDetails)),
-                                            );
-                                          }
-                                        },
-                                        itemBuilder: (context) => [
-                                          const PopupMenuItem(
-                                            value: 'view',
-                                            child: Row(
-                                              children: [
-                                                Icon(Icons.visibility),
-                                                SizedBox(width: AppSizes.marginSM),
-                                                Text(AppConstants.labelViewDetails),
-                                              ],
-                                            ),
+                                  trailing: PopupMenuButton<String>(
+                                    onSelected: (value) {
+                                      if (value == 'view') {
+                                        _showStudentDetailsDialog(student);
+                                      } else if (value == 'edit') {
+                                        _editStudent(student);
+                                      } else if (value == 'toggle') {
+                                        _confirmToggleStudentStatus(student);
+                                      }
+                                    },
+                                    itemBuilder: (context) {
+                                      final isActive = student['isActive'] == true;
+                                      return [
+                                        const PopupMenuItem<String>(
+                                          value: 'view',
+                                          child: Row(
+                                            children: [
+                                              Icon(Icons.visibility),
+                                              SizedBox(width: AppSizes.marginSM),
+                                              Text(AppConstants.labelViewDetails),
+                                            ],
                                           ),
-                                          const PopupMenuItem(
-                                            value: 'edit',
-                                            child: Row(
-                                              children: [
-                                                Icon(Icons.edit),
-                                                SizedBox(width: AppSizes.marginSM),
-                                                Text(AppConstants.actionEdit),
-                                              ],
-                                            ),
+                                        ),
+                                        const PopupMenuItem<String>(
+                                          value: 'edit',
+                                          child: Row(
+                                            children: [
+                                              Icon(Icons.edit),
+                                              SizedBox(width: AppSizes.marginSM),
+                                              Text(AppConstants.actionEdit),
+                                            ],
                                           ),
-                                        ],
-                                      ),
-                                    ],
+                                        ),
+                                        PopupMenuItem<String>(
+                                          value: 'toggle',
+                                          child: Row(
+                                            children: [
+                                              Icon(isActive ? Icons.toggle_off : Icons.toggle_on),
+                                              const SizedBox(width: AppSizes.marginSM),
+                                              Text(isActive ? AppConstants.actionDeactivate : AppConstants.actionActivate),
+                                            ],
+                                          ),
+                                        ),
+                                      ];
+                                    },
                                   ),
                                 ),
                               );

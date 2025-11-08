@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import '../../data/models/websocket_notification.dart';
 
 
 abstract class ParentEvent extends Equatable {
@@ -129,4 +130,13 @@ class ParentRefreshRequested extends ParentEvent {
 
   @override
   List<Object> get props => [parentId];
+}
+
+class ParentRealtimeNotificationReceived extends ParentEvent {
+  final WebSocketNotification notification;
+
+  const ParentRealtimeNotificationReceived({required this.notification});
+
+  @override
+  List<Object> get props => [notification];
 }

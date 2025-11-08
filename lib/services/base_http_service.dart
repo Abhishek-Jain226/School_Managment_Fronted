@@ -31,9 +31,18 @@ abstract class BaseHttpService {
     final uri = Uri.parse(url);
     
     try {
-      final response = await http.get(uri, headers: headers);
+      final response = await http.get(uri, headers: headers).timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          _logError(AppConstants.httpMethodGet, url, 'Request timeout after 30 seconds');
+          throw Exception('Request timeout: Backend server is not responding. Please check if backend is running.');
+        },
+      );
       _logRequest(AppConstants.httpMethodGet, url, null, response.statusCode);
       return response;
+    } on http.ClientException catch (e) {
+      _logError(AppConstants.httpMethodGet, url, 'ClientException: ${e.message}');
+      throw Exception('Cannot connect to backend server.\n\nPlease ensure:\n1. Backend server is running\n2. Backend is accessible\n3. No firewall blocking the connection\n\nError: ${e.message}');
     } catch (e) {
       _logError(AppConstants.httpMethodGet, url, e.toString());
       rethrow;
@@ -47,9 +56,18 @@ abstract class BaseHttpService {
     final bodyString = body != null ? jsonEncode(body) : null;
     
     try {
-      final response = await http.post(uri, headers: headers, body: bodyString);
+      final response = await http.post(uri, headers: headers, body: bodyString).timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          _logError(AppConstants.httpMethodPost, url, 'Request timeout after 30 seconds');
+          throw Exception('Request timeout: Backend server is not responding. Please check if backend is running.');
+        },
+      );
       _logRequest(AppConstants.httpMethodPost, url, body, response.statusCode);
       return response;
+    } on http.ClientException catch (e) {
+      _logError(AppConstants.httpMethodPost, url, 'ClientException: ${e.message}');
+      throw Exception('Cannot connect to backend server.\n\nPlease ensure:\n1. Backend server is running\n2. Backend is accessible\n3. No firewall blocking the connection\n\nError: ${e.message}');
     } catch (e) {
       _logError(AppConstants.httpMethodPost, url, e.toString());
       rethrow;

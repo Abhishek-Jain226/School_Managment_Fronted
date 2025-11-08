@@ -146,9 +146,9 @@ class DriverService extends BaseHttpService {
   }
 
   // Send 5-minute alert
-  Future<Map<String, dynamic>> send5MinuteAlert(int driverId, int tripId) async {
+  Future<Map<String, dynamic>> send5MinuteAlert(int driverId, int tripId, int studentId) async {
     try {
-      final response = await post("$base/$driverId/trip/$tripId/alert-5min");
+      final response = await post("$base/$driverId/trip/$tripId/student/$studentId/alert-5min");
       return handleResponse(response, operation: 'Send 5-minute alert');
     } catch (e) {
       throw Exception(createErrorMessage('Send 5-minute alert', e));
@@ -219,6 +219,25 @@ class DriverService extends BaseHttpService {
     }
   }
 
+  // Start trip
+  Future<Map<String, dynamic>> startTrip(
+    int driverId,
+    int tripId,
+    double latitude,
+    double longitude,
+  ) async {
+    try {
+      final body = {
+        'latitude': latitude,
+        'longitude': longitude,
+      };
+      final response = await post("$base/$driverId/trip/$tripId/start", body: body);
+      return handleResponse(response, operation: 'Start trip');
+    } catch (e) {
+      throw Exception(createErrorMessage('Start trip', e));
+    }
+  }
+
   // End trip
   Future<Map<String, dynamic>> endTrip(int driverId, int tripId) async {
     try {
@@ -226,6 +245,32 @@ class DriverService extends BaseHttpService {
       return handleResponse(response, operation: 'End trip');
     } catch (e) {
       throw Exception(createErrorMessage('End trip', e));
+    }
+  }
+
+  // Save location update for active trip
+  Future<Map<String, dynamic>> saveLocationUpdate(
+    int driverId,
+    int tripId,
+    double latitude,
+    double longitude,
+    String? address,
+  ) async {
+    try {
+      final body = <String, dynamic>{
+        'latitude': latitude,
+        'longitude': longitude,
+      };
+      if (address != null && address.isNotEmpty) {
+        body['address'] = address;
+      }
+      final response = await post(
+        "$base/$driverId/trip/$tripId/location",
+        body: body,
+      );
+      return handleResponse(response, operation: 'Save location update');
+    } catch (e) {
+      throw Exception(createErrorMessage('Save location update', e));
     }
   }
 }

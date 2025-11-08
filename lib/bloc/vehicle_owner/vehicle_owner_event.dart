@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import '../../data/models/websocket_notification.dart';
 
 
 abstract class VehicleOwnerEvent extends Equatable {
@@ -66,6 +67,15 @@ class VehicleOwnerTripsRequested extends VehicleOwnerEvent {
   List<Object> get props => [ownerId];
 }
 
+class VehicleOwnerNotificationsRequested extends VehicleOwnerEvent {
+  final int userId;
+
+  const VehicleOwnerNotificationsRequested({required this.userId});
+
+  @override
+  List<Object> get props => [userId];
+}
+
 class VehicleOwnerReportsRequested extends VehicleOwnerEvent {
   final int ownerId;
 
@@ -123,4 +133,13 @@ class VehicleOwnerRefreshRequested extends VehicleOwnerEvent {
 
   @override
   List<Object> get props => [ownerId];
+}
+
+class VehicleOwnerRealtimeNotificationReceived extends VehicleOwnerEvent {
+  final WebSocketNotification notification;
+
+  const VehicleOwnerRealtimeNotificationReceived({required this.notification});
+
+  @override
+  List<Object> get props => [notification];
 }

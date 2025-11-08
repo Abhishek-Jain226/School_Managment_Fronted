@@ -68,10 +68,12 @@ class _SchoolProfilePageState extends State<SchoolProfilePage> {
         schoolPhoto = school["schoolPhoto"];
         _isLoading = false;
       });
-      
-      // Save school photo to SharedPreferences for dashboard display
+      final trimmedName = schoolName.trim();
+      if (trimmedName.isNotEmpty) {
+        await prefs.setString(AppConstants.keySchoolName, trimmedName);
+      }
       if (schoolPhoto != null && schoolPhoto!.isNotEmpty) {
-        await prefs.setString("schoolPhoto", schoolPhoto!);
+        await prefs.setString(AppConstants.keySchoolPhoto, schoolPhoto!);
       }
     }
   }
@@ -119,6 +121,14 @@ class _SchoolProfilePageState extends State<SchoolProfilePage> {
         }
         _selectedImage = null;
       });
+      final trimmedName = schoolName.trim();
+      if (trimmedName.isNotEmpty) {
+        await prefs.setString(AppConstants.keySchoolName, trimmedName);
+      }
+      final photoToPersist = photoBase64 ?? schoolPhoto;
+      if (photoToPersist != null && photoToPersist.isNotEmpty) {
+        await prefs.setString(AppConstants.keySchoolPhoto, photoToPersist);
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text(AppConstants.msgSchoolUpdated)),
       );
@@ -251,7 +261,7 @@ class _SchoolProfilePageState extends State<SchoolProfilePage> {
                             ),
                             const SizedBox(height: AppSizes.marginMD),
                             CircleAvatar(
-                              radius: AppSizes.radiusXL, // 20.0; avatar looks balanced with XL
+                              radius: AppSizes.profileAvatarRadius,
                               backgroundColor: AppColors.primaryLight,
                               backgroundImage: _selectedImage != null
                                   ? FileImage(_selectedImage!) as ImageProvider<Object>?

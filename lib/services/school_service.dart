@@ -115,17 +115,56 @@ Future<Map<String, dynamic>> getAllSchools() async {
 
 // ---------------- Get School Dashboard ----------------
 Future<Map<String, dynamic>> getSchoolDashboard(int schoolId) async {
-  final url = Uri.parse("${AppConfig.baseUrl}/api/school-admin/dashboard/$schoolId");
-  final token = await _auth.getToken();
-  final resp = await http.get(
-    url,
-    headers: {AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token"},
-  );
+  try {
+    final url = Uri.parse("${AppConfig.baseUrl}/api/school-admin/dashboard/$schoolId");
+    debugPrint('🔍 [School Dashboard] URL: $url');
+    debugPrint('🔍 [School Dashboard] Base URL: ${AppConfig.baseUrl}');
+    
+    final token = await _auth.getToken();
+    if (token == null || token.isEmpty) {
+      debugPrint('❌ [School Dashboard] No authentication token found');
+      throw Exception('Authentication required. Please login again.');
+    }
+    debugPrint('🔍 [School Dashboard] Token available: ${token.substring(0, 20)}...');
+    
+    final headers = {
+      AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token",
+      AppConstants.headerContentType: AppConstants.headerApplicationJson,
+    };
+    
+    debugPrint('🔍 [School Dashboard] Making GET request...');
+    final resp = await http.get(url, headers: headers).timeout(
+      const Duration(seconds: 30),
+      onTimeout: () {
+        debugPrint('❌ [School Dashboard] Request timeout after 30 seconds');
+        throw Exception('Request timeout: Backend server is not responding. Please check if backend is running on ${AppConfig.baseUrl}');
+      },
+    );
+    
+    debugPrint('🔍 [School Dashboard] Response status: ${resp.statusCode}');
+    debugPrint('🔍 [School Dashboard] Response body length: ${resp.body.length}');
 
-  if (resp.statusCode == 200) {
-    return jsonDecode(resp.body);
-  } else {
-    throw Exception("${AppConstants.errorFailedToFetchSchoolDashboard}: ${resp.body}");
+    if (resp.statusCode == 200) {
+      try {
+        return jsonDecode(resp.body) as Map<String, dynamic>;
+      } catch (e) {
+        debugPrint('❌ [School Dashboard] Failed to parse response: $e');
+        throw Exception('Failed to parse response: ${e.toString()}');
+      }
+    } else {
+      debugPrint('❌ [School Dashboard] Error response: ${resp.statusCode} - ${resp.body}');
+      throw Exception("${AppConstants.errorFailedToFetchSchoolDashboard}: ${resp.statusCode} - ${resp.body}");
+    }
+  } on http.ClientException catch (e) {
+    debugPrint('❌ [School Dashboard] ClientException: ${e.message}');
+    debugPrint('❌ [School Dashboard] URI: ${e.uri}');
+    throw Exception('Cannot connect to backend server at ${AppConfig.baseUrl}.\n\nPlease ensure:\n1. Backend server is running\n2. Backend is accessible at ${AppConfig.baseUrl}\n3. No firewall blocking the connection\n\nError: ${e.message}');
+  } on Exception catch (e) {
+    debugPrint('❌ [School Dashboard] Exception: ${e.toString()}');
+    rethrow;
+  } catch (e) {
+    debugPrint('❌ [School Dashboard] Unexpected error: ${e.toString()}');
+    throw Exception('Unexpected error: ${e.toString()}');
   }
 }
 
@@ -353,6 +392,37 @@ Future<Map<String, dynamic>> getSchoolReports(int schoolId) async {
     }
   }
 
+  // ---------------- Get School Notifications ----------------
+  Future<Map<String, dynamic>> getSchoolNotifications(int schoolId) async {
+    try {
+      final token = await _auth.getToken();
+      final url = Uri.parse("$_base/$schoolId/notifications");
+      final resp = await http.get(
+        url,
+        headers: {
+          if (token != null) AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token",
+        },
+      ).timeout(const Duration(seconds: 30));
+      
+      if (resp.statusCode == 200) {
+        return jsonDecode(resp.body);
+      } else {
+        return {
+          AppConstants.keySuccess: false,
+          AppConstants.keyMessage: '${AppConstants.errorFailedToFetchSchoolNotifications}: ${resp.statusCode}',
+          AppConstants.keyData: []
+        };
+      }
+    } catch (e) {
+      debugPrint('Error fetching school notifications: $e');
+      return {
+        AppConstants.keySuccess: false,
+        AppConstants.keyMessage: 'Failed to fetch notifications: ${e.toString()}',
+        AppConstants.keyData: []
+      };
+    }
+  }
+
   // ---------------- Get School by ID ----------------
   Future<Map<String, dynamic>> getSchoolById(int schoolId) async {
     final token = await _auth.getToken();
@@ -526,6 +596,86 @@ Future<Map<String, dynamic>> getSchoolReports(int schoolId) async {
         AppConstants.keyMessage: '${AppConstants.errorFailedToUpdateStaffRole}: ${resp.statusCode}',
         AppConstants.keyData: null
       };
+    }
+  }
+
+  // ---------------- Get Classes for School ----------------
+  Future<Map<String, dynamic>> getSchoolClasses(int schoolId) async {
+    try {
+      final token = await _auth.getToken();
+      if (token == null || token.isEmpty) {
+        throw Exception(AppConstants.errorAuthTokenNotAvailable);
+      }
+
+      final url = Uri.parse("$_base/$schoolId/classes");
+      debugPrint('🔍 Fetching classes for school $schoolId: $url');
+
+      final resp = await http.get(
+        url,
+        headers: {
+          AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token",
+          AppConstants.headerContentType: AppConstants.headerApplicationJson,
+        },
+      ).timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          throw Exception('Request timeout: Failed to fetch classes');
+        },
+      );
+
+      debugPrint('🔍 Classes response status: ${resp.statusCode}');
+
+      if (resp.statusCode == 200) {
+        final data = jsonDecode(resp.body);
+        debugPrint('✅ Classes fetched successfully');
+        return data;
+      } else {
+        debugPrint('❌ Error fetching classes: ${resp.statusCode} - ${resp.body}');
+        throw Exception("Failed to fetch classes: ${resp.statusCode}");
+      }
+    } catch (e) {
+      debugPrint('❌ Exception in getSchoolClasses: $e');
+      rethrow;
+    }
+  }
+
+  // ---------------- Get Sections for School ----------------
+  Future<Map<String, dynamic>> getSchoolSections(int schoolId) async {
+    try {
+      final token = await _auth.getToken();
+      if (token == null || token.isEmpty) {
+        throw Exception(AppConstants.errorAuthTokenNotAvailable);
+      }
+
+      final url = Uri.parse("$_base/$schoolId/sections");
+      debugPrint('🔍 Fetching sections for school $schoolId: $url');
+
+      final resp = await http.get(
+        url,
+        headers: {
+          AppConstants.headerAuthorization: "${AppConstants.headerBearer}$token",
+          AppConstants.headerContentType: AppConstants.headerApplicationJson,
+        },
+      ).timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          throw Exception('Request timeout: Failed to fetch sections');
+        },
+      );
+
+      debugPrint('🔍 Sections response status: ${resp.statusCode}');
+
+      if (resp.statusCode == 200) {
+        final data = jsonDecode(resp.body);
+        debugPrint('✅ Sections fetched successfully');
+        return data;
+      } else {
+        debugPrint('❌ Error fetching sections: ${resp.statusCode} - ${resp.body}');
+        throw Exception("Failed to fetch sections: ${resp.statusCode}");
+      }
+    } catch (e) {
+      debugPrint('❌ Exception in getSchoolSections: $e');
+      rethrow;
     }
   }
 

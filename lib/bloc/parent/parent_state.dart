@@ -1,5 +1,7 @@
 import 'package:equatable/equatable.dart';
 
+import '../../data/models/parent_dashboard.dart';
+
 
 abstract class ParentState extends Equatable {
   const ParentState();
@@ -17,7 +19,7 @@ class ParentLoading extends ParentState {
 }
 
 class ParentDashboardLoaded extends ParentState {
-  final Map<String, dynamic> dashboard;
+  final ParentDashboard dashboard;
   final List<dynamic> students;
   final List<dynamic> trips;
   final List<dynamic> notifications;
@@ -138,7 +140,7 @@ class ParentError extends ParentState {
 }
 
 class ParentRefreshing extends ParentState {
-  final Map<String, dynamic>? dashboard;
+  final ParentDashboard? dashboard;
   final List<dynamic>? students;
   final List<dynamic>? trips;
   final List<dynamic>? notifications;

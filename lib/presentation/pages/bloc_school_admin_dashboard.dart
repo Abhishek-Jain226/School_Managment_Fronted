@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../utils/constants.dart';
 import '../../bloc/auth/auth_bloc.dart';
 import '../../bloc/auth/auth_event.dart';
@@ -11,6 +14,7 @@ import '../../bloc/school/school_state.dart';
 import '../../app_routes.dart';
 import '../../services/websocket_notification_service.dart';
 import '../../data/models/websocket_notification.dart';
+import '../widgets/live_tracking_widget.dart';
 
 class BlocSchoolAdminDashboard extends StatefulWidget {
   const BlocSchoolAdminDashboard({super.key});
@@ -22,23 +26,44 @@ class BlocSchoolAdminDashboard extends StatefulWidget {
 class _BlocSchoolAdminDashboardState extends State<BlocSchoolAdminDashboard> {
   final WebSocketNotificationService _wsService = WebSocketNotificationService();
   StreamSubscription<WebSocketNotification>? _notificationSubscription;
-  StreamSubscription<WebSocketNotification>? _tripUpdateSubscription;
-  Timer? _refreshTimer;
+  String? _userName;
+  String? _schoolName;
+  String? _schoolPhotoBase64;
+  Uint8List? _schoolPhotoBytes;
+  
+  // Live tracking state
+  bool _isMapVisible = false;
+  bool _mapExpanded = false;
+  int? _activeTripId;
 
   @override
   void initState() {
     super.initState();
+    _loadUserInfo();
     _loadSchoolData();
     _initializeWebSocket();
-    _startAutoRefresh();
   }
 
   @override
   void dispose() {
     _notificationSubscription?.cancel();
-    _tripUpdateSubscription?.cancel();
-    _refreshTimer?.cancel();
     super.dispose();
+  }
+
+  Future<void> _loadUserInfo() async {
+    final prefs = await SharedPreferences.getInstance();
+    final photoBase64 = prefs.getString(AppConstants.keySchoolPhoto);
+    Uint8List? photoBytes;
+    if (photoBase64 != null && photoBase64.isNotEmpty) {
+      photoBytes = _decodeBase64Image(photoBase64);
+    }
+    if (!mounted) return;
+    setState(() {
+      _userName = prefs.getString(AppConstants.keyUserName);
+      _schoolName = prefs.getString(AppConstants.keySchoolName);
+      _schoolPhotoBase64 = photoBase64;
+      _schoolPhotoBytes = photoBytes;
+    });
   }
 
   void _loadSchoolData() {
@@ -74,23 +99,57 @@ class _BlocSchoolAdminDashboardState extends State<BlocSchoolAdminDashboard> {
           debugPrint('${AppConstants.msgNotificationStreamError}$error');
         },
       );
-
-      // Listen to trip updates
-      _tripUpdateSubscription = _wsService.tripUpdateStream.listen(
-        (notification) {
-          debugPrint('${AppConstants.msgReceivedTripUpdate}${notification.message}');
-          _refreshDashboard();
-        },
-        onError: (error) {
-          debugPrint('${AppConstants.msgTripUpdateStreamError}$error');
-        },
-      );
     }).catchError((error) {
       debugPrint('${AppConstants.msgWebSocketInitError}$error');
     });
   }
 
   void _handleNotification(WebSocketNotification notification) {
+    // Handle trip started notification - show map
+    if (notification.type == AppConstants.notificationTypeTripStarted ||
+        notification.type == AppConstants.notificationTypeTripUpdate ||
+        notification.type == 'LOCATION_UPDATE') {
+      if (notification.tripId != null && notification.schoolId != null) {
+        // Check if this trip is for the school admin's school
+        final authState = context.read<AuthBloc>().state;
+        if (authState is AuthAuthenticated && 
+            authState.schoolId != null && 
+            notification.schoolId == authState.schoolId) {
+          // Check if this trip is active in the dashboard
+          final currentState = context.read<SchoolBloc>().state;
+          if (currentState is SchoolDashboardLoaded) {
+            final activeTrip = currentState.trips.firstWhere(
+              (trip) => trip['tripId'] == notification.tripId &&
+                       (trip['tripStatus'] == 'IN_PROGRESS' || trip['tripStatus'] == 'STARTED'),
+              orElse: () => null,
+            );
+            
+            if (activeTrip != null) {
+              setState(() {
+                _activeTripId = notification.tripId;
+                _isMapVisible = true;
+                _mapExpanded = false;
+              });
+            }
+          }
+        }
+      }
+    }
+    
+    // Handle trip completed notification - hide map
+    if (notification.type == AppConstants.notificationTypeTripCompleted ||
+        (notification.type == AppConstants.notificationTypeTripUpdate &&
+         (notification.message.toLowerCase().contains('completed') ||
+          notification.message.toLowerCase().contains('ended')))) {
+      if (notification.tripId == _activeTripId) {
+        setState(() {
+          _isMapVisible = false;
+          _mapExpanded = false;
+          _activeTripId = null;
+        });
+      }
+    }
+    
     // Only show USER-FACING notifications as SnackBar
     // Internal/system notifications should only refresh data
     final showAsSnackBar = _shouldShowNotificationToUser(notification.type);
@@ -106,8 +165,6 @@ class _BlocSchoolAdminDashboardState extends State<BlocSchoolAdminDashboard> {
         );
       }
       
-      // Always refresh dashboard data for all notifications
-      _refreshDashboard();
     }
   }
   
@@ -144,24 +201,6 @@ class _BlocSchoolAdminDashboardState extends State<BlocSchoolAdminDashboard> {
     }
   }
 
-  void _refreshDashboard() {
-    final authState = context.read<AuthBloc>().state;
-    if (authState is AuthAuthenticated && authState.schoolId != null) {
-      context.read<SchoolBloc>().add(
-        SchoolDashboardRequested(schoolId: authState.schoolId!),
-      );
-    }
-  }
-
-  void _startAutoRefresh() {
-    // Auto-refresh dashboard every 30 seconds
-    _refreshTimer = Timer.periodic(AppDurations.autoRefresh, (timer) {
-      if (mounted) {
-        _refreshDashboard();
-      }
-    });
-  }
-
   Future<void> _showLogoutConfirmation() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -195,11 +234,11 @@ class _BlocSchoolAdminDashboardState extends State<BlocSchoolAdminDashboard> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(AppConstants.labelSchoolAdminDashboard),
+        title: const Text(AppConstants.labelSchoolAdmin),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: _showLogoutConfirmation,
+          Padding(
+            padding: const EdgeInsets.only(right: AppSizes.schoolAdminPadding),
+            child: _buildProfileAction(),
           ),
         ],
       ),
@@ -214,6 +253,7 @@ class _BlocSchoolAdminDashboardState extends State<BlocSchoolAdminDashboard> {
               ),
             );
           } else if (state is SchoolProfileLoaded) {
+            _updateSchoolInfoFromData(state.profile, persist: true);
             // Navigate to profile page
             Navigator.pushNamed(
               context,
@@ -221,6 +261,7 @@ class _BlocSchoolAdminDashboardState extends State<BlocSchoolAdminDashboard> {
             ).then((_) {
               // Reload dashboard when returning from profile page
               if (mounted) {
+            _loadUserInfo();
                 final authState = context.read<AuthBloc>().state;
                 if (authState is AuthAuthenticated && authState.schoolId != null) {
                   context.read<SchoolBloc>().add(
@@ -252,7 +293,43 @@ class _BlocSchoolAdminDashboardState extends State<BlocSchoolAdminDashboard> {
             if (state is SchoolLoading) {
               return const Center(child: CircularProgressIndicator());
             } else if (state is SchoolDashboardLoaded) {
-              return _buildDashboard(state);
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) {
+                  _syncSchoolInfoFromDashboard(state.dashboard);
+                  _checkActiveTrip(state);
+                }
+              });
+              return _buildDashboardWithTracking(state);
+            } else if (state is SchoolRefreshing &&
+                state.dashboard != null &&
+                state.students != null &&
+                state.staff != null &&
+                state.vehicles != null &&
+                state.trips != null &&
+                state.notifications != null) {
+              final loadingState = SchoolDashboardLoaded(
+                dashboard: state.dashboard!,
+                students: state.students!,
+                staff: state.staff!,
+                vehicles: state.vehicles!,
+                trips: state.trips!,
+                notifications: state.notifications!,
+              );
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) {
+                  _syncSchoolInfoFromDashboard(state.dashboard!);
+                }
+              });
+              return Stack(
+                children: [
+                  _buildDashboardWithTracking(loadingState),
+                  const Positioned(
+                    top: AppSizes.schoolAdminSpacingMD,
+                    right: AppSizes.schoolAdminSpacingMD,
+                    child: CircularProgressIndicator(),
+                  ),
+                ],
+              );
             } else if (state is SchoolProfileLoaded) {
               // If profile loaded but dashboard state lost, reload dashboard
               final authState = context.read<AuthBloc>().state;
@@ -285,6 +362,146 @@ class _BlocSchoolAdminDashboardState extends State<BlocSchoolAdminDashboard> {
         ),
       ),
     );
+  }
+
+  Widget _buildProfileAction() {
+    final displayName = (_userName?.trim().isNotEmpty == true)
+        ? _userName!.trim()
+        : AppConstants.labelSchoolAdmin;
+    final schoolDisplayName = (_schoolName?.trim().isNotEmpty == true)
+        ? _schoolName!.trim()
+        : AppConstants.labelSchoolName;
+
+    return GestureDetector(
+      onTap: _onProfileTapped,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          CircleAvatar(
+            radius: AppSizes.schoolAdminAvatarRadius,
+            backgroundColor: AppColors.schoolAdminPrimaryColor,
+            backgroundImage: _schoolPhotoBytes != null ? MemoryImage(_schoolPhotoBytes!) : null,
+            child: _schoolPhotoBytes == null
+                ? const Icon(
+                    Icons.person,
+                    color: AppColors.schoolAdminTextWhite,
+                  )
+                : null,
+          ),
+          const SizedBox(width: AppSizes.schoolAdminSpacingSM),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                displayName,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              Text(
+                schoolDisplayName,
+                style: const TextStyle(
+                  fontSize: AppSizes.textSM,
+                  color: AppColors.schoolAdminGreyColor,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _onProfileTapped() {
+    final authState = context.read<AuthBloc>().state;
+    if (authState is AuthAuthenticated && authState.schoolId != null) {
+      context.read<SchoolBloc>().add(
+        SchoolProfileRequested(schoolId: authState.schoolId!),
+      );
+    }
+  }
+
+  Uint8List? _decodeBase64Image(String data) {
+    try {
+      final sanitized = data.contains(',') ? data.split(',').last : data;
+      return base64Decode(sanitized);
+    } catch (e) {
+      debugPrint('${AppConstants.msgErrorDecodingImage}$e');
+      return null;
+    }
+  }
+
+  void _updateSchoolInfoFromData(
+    Map<String, dynamic> data, {
+    bool persist = false,
+  }) {
+    final name = _findStringValue(data, AppConstants.keySchoolName);
+    final photoBase64 = _findStringValue(data, AppConstants.keySchoolPhoto);
+
+    bool shouldUpdateState = false;
+    String? updatedName = _schoolName;
+    String? updatedPhotoBase64 = _schoolPhotoBase64;
+    Uint8List? updatedPhotoBytes = _schoolPhotoBytes;
+
+    if (name != null && name != _schoolName) {
+      updatedName = name;
+      shouldUpdateState = true;
+    }
+
+    if (photoBase64 != null && photoBase64.isNotEmpty && photoBase64 != _schoolPhotoBase64) {
+      final decoded = _decodeBase64Image(photoBase64);
+      if (decoded != null) {
+        updatedPhotoBase64 = photoBase64;
+        updatedPhotoBytes = decoded;
+        shouldUpdateState = true;
+      }
+    }
+
+    if (shouldUpdateState && mounted) {
+      setState(() {
+        _schoolName = updatedName;
+        _schoolPhotoBase64 = updatedPhotoBase64;
+        _schoolPhotoBytes = updatedPhotoBytes;
+      });
+    }
+
+    if (persist && (name != null || photoBase64 != null)) {
+      SharedPreferences.getInstance().then((prefs) {
+        if (name != null && name != prefs.getString(AppConstants.keySchoolName)) {
+          prefs.setString(AppConstants.keySchoolName, name);
+        }
+        if (photoBase64 != null && photoBase64.isNotEmpty &&
+            photoBase64 != prefs.getString(AppConstants.keySchoolPhoto)) {
+          prefs.setString(AppConstants.keySchoolPhoto, photoBase64);
+        }
+      });
+    }
+  }
+
+  void _syncSchoolInfoFromDashboard(Map<String, dynamic> dashboard) {
+    _updateSchoolInfoFromData(dashboard, persist: true);
+  }
+
+  String? _findStringValue(dynamic source, String key) {
+    if (source is Map) {
+      final value = source[key];
+      if (value is String && value.trim().isNotEmpty) {
+        return value.trim();
+      }
+      for (final entry in source.entries) {
+        final result = _findStringValue(entry.value, key);
+        if (result != null) {
+          return result;
+        }
+      }
+    } else if (source is Iterable) {
+      for (final item in source) {
+        final result = _findStringValue(item, key);
+        if (result != null) {
+          return result;
+        }
+      }
+    }
+    return null;
   }
 
   Widget _buildDrawer() {
@@ -539,18 +756,83 @@ class _BlocSchoolAdminDashboardState extends State<BlocSchoolAdminDashboard> {
               Navigator.pushNamed(context, AppRoutes.pendingRequests);
             },
           ),
+          ListTile(
+            leading: const Icon(Icons.logout),
+            title: const Text(AppConstants.actionLogout),
+            onTap: () {
+              Navigator.pop(context);
+              _showLogoutConfirmation();
+            },
+          ),
         ],
       ),
+    );
+  }
+
+  void _checkActiveTrip(SchoolDashboardLoaded state) {
+    // Check for active trip with status IN_PROGRESS or STARTED
+    // School admin sees all active trips, but we'll show tracking for the first active trip
+    final activeTrip = state.trips.firstWhere(
+      (trip) => trip['tripStatus'] == 'IN_PROGRESS' || trip['tripStatus'] == 'STARTED',
+      orElse: () => null,
+    );
+
+    if (activeTrip != null) {
+      final tripId = activeTrip['tripId'] as int?;
+      
+      if (tripId != null && tripId != _activeTripId) {
+        setState(() {
+          _activeTripId = tripId;
+          _isMapVisible = true;
+          _mapExpanded = false;
+        });
+      }
+    } else {
+      // No active trip found
+      if (_activeTripId != null) {
+        setState(() {
+          _isMapVisible = false;
+          _mapExpanded = false;
+          _activeTripId = null;
+        });
+      }
+    }
+  }
+
+  Widget _buildDashboardWithTracking(SchoolDashboardLoaded state) {
+    return Stack(
+      children: [
+        _buildDashboard(state),
+        // Live tracking widget overlay
+        if (_isMapVisible && _activeTripId != null)
+          LiveTrackingWidget(
+            tripId: _activeTripId,
+            studentId: null, // School admin doesn't need studentId
+            onTripCompleted: () {
+              setState(() {
+                _isMapVisible = false;
+                _mapExpanded = false;
+                _activeTripId = null;
+              });
+            },
+          ),
+      ],
     );
   }
 
   Widget _buildDashboard(SchoolDashboardLoaded state) {
     return RefreshIndicator(
       onRefresh: () async {
-        _loadSchoolData();
+        final authState = context.read<AuthBloc>().state;
+        if (authState is AuthAuthenticated && authState.schoolId != null) {
+          context.read<SchoolBloc>().add(
+            SchoolRefreshRequested(schoolId: authState.schoolId!),
+          );
+        }
       },
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(AppSizes.schoolAdminPadding),
+        physics: const AlwaysScrollableScrollPhysics(),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -621,6 +903,15 @@ class _BlocSchoolAdminDashboardState extends State<BlocSchoolAdminDashboard> {
                     state.trips.length.toString(),
                     Icons.route,
                     AppColors.schoolAdminPurpleColor,
+                  ),
+                ),
+                const SizedBox(width: AppSizes.schoolAdminSpacingSM),
+                Expanded(
+                  child: _buildStatCard(
+                    AppConstants.labelNotifications,
+                    state.notifications.length.toString(),
+                    Icons.notifications,
+                    AppColors.schoolAdminInfoColor,
                   ),
                 ),
               ],

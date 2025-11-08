@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 import '../../data/models/student_attendance.dart';
 import '../../data/models/notification_request.dart';
+import '../../data/models/websocket_notification.dart';
 
 abstract class DriverEvent extends Equatable {
   const DriverEvent();
@@ -99,6 +100,23 @@ class DriverUpdateLocationRequested extends DriverEvent {
   List<Object> get props => [driverId, latitude, longitude];
 }
 
+class DriverStartTripRequested extends DriverEvent {
+  final int driverId;
+  final int tripId;
+  final double latitude;
+  final double longitude;
+
+  const DriverStartTripRequested({
+    required this.driverId,
+    required this.tripId,
+    required this.latitude,
+    required this.longitude,
+  });
+
+  @override
+  List<Object> get props => [driverId, tripId, latitude, longitude];
+}
+
 class DriverEndTripRequested extends DriverEvent {
   final int driverId;
   final int tripId;
@@ -115,14 +133,16 @@ class DriverEndTripRequested extends DriverEvent {
 class DriverSend5MinuteAlertRequested extends DriverEvent {
   final int driverId;
   final int tripId;
+  final int studentId;
 
   const DriverSend5MinuteAlertRequested({
     required this.driverId,
     required this.tripId,
+    required this.studentId,
   });
 
   @override
-  List<Object> get props => [driverId, tripId];
+  List<Object> get props => [driverId, tripId, studentId];
 }
 
 class DriverMarkPickupFromHomeRequested extends DriverEvent {
@@ -192,4 +212,13 @@ class DriverRefreshRequested extends DriverEvent {
 
   @override
   List<Object> get props => [driverId];
+}
+
+class DriverRealtimeNotificationReceived extends DriverEvent {
+  final WebSocketNotification notification;
+
+  const DriverRealtimeNotificationReceived({required this.notification});
+
+  @override
+  List<Object> get props => [notification];
 }
